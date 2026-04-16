@@ -380,6 +380,56 @@
   </div>
 </div>
 
+<!-- ── On-chain session panel — reads live from EscrowPayment.getSession ── -->
+<div style="max-width:1100px; margin:24px auto; padding:0 24px;">
+  <div id="onchain-session-panel" style="display:none; background:var(--surface-1); border:1px solid var(--border-2); border-radius:var(--radius-md); padding:18px 22px;">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <div style="width:8px; height:8px; border-radius:50%; background:var(--green); animation:pulse 1.5s infinite;"></div>
+        <span style="font-family:var(--font-mono); font-size:.75rem; letter-spacing:.06em; color:var(--text-2); text-transform:uppercase;">On-chain session</span>
+      </div>
+      <a id="onchain-tx-link" href="#" target="_blank" style="font-family:var(--font-mono); font-size:.6875rem; color:var(--text-3);">view on snowtrace ↗</a>
+    </div>
+    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:14px; font-family:var(--font-mono); font-size:.75rem;">
+      <div><div style="color:var(--text-3); font-size:.625rem; text-transform:uppercase;">Session ID</div><div id="s-id" style="color:var(--text-1); font-weight:600;">—</div></div>
+      <div><div style="color:var(--text-3); font-size:.625rem; text-transform:uppercase;">Agent</div><div id="s-agent" style="color:var(--text-1);">—</div></div>
+      <div><div style="color:var(--text-3); font-size:.625rem; text-transform:uppercase;">Deposit</div><div id="s-deposit" style="color:var(--text-1);">—</div></div>
+      <div><div style="color:var(--text-3); font-size:.625rem; text-transform:uppercase;">Price / token</div><div id="s-price" style="color:var(--text-1);">—</div></div>
+      <div><div style="color:var(--text-3); font-size:.625rem; text-transform:uppercase;">State</div><div id="s-state" style="color:var(--green); font-weight:600;">—</div></div>
+      <div><div style="color:var(--text-3); font-size:.625rem; text-transform:uppercase;">Expires</div><div id="s-expires" style="color:var(--text-1);">—</div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Read live session from chain if sessionId is numeric (real on-chain id).
+// Falls back silently if session is a mock ORD-001 style id.
+(async () => {
+  const orderId = '{{ order.id }}';
+  if (!/^\d+$/.test(orderId)) return; // not a real on-chain session id
+  try {
+    const r = await fetch('/api/session/' + orderId);
+    if (!r.ok) return;
+    const s = await r.json();
+    const panel = document.getElementById('onchain-session-panel');
+    panel.style.display = 'block';
+    document.getElementById('s-id').textContent = '#' + s.sessionId;
+    document.getElementById('s-agent').textContent = '#' + s.agentId;
+    const dep = (Number(s.totalDeposit)/1e6).toFixed(2);
+    document.getElementById('s-deposit').textContent = dep + ' USDC';
+    document.getElementById('s-price').textContent = s.pricePerToken + ' base';
+    const state = s.settled ? 'settled' : (s.cancelled ? 'cancelled' : 'open');
+    const stateEl = document.getElementById('s-state');
+    stateEl.textContent = state;
+    stateEl.style.color = state === 'settled' ? 'var(--green)' : (state === 'cancelled' ? 'var(--amber)' : 'var(--text-1)');
+    document.getElementById('s-expires').textContent = new Date(s.expiresAt*1000).toLocaleTimeString();
+    // Link the escrow contract on Snowtrace
+    const info = await fetch('/api/onchain/info').then(x=>x.json()).catch(()=>null);
+    if (info) document.getElementById('onchain-tx-link').href = info.explorer + '/address/' + info.contracts.EscrowPayment;
+  } catch (e) { console.warn('live session read failed:', e); }
+})();
+</script>
+
 {% endblock %}
 
 {% block scripts %}

@@ -817,6 +817,19 @@ def api_x402_pay():
         "note": "FACILITATOR_URL not set; this is a mock response. Point FACILITATOR_URL at the backend-ref server to wire real on-chain settlement.",
     })
 
+# Read a live escrow session from chain via the facilitator proxy.
+@app.route("/api/session/<session_id>")
+def api_session(session_id):
+    if not FACILITATOR_URL:
+        return jsonify({"error": "FACILITATOR_URL not configured"}), 503
+    try:
+        import requests
+        r = requests.get(f"{FACILITATOR_URL}/session/{session_id}", timeout=10)
+        return (r.text, r.status_code, r.headers.items())
+    except Exception as e:
+        return jsonify({"error": str(e)}), 502
+
+
 # On-chain deployment metadata for the frontend. Exposed so the UI can link
 # to Snowtrace without hardcoding addresses in templates.
 @app.route("/api/onchain/info")
