@@ -20,10 +20,10 @@
   --text-3:    #4A4A56;
 
   /* ── Semantic palette — ONE role, ONE color ────── */
-  /* GREEN  → verified / live / trust / success     */
-  --green:         #00D97E;
-  --green-dim:     rgba(0,217,126,.10);
-  --green-border:  rgba(0,217,126,.20);
+  /* GREEN  → verified / live / trust / success — matched to logo teal */
+  --green:         #0fba8a;
+  --green-dim:     rgba(15,186,138,.10);
+  --green-border:  rgba(15,186,138,.20);
 
   /* AMBER  → surge pricing / demand / activity     */
   --amber:         #E8931A;
@@ -221,20 +221,23 @@ p  { color: var(--text-2); }
   flex-shrink: 0;
 }
 
-/* ── Logo images — transparent PNGs ───────────────────────────────────── */
+/* ── Logo SVGs ─────────────────────────────────────────────────────────── */
 .logo-lockup {
   display: block;
-  height: 34px;
+  height: 38px;   /* scales width proportionally from 680×290 viewBox ≈ 89px */
   width: auto;
   flex-shrink: 0;
 }
 
-.logo-mark {
+.logo-mark-svg {
   display: block;
-  height: 30px;
+  height: 32px;
   width: auto;
   flex-shrink: 0;
 }
+
+/* keep old class name as alias so nothing else breaks */
+.logo-mark { display: block; height: 32px; width: auto; flex-shrink: 0; }
 
 .nav-links {
   display: flex;
