@@ -880,7 +880,11 @@ def api_session(session_id):
     oc = _get_onchain()
     if oc:
         try:
-            return jsonify(oc.get_session(sid))
+            s = oc.get_session(sid)
+            # Contract returns zero-struct for unknown sessions; map that to 404.
+            if s.get("user") == "0x0000000000000000000000000000000000000000":
+                return jsonify({"error": "session not found"}), 404
+            return jsonify(s)
         except Exception as e:
             return jsonify({"error": str(e)}), 502
     if FACILITATOR_URL:

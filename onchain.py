@@ -160,6 +160,9 @@ class OnChain:
         category_id = int(p.get("categoryId", 0))
         expires_at = int(time.time()) + 3600
 
+        # Manually track nonce across 3 sequential txs — RPC won't bump until mined.
+        base_nonce = self.w3.eth.get_transaction_count(self.facilitator.address)
+
         # 1. EIP-3009 transferWithAuthorization
         tx1 = usdc.functions.transferWithAuthorization(
             Web3.to_checksum_address(p["from"]),
@@ -171,15 +174,17 @@ class OnChain:
             int(p["v"]),
             bytes.fromhex(p["r"].replace("0x", "")),
             bytes.fromhex(p["s"].replace("0x", "")),
-        ).build_transaction(self._tx_params())
+        ).build_transaction(self._tx_params(nonce=base_nonce))
         h1 = self._sign_send(tx1, self.facilitator)
+        self.w3.eth.wait_for_transaction_receipt(h1)
 
         # 2. approve
-        tx2 = usdc.functions.approve(ADDRESSES["EscrowPayment"], value).build_transaction(self._tx_params())
+        tx2 = usdc.functions.approve(ADDRESSES["EscrowPayment"], value).build_transaction(self._tx_params(nonce=base_nonce + 1))
         h2 = self._sign_send(tx2, self.facilitator)
+        self.w3.eth.wait_for_transaction_receipt(h2)
 
         # 3. depositFunds
-        tx3 = escrow.functions.depositFunds(agent_id, value, token_budget, category_id, expires_at).build_transaction(self._tx_params())
+        tx3 = escrow.functions.depositFunds(agent_id, value, token_budget, category_id, expires_at).build_transaction(self._tx_params(nonce=base_nonce + 2))
         h3 = self._sign_send(tx3, self.facilitator)
         receipt = self.w3.eth.wait_for_transaction_receipt(h3)
 
@@ -229,11 +234,11 @@ class OnChain:
         }
 
     # ── helpers ──────────────────────────────────────────────────────────────
-    def _tx_params(self, sender: str | None = None) -> dict:
+    def _tx_params(self, sender: str | None = None, nonce: int | None = None) -> dict:
         addr = Web3.to_checksum_address(sender or self.facilitator.address)
         return {
             "from": addr,
-            "nonce": self.w3.eth.get_transaction_count(addr),
+            "nonce": nonce if nonce is not None else self.w3.eth.get_transaction_count(addr),
             "chainId": CHAIN_ID,
             "gasPrice": self.w3.eth.gas_price,
         }
