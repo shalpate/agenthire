@@ -65,6 +65,64 @@
         <p style="color: var(--text); line-height: 1.8;">{{ agent.long_description }}</p>
       </div>
 
+      <!-- ── How this agent works — SubagentWorkflow ────────────────────── -->
+      <div class="card mb-24" style="padding:0; overflow:hidden;">
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:16px 20px; border-bottom:1px solid var(--border); background:var(--card-2);">
+          <div class="flex-center gap-12">
+            <h3 style="font-size:.9375rem;">How this agent works</h3>
+            {% if a2a.composable %}
+            <span class="exec-type-badge exec-type-composable">⛓ {{ a2a.workflow_label }}</span>
+            {% else %}
+            <span class="exec-type-badge exec-type-standalone">◼ {{ a2a.workflow_label }}</span>
+            {% endif %}
+          </div>
+          {% if a2a.composable %}
+          <div class="flex-center gap-6">
+            <button class="btn btn-ghost btn-sm" onclick="openModal('subagents-modal')">Sub-Agents</button>
+            <button class="btn btn-ghost btn-sm" onclick="openModal('cost-breakdown-modal')">Cost</button>
+          </div>
+          {% endif %}
+        </div>
+
+        <div style="padding:20px;">
+          {% if a2a.composable %}
+          <p class="text-sm mb-20" style="color:var(--text-2); line-height:1.65;">{{ a2a.workflow_summary }}</p>
+          {% endif %}
+
+          <!-- Expandable stage list -->
+          <div class="stage-list">
+            {% for stage in a2a.stages %}
+            <div class="stage-item {{ 'subagent' if stage.type == 'subagent' }}" id="stage-{{ stage.id }}">
+              <button class="stage-trigger">
+                <div class="stage-num">{{ stage.order }}</div>
+                <div style="flex:1; min-width:0;">
+                  <div class="flex-center gap-8">
+                    <span class="stage-title">{{ stage.name }}</span>
+                    {% if stage.type == 'subagent' %}
+                    <span class="badge badge-approved" style="font-size:.5rem;">sub-agent</span>
+                    {% endif %}
+                    {% if stage.conditional %}
+                    <span class="badge badge-review" style="font-size:.5rem;">conditional</span>
+                    {% endif %}
+                  </div>
+                  <div class="stage-purpose-preview">{{ stage.purpose[:72] }}{% if stage.purpose|length > 72 %}…{% endif %}</div>
+                </div>
+                <span class="stage-chevron">▶</span>
+              </button>
+              <div class="stage-body">
+                <p class="stage-detail">{{ stage.detail }}</p>
+                <div class="stage-tags">
+                  <span class="badge {{ 'badge-approved' if stage.type == 'subagent' else 'badge-testing' }}">{{ stage.type }}</span>
+                  {% if stage.conditional %}<span class="badge badge-review">conditional</span>{% endif %}
+                  <span class="badge badge-pending">stage {{ stage.order }} of {{ a2a.stages|length }}</span>
+                </div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
       <!-- Capabilities -->
       <div class="card mb-24">
         <h3 style="margin-bottom:16px;">Capabilities</h3>
@@ -174,6 +232,133 @@
   </div>
 </div>
 {% endblock %}
+
+<!-- ── A2A Modals ─────────────────────────────────────────────────────────── -->
+{% if a2a.composable %}
+
+<!-- Workflow Modal -->
+<div class="modal-overlay" id="workflow-modal">
+  <div class="modal" style="max-width:640px;">
+    <div class="modal-header">
+      <h3>Execution Workflow</h3>
+      <button class="modal-close">✕</button>
+    </div>
+    <div class="modal-body">
+      <p class="text-sm mb-20">This agent follows a deterministic workflow. Sub-agents are called only when specific conditions are met — never randomly.</p>
+      <div style="overflow-x:auto; padding-bottom:8px;">
+        <div class="workflow-diagram" style="min-width:max-content;">
+          {% for step in a2a.steps %}
+          <div class="wf-step">
+            <div class="wf-node" style="min-width:130px;">
+              <div class="wf-box {{ step.role }}">{{ step.name }}</div>
+              <div class="wf-role">{{ step.role }}</div>
+              <div class="wf-action">{{ step.action }}</div>
+            </div>
+            {% if not loop.last %}<div class="wf-arrow">→</div>{% endif %}
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div style="font-family:var(--font-mono); font-size:.625rem; text-transform:uppercase; letter-spacing:.09em; color:var(--text-3); margin-bottom:12px;">Trigger Conditions</div>
+      {% for rule in a2a.trigger_rules %}
+      <div class="flex-between py-10" style="border-bottom:1px solid var(--border); {{ 'border-bottom:none;' if loop.last }}">
+        <span class="text-sm" style="color:var(--text);">{{ rule.condition }}</span>
+        <div class="flex-center gap-8">
+          <span class="badge badge-verified">{{ rule.calls }}</span>
+          <span class="badge badge-testing">{{ rule.trigger }}</span>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary btn-sm" onclick="closeModal('workflow-modal')">Close</button>
+      <a href="/checkout/{{ agent.id }}" class="btn btn-gradient btn-sm">Hire This Agent</a>
+    </div>
+  </div>
+</div>
+
+<!-- Sub-Agents Modal -->
+<div class="modal-overlay" id="subagents-modal">
+  <div class="modal" style="max-width:560px;">
+    <div class="modal-header">
+      <h3>Sub-Agents</h3>
+      <button class="modal-close">✕</button>
+    </div>
+    <div class="modal-body">
+      <p class="text-sm mb-20">These agents may be called during execution. Their costs are included in the estimated total shown at checkout.</p>
+      {% for sa in a2a.sub_agents %}
+      <div class="subagent-row">
+        <div class="flex-center gap-12">
+          <div style="width:32px; height:32px; border-radius:var(--radius-sm); background:var(--green-dim); border:1px solid var(--green-border); display:flex; align-items:center; justify-content:center; font-family:var(--font-mono); font-size:.6875rem; color:var(--green);">
+            {{ sa.name[:3].upper() }}
+          </div>
+          <div>
+            <div class="subagent-name flex-center gap-8">
+              {{ sa.name }}
+              {% if sa.verified %}<span class="badge badge-verified">✓</span>{% endif %}
+            </div>
+            <div class="subagent-role">{{ sa.role }}</div>
+          </div>
+        </div>
+        <div class="subagent-cost">
+          <div>${{ "%.3f"|format(sa.est_cost_low) }} – ${{ "%.3f"|format(sa.est_cost_high) }}</div>
+          <div style="font-size:.5625rem; color:var(--text-3); text-transform:uppercase; letter-spacing:.06em; margin-top:2px;">est. cost range</div>
+        </div>
+      </div>
+      {% endfor %}
+      <div class="escrow-notice mt-16">
+        <span class="icon">ℹ</span>
+        <p>All sub-agent costs are paid within your approved budget. You set a hard spending cap at checkout.</p>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary btn-sm" onclick="closeModal('subagents-modal')">Close</button>
+      <a href="/checkout/{{ agent.id }}" class="btn btn-gradient btn-sm">Hire This Agent</a>
+    </div>
+  </div>
+</div>
+
+<!-- Cost Breakdown Modal -->
+<div class="modal-overlay" id="cost-breakdown-modal">
+  <div class="modal" style="max-width:480px;">
+    <div class="modal-header">
+      <h3>Cost Breakdown</h3>
+      <button class="modal-close">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="cost-breakdown mb-16">
+        <div class="cost-row">
+          <span class="cost-label">Base agent</span>
+          <span class="cost-value">{{ a2a.base_cost_label }}</span>
+        </div>
+        {% for sa in a2a.sub_agents %}
+        <div class="cost-row">
+          <span class="cost-label">{{ sa.name }} (est.)</span>
+          <span class="cost-value range">${{ "%.3f"|format(sa.est_cost_low) }} – ${{ "%.3f"|format(sa.est_cost_high) }}</span>
+        </div>
+        {% endfor %}
+        <div class="cost-row" style="border-top:1px solid var(--border-2); background:var(--card-3);">
+          <div>
+            <div class="cost-label font-bold">Estimated Total</div>
+            <div class="cost-variable-note">Final cost depends on sub-agent usage</div>
+          </div>
+          <span class="cost-value range">{{ a2a.total_range_label }}</span>
+        </div>
+      </div>
+      <div class="escrow-notice">
+        <span class="icon">🔒</span>
+        <p>You set a hard <strong style="color:var(--text);">Max Spend Limit</strong> at checkout. The agent cannot exceed it under any circumstances.</p>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary btn-sm" onclick="closeModal('cost-breakdown-modal')">Close</button>
+      <a href="/checkout/{{ agent.id }}" class="btn btn-gradient btn-sm">Continue to Checkout</a>
+    </div>
+  </div>
+</div>
+
+{% endif %}
 
 {% block scripts %}
 <script>

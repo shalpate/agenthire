@@ -12,10 +12,10 @@
   <h1 style="font-size:1.75rem; margin-bottom:32px;">Complete Your Order</h1>
 
   <div class="checkout-layout">
-    <!-- Left: Task + Wallet -->
+    <!-- ── Left ──────────────────────────────────────────────────────────── -->
     <div class="flex-col gap-20">
 
-      <!-- Wallet Status -->
+      <!-- Wallet -->
       <div class="card">
         <div class="flex-between mb-16">
           <h3>Wallet</h3>
@@ -23,131 +23,199 @@
         </div>
         <p class="text-sm mb-16">Connect your wallet to pay with USDC on Avalanche C-Chain.</p>
         <button class="btn btn-secondary w-full" id="checkout-wallet-btn">Connect Wallet</button>
-        <div class="flex-between mt-12 text-xs text-muted">
-          <span>Network</span>
-          <span>Avalanche C-Chain</span>
+        <div class="flex-between mt-12 text-xs text-muted" style="font-family:var(--font-mono);">
+          <span>Network</span><span>Avalanche C-Chain</span>
         </div>
-        <div class="flex-between mt-8 text-xs text-muted">
-          <span>Token</span>
-          <span>USDC</span>
+        <div class="flex-between mt-8 text-xs text-muted" style="font-family:var(--font-mono);">
+          <span>Token</span><span>USDC</span>
         </div>
       </div>
 
-      <!-- Task Submission -->
+      <!-- Task Details -->
       <div class="card">
         <h3 style="margin-bottom:16px;">Task Details</h3>
         <div class="form-group mb-16">
           <label class="form-label">Task Description</label>
-          <textarea class="form-textarea" placeholder="Describe what you need the agent to do…" style="min-height:120px;"></textarea>
+          <textarea class="form-textarea" placeholder="Describe what you need the agent to do…" style="min-height:100px;"></textarea>
         </div>
-        <div class="form-group mb-16">
+        <div class="form-group">
           <label class="form-label">Attach Files (optional)</label>
-          <div style="border: 2px dashed var(--border); border-radius: 8px; padding: 24px; text-align:center; cursor:pointer;" onclick="document.getElementById('file-upload').click();">
-            <div style="font-size:1.5rem; margin-bottom:8px;">📎</div>
+          <div style="border:2px dashed var(--border-2); border-radius:var(--radius-sm); padding:20px; text-align:center; cursor:pointer;" onclick="document.getElementById('file-upload').click();">
+            <div style="font-size:1.25rem; margin-bottom:6px; opacity:.5;">📎</div>
             <div class="text-sm text-muted">Click to upload or drag & drop</div>
-            <div class="text-xs text-muted mt-8">Max 50MB · PDF, TXT, CSV, ZIP</div>
+            <div class="text-xs text-muted mt-4" style="font-family:var(--font-mono);">Max 50MB · PDF, TXT, CSV, ZIP</div>
           </div>
           <input type="file" id="file-upload" style="display:none;" multiple>
         </div>
       </div>
 
+      {% if a2a.composable %}
+      <!-- ── A2A Budget Controls ────────────────────────────────────────── -->
+      <div class="card" style="border-color:rgba(79,116,255,.2);">
+        <div class="flex-center gap-10 mb-18">
+          <span class="exec-type-badge exec-type-composable">⛓ Composable Agent</span>
+          <span class="text-xs text-muted">Sub-agent costs apply</span>
+        </div>
+
+        <!-- Max Spend Limit -->
+        <div class="max-spend-control mb-16">
+          <div class="flex-between">
+            <div>
+              <div class="font-bold text-sm mb-2">Max Spend Limit</div>
+              <p class="text-xs">Agent cannot exceed this amount under any circumstance.</p>
+            </div>
+            <span class="badge badge-approved">Hard Cap</span>
+          </div>
+          <div class="max-spend-input-wrap">
+            <div class="max-spend-prefix">$</div>
+            <input type="number" class="max-spend-input" id="max-spend-input"
+                   value="1.00" min="0.01" step="0.01"
+                   oninput="updateMaxSpend(this.value)">
+            <div class="max-spend-suffix">USDC</div>
+          </div>
+          <div style="display:flex; justify-content:space-between; margin-top:8px;">
+            {% for preset in ['0.25','0.50','1.00','2.00','5.00'] %}
+            <button class="btn btn-ghost btn-sm" style="font-family:var(--font-mono); font-size:.6875rem; padding:4px 10px;"
+                    onclick="document.getElementById('max-spend-input').value='{{ preset }}'; updateMaxSpend('{{ preset }}');">${{ preset }}</button>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- Sub-agent permission -->
+        <div class="form-group mb-16">
+          <label class="form-label">Sub-Agent Permission</label>
+          <select class="permission-select" id="subagent-permission" onchange="updatePermissionHint(this.value)">
+            <option value="auto">Auto — use sub-agents within budget</option>
+            <option value="ask">Ask before exceeding estimate</option>
+            <option value="disable">Disable sub-agents</option>
+          </select>
+          <div class="form-hint mt-8" id="permission-hint" style="font-family:var(--font-mono);">
+            Sub-agents will run automatically within your max spend limit.
+          </div>
+        </div>
+
+        <!-- Sub-agent list for awareness -->
+        <div style="border-top:1px solid var(--border); padding-top:14px;">
+          <div style="font-family:var(--font-mono); font-size:.5625rem; text-transform:uppercase; letter-spacing:.1em; color:var(--text-3); margin-bottom:10px;">Possible Sub-Agents</div>
+          {% for sa in a2a.sub_agents %}
+          <div class="flex-between py-8" style="border-bottom:1px solid var(--border); {{ 'border-bottom:none;' if loop.last }}">
+            <div class="flex-center gap-8">
+              <div style="width:6px; height:6px; border-radius:50%; background:var(--green);"></div>
+              <span class="text-sm">{{ sa.name }}</span>
+              <span class="text-xs text-muted">— {{ sa.role }}</span>
+            </div>
+            <span style="font-family:var(--font-mono); font-size:.75rem; color:var(--amber);">${{ "%.3f"|format(sa.est_cost_low) }}–${{ "%.3f"|format(sa.est_cost_high) }}</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
       <!-- Escrow Explanation -->
-      <div class="card" style="background: rgba(59,130,246,.04); border-color: rgba(59,130,246,.15);">
-        <h4 style="margin-bottom:12px; color: var(--accent);">🔒 How Escrow Works</h4>
+      <div class="card" style="background:rgba(79,116,255,.03); border-color:rgba(79,116,255,.12);">
+        <h4 style="margin-bottom:14px; color:var(--blue);">🔒 How Escrow Works</h4>
         <div class="timeline">
           <div class="timeline-item">
             <div class="timeline-dot done">1</div>
-            <div class="timeline-content" style="padding-top:4px;">
+            <div class="timeline-content" style="padding-top:3px;">
               <h4>Payment Locked</h4>
-              <p>Your USDC is held in a smart contract on Avalanche — neither you nor the seller can access it yet.</p>
+              <p>Your USDC is held in a smart contract — no one can access it until the task is complete.</p>
             </div>
           </div>
           <div class="timeline-item">
             <div class="timeline-dot active">2</div>
-            <div class="timeline-content" style="padding-top:4px;">
-              <h4>Agent Executes Task</h4>
-              <p>The agent runs your task. You can monitor progress in real-time.</p>
+            <div class="timeline-content" style="padding-top:3px;">
+              <h4>Agent Executes{% if a2a.composable %} (+ Sub-Agents){% endif %}</h4>
+              <p>{% if a2a.composable %}Main agent and any called sub-agents run within your approved budget.{% else %}The agent runs your task. You can monitor progress in real-time.{% endif %}</p>
             </div>
           </div>
           <div class="timeline-item">
             <div class="timeline-dot">3</div>
-            <div class="timeline-content" style="padding-top:4px;">
+            <div class="timeline-content" style="padding-top:3px;">
               <h4>You Confirm Delivery</h4>
-              <p>Review the results. Confirm completion to release payment or raise a dispute.</p>
+              <p>Review results. Confirm to release — or open a dispute within 48 hours.</p>
             </div>
           </div>
           <div class="timeline-item" style="padding-bottom:0;">
             <div class="timeline-dot">4</div>
-            <div class="timeline-content" style="padding-top:4px;">
+            <div class="timeline-content" style="padding-top:3px;">
               <h4>Funds Released</h4>
-              <p>Payment goes to the seller. You can dispute within 48 hours of delivery.</p>
+              <p>Exact amount used is released. {% if a2a.composable %}Unused portion of your max spend is returned.{% endif %}</p>
             </div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Right: Order Summary -->
+    <!-- ── Right: Order Summary ────────────────────────────────────────── -->
     <div style="position:sticky; top:88px;">
       <div class="price-box mb-16">
         <h3 style="margin-bottom:20px;">Order Summary</h3>
 
-        <!-- Agent Info -->
-        <div class="flex-center gap-12 mb-20 pb-20" style="border-bottom: 1px solid var(--border);">
-          {% set emojis = ['🤖','⚡','🧠','📊','🔍','🛡','✍️','🎯'] %}
-          <div class="agent-avatar" style="background: #1E3A5F;">{{ emojis[agent.id % 8] }}</div>
+        <!-- Agent info -->
+        <div class="flex-center gap-12 mb-20 pb-20" style="border-bottom:1px solid var(--border);">
+          {% set cat_codes = {'Development':'DEV','Data & Analytics':'DAT','Content':'CON','Finance':'FIN','Research':'RES','Security':'SEC','Automation':'AUT'} %}
+          <div class="agent-avatar" style="background:var(--card-3); color:var(--{{ 'green' if agent.verified else 'amber' }});">
+            {{ cat_codes.get(agent.category,'AGT') }}
+          </div>
           <div>
             <div class="font-bold">{{ agent.name }}</div>
             <div class="text-xs text-muted">by {{ agent.seller }}</div>
-            {% if agent.verified %}<span class="badge badge-verified" style="margin-top:4px;">✓ Verified</span>{% endif %}
+            {% if agent.verified %}<span class="badge badge-verified mt-4" style="display:inline-flex;">✓ Verified</span>{% endif %}
           </div>
         </div>
 
-        <!-- Pricing -->
-        <div class="flex-between mb-12">
-          <span class="text-sm text-muted">Billing model</span>
-          <span class="text-sm font-bold">{{ 'Per Token' if agent.billing == 'per_token' else 'Per Minute' }}</span>
-        </div>
-        <div class="flex-between mb-12">
-          <span class="text-sm text-muted">Current price</span>
-          <div class="flex-center gap-6">
-            <span class="live-indicator"><span class="live-dot"></span></span>
-            <span class="text-sm font-bold text-accent">${{ "%.5f"|format(agent.current_price) }} / {{ 'token' if agent.billing == 'per_token' else 'min' }}</span>
+        <!-- Cost breakdown -->
+        <div class="cost-breakdown mb-16">
+          <div class="cost-row">
+            <span class="cost-label">Base agent</span>
+            <div>
+              <div class="cost-value">${{ "%.5f"|format(agent.current_price) }}</div>
+              <div style="font-family:var(--font-mono); font-size:.5625rem; color:var(--text-3); text-align:right;">per {{ 'token' if agent.billing == 'per_token' else 'min' }}</div>
+            </div>
+          </div>
+          {% if a2a.composable %}
+          <div class="cost-row">
+            <div>
+              <div class="cost-label">Sub-agent usage (est.)</div>
+              <div class="cost-variable-note">Depends on task complexity</div>
+            </div>
+            <span class="cost-value range">{{ a2a.subagent_range_label }}</span>
+          </div>
+          {% endif %}
+          {% if agent.surge_active %}
+          <div class="cost-row" style="background:var(--amber-dim);">
+            <span class="cost-label" style="color:var(--amber);">⚡ Surge (×{{ agent.surge_multiplier }})</span>
+            <span class="cost-value" style="color:var(--amber);">Active</span>
+          </div>
+          {% endif %}
+          <div class="cost-row total">
+            <div>
+              <div class="cost-label font-bold" style="color:var(--text);">
+                {% if a2a.composable %}Estimated Total{% else %}Total{% endif %}
+              </div>
+              {% if a2a.composable %}<div class="cost-variable-note">Final cost depends on sub-agent usage</div>{% endif %}
+            </div>
+            <span class="cost-value" style="color:var(--text); font-size:1rem;">
+              {% if a2a.composable %}{{ a2a.total_range_label }}{% else %}${{ "%.4f"|format(agent.current_price * 1000 * 1.001) }}{% endif %}
+            </span>
           </div>
         </div>
 
-        {% if agent.surge_active %}
-        <div class="surge-banner mb-12">
-          ⚡ Surge active — {{ agent.surge_multiplier }}× multiplier
+        {% if a2a.composable %}
+        <!-- Max spend display -->
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:12px 14px; background:var(--card-3); border:1px solid var(--border-2); border-radius:var(--radius-sm); margin-bottom:16px;">
+          <div>
+            <div style="font-family:var(--font-mono); font-size:.5625rem; text-transform:uppercase; letter-spacing:.09em; color:var(--text-3);">Hard Spend Cap</div>
+            <div style="font-family:var(--font-mono); font-size:1.25rem; font-weight:700; color:var(--text); margin-top:2px;" id="max-spend-display">$1.00 USDC</div>
+          </div>
+          <span class="badge badge-approved">Enforced</span>
         </div>
         {% endif %}
 
-        <div class="flex-between mb-12 text-sm">
-          <span class="text-muted">Est. quantity</span>
-          <span>1,000 {{ 'tokens' if agent.billing == 'per_token' else 'minutes' }}</span>
-        </div>
-        <div class="flex-between mb-12 text-sm">
-          <span class="text-muted">Subtotal</span>
-          <span>${{ "%.2f"|format(agent.current_price * 1000) }}</span>
-        </div>
-        <div class="flex-between mb-16 text-sm">
-          <span class="text-muted">Platform fee (10 bps)</span>
-          <span>${{ "%.4f"|format(agent.current_price * 1000 * 0.001) }}</span>
-        </div>
-
-        <div style="border-top: 1px solid var(--border); padding-top:16px; margin-bottom:20px;">
-          <div class="flex-between">
-            <span class="font-bold">Total (USDC)</span>
-            <span class="font-bold" style="font-size:1.25rem; color:var(--text);">
-              ${{ "%.4f"|format(agent.current_price * 1000 * 1.001) }}
-            </span>
-          </div>
-          <div class="text-xs text-muted mt-8">Final price adjusts to actual usage</div>
-        </div>
-
         <div class="escrow-notice mb-16">
           <span class="icon">🔒</span>
-          <p>Full amount held in escrow. Released after you confirm task completion.</p>
+          <p>{% if a2a.composable %}Funds held in escrow up to your max spend cap. Unused balance returned on completion.{% else %}Full amount held in escrow — released after task confirmation.{% endif %}</p>
         </div>
 
         <button class="btn btn-gradient btn-full btn-lg" id="confirm-pay">
@@ -164,18 +232,31 @@
 <script>
   startLivePriceTicker({{ agent.id }});
 
-  // Checkout wallet button
-  const cwBtn = document.getElementById('checkout-wallet-btn');
-  const badge = document.getElementById('wallet-status-badge');
+  const cwBtn  = document.getElementById('checkout-wallet-btn');
+  const badge  = document.getElementById('wallet-status-badge');
   if (cwBtn) {
     cwBtn.addEventListener('click', () => {
       cwBtn.textContent = '0x3f8a...c12d ✓';
-      cwBtn.classList.remove('btn-secondary');
-      cwBtn.classList.add('btn-success');
+      cwBtn.classList.replace('btn-secondary', 'btn-success');
       badge.className = 'badge badge-approved';
       badge.textContent = 'Connected';
       showToast('Wallet connected', 'success');
     });
+  }
+
+  function updateMaxSpend(val) {
+    const el = document.getElementById('max-spend-display');
+    if (el) el.textContent = '$' + parseFloat(val || 0).toFixed(2) + ' USDC';
+  }
+
+  function updatePermissionHint(val) {
+    const hints = {
+      auto:    'Sub-agents will run automatically within your max spend limit.',
+      ask:     'Execution will pause and ask for your approval before exceeding the estimate.',
+      disable: 'Sub-agents are disabled. Only the base agent runs — some features may be limited.'
+    };
+    const el = document.getElementById('permission-hint');
+    if (el) el.textContent = hints[val] || '';
   }
 </script>
 {% endblock %}

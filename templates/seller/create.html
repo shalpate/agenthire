@@ -87,8 +87,42 @@
     </div>
   </div>
 
-  <!-- Step 2: Pricing -->
+  <!-- Step 2: Pricing + Subagent Editor -->
   <div class="form-step" id="step-2" style="display:none;">
+
+    <!-- SubagentEditor -->
+    <div class="card mb-20">
+      <h3 style="margin-bottom:6px;">Execution Model</h3>
+      <p class="text-sm mb-16">Define whether your agent runs a multi-stage pipeline with sub-agents, or operates as a standalone model.</p>
+
+      <!-- Toggle -->
+      <div class="subagent-toggle-row" id="subagent-toggle">
+        <div>
+          <div class="font-bold text-sm mb-2 toggle-label">Standalone (no sub-agents)</div>
+          <p class="text-xs">All stages run within this agent. No external agent calls.</p>
+        </div>
+        <div class="toggle-switch" id="sa-switch"></div>
+      </div>
+
+      <!-- Editor panel (hidden until toggled on) -->
+      <div id="subagent-editor-panel" style="display:none;">
+        <div style="font-family:var(--font-mono); font-size:.5625rem; text-transform:uppercase; letter-spacing:.1em; color:var(--text-3); margin-bottom:10px;">Stages</div>
+
+        <div class="stage-editor-list" id="stage-editor-list"></div>
+
+        <button class="btn btn-ghost btn-sm w-full" onclick="addStage()" style="margin-bottom:20px;">+ Add Stage</button>
+
+        <!-- Live preview -->
+        <div style="font-family:var(--font-mono); font-size:.5625rem; text-transform:uppercase; letter-spacing:.1em; color:var(--text-3); margin-bottom:8px;">Buyer Preview</div>
+        <div class="workflow-preview">
+          <div class="workflow-preview-header">How this agent works — buyer view</div>
+          <div id="editor-preview-list">
+            <div style="font-size:.8125rem; color:var(--text-3); padding:12px 16px;">No stages defined yet.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="card mb-24">
       <h3 style="margin-bottom:8px;">Configure Pricing</h3>
       <p class="text-sm mb-24">Set your billing model and price range. AgentHire's surge pricing will dynamically adjust within your defined range.</p>
@@ -222,6 +256,7 @@
 {% block scripts %}
 <script>
   goToStep(1);
+  initSubagentEditor();
 
   function selectBilling(type) {
     document.querySelectorAll('[data-tier="per_token"], [data-tier="per_minute"]').forEach(c => c.classList.remove('selected'));

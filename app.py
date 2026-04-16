@@ -2,11 +2,285 @@ from flask import Flask, render_template, request, jsonify, redirect, url_for
 import random
 
 app = Flask(__name__)
+app.jinja_env.globals['enumerate'] = enumerate
 
 # ── Mock Data ──────────────────────────────────────────────────────────────────
 
 CATEGORIES = ["Development", "Data & Analytics", "Content", "Finance", "Research", "Security", "Automation"]
 USE_CASES  = ["Code Review", "Translation", "Summarization", "Trading", "Web Scraping", "Image Generation", "Testing"]
+
+# ── A2A Workflow definitions ────────────────────────────────────────────────────
+A2A_WORKFLOWS = {
+    1: {  # CodeReview Pro
+        "composable": True,
+        "stage_count": 4,
+        "workflow_label": "4-stage analysis pipeline",
+        "workflow_summary": "Analyzes code → routes to SecureAudit AI if vulnerabilities detected → routes to TestingMaster if coverage gaps found → compiles unified report.",
+        "trigger_rules": [
+            {"condition": "Security issues detected", "calls": "SecureAudit AI", "trigger": "automatic"},
+            {"condition": "Test coverage < 80%",      "calls": "TestingMaster",  "trigger": "automatic"},
+        ],
+        "sub_agents": [
+            {"id": 7,  "name": "SecureAudit AI", "role": "Deep vulnerability scan",   "billing": "per_token", "est_cost_low": 0.003, "est_cost_high": 0.012, "verified": True},
+            {"id": 10, "name": "TestingMaster",  "role": "Test suite generation",     "billing": "per_token", "est_cost_low": 0.002, "est_cost_high": 0.006, "verified": True},
+        ],
+        "base_cost_label":      "$0.00600 / token",
+        "subagent_range_label": "$0.003 – $0.018",
+        "total_range_label":    "$0.009 – $0.024",
+        "steps": [
+            {"name": "CodeReview Pro",  "role": "main",      "action": "Parse & analyse source code"},
+            {"name": "SecureAudit AI",  "role": "subagent",  "action": "Deep vulnerability scan (if needed)"},
+            {"name": "TestingMaster",   "role": "subagent",  "action": "Generate test coverage report (if needed)"},
+            {"name": "CodeReview Pro",  "role": "main",      "action": "Compile unified findings report"},
+        ],
+        "stages": [
+            {
+                "id": "parse",    "order": 1, "type": "internal",  "conditional": False,
+                "name": "Input Parser",
+                "exec_label": "Parsing your code",
+                "purpose": "Tokenises submitted code, detects language and framework, maps the dependency graph.",
+                "detail": "Supports 20+ languages. Normalises whitespace, strips comments for analysis, extracts AST structure for downstream stages.",
+                "summary": "Parsed your code — detected Python, 14 files, 2,840 tokens.",
+            },
+            {
+                "id": "reason",   "order": 2, "type": "internal",  "conditional": False,
+                "name": "Reasoning Engine",
+                "exec_label": "Analysing code patterns",
+                "purpose": "Applies OWASP rules, static analysis heuristics, and pattern matching against known vulnerability signatures.",
+                "detail": "Checks 300+ rule patterns. Scores each finding by severity (Critical / High / Med / Low). Flags code paths for sub-agent escalation.",
+                "summary": "Found 3 potential issues — escalating 2 for deep scan.",
+            },
+            {
+                "id": "secure",   "order": 3, "type": "subagent",  "conditional": True,
+                "name": "SecureAudit AI",
+                "exec_label": "Running deep vulnerability scan",
+                "purpose": "Sub-agent. Runs CVE database matching and smart contract safety checks when security issues are flagged.",
+                "detail": "Called only if Reasoning Engine flags security-severity findings. Adds 15–90s to execution time. Billed separately.",
+                "summary": "Confirmed 2 high-severity vulnerabilities — SQL injection (line 142), unvalidated auth input.",
+            },
+            {
+                "id": "format",   "order": 4, "type": "internal",  "conditional": False,
+                "name": "Output Formatter",
+                "exec_label": "Compiling your report",
+                "purpose": "Structures findings into a prioritised report with severity ratings, code snippets, and remediation steps.",
+                "detail": "Outputs: executive summary, per-issue breakdown, diff-ready patches, and a machine-readable JSON manifest.",
+                "summary": "Report compiled — 3 issues, 2 high, 1 medium. PDF and JSON available.",
+            },
+        ],
+    },
+    4: {  # AlphaTrader AI
+        "composable": True,
+        "stage_count": 4,
+        "workflow_label": "4-stage signal pipeline",
+        "workflow_summary": "Ingests market data → calls ResearchBot Pro for macro context → calls FinanceGPT for portfolio modeling → generates final signal set.",
+        "trigger_rules": [
+            {"condition": "Always — macro context required", "calls": "ResearchBot Pro", "trigger": "automatic"},
+            {"condition": "Portfolio analysis requested",    "calls": "FinanceGPT",      "trigger": "automatic"},
+        ],
+        "sub_agents": [
+            {"id": 6,  "name": "ResearchBot Pro", "role": "Market & macro research",   "billing": "per_token", "est_cost_low": 0.02, "est_cost_high": 0.08, "verified": True},
+            {"id": 11, "name": "FinanceGPT",      "role": "Portfolio & DCF modeling",  "billing": "per_minute","est_cost_low": 0.10, "est_cost_high": 0.25, "verified": True},
+        ],
+        "base_cost_label":      "$0.45000 / min",
+        "subagent_range_label": "$0.12 – $0.33",
+        "total_range_label":    "$0.57 – $0.78 / min",
+        "steps": [
+            {"name": "AlphaTrader AI",  "role": "main",     "action": "Ingest live market data & price history"},
+            {"name": "ResearchBot Pro", "role": "subagent", "action": "Pull macro research & news context"},
+            {"name": "FinanceGPT",      "role": "subagent", "action": "Portfolio correlation & risk modeling"},
+            {"name": "AlphaTrader AI",  "role": "main",     "action": "Generate final buy/sell signals"},
+        ],
+        "stages": [
+            {
+                "id": "ingest",   "order": 1, "type": "internal",  "conditional": False,
+                "name": "Market Data Ingestion",
+                "exec_label": "Fetching live market data",
+                "purpose": "Pulls OHLCV data, order book depth, and funding rates from connected exchanges.",
+                "detail": "Aggregates across 12 exchange feeds. Normalises tick data to 1-min candles. Detects data gaps and fills via interpolation.",
+                "summary": "Ingested 90 days of BTC/ETH data — 129,600 candles across 3 exchanges.",
+            },
+            {
+                "id": "research", "order": 2, "type": "subagent",  "conditional": False,
+                "name": "ResearchBot Pro",
+                "exec_label": "Gathering macro research",
+                "purpose": "Sub-agent. Always called — provides macro context, news sentiment, and on-chain metrics.",
+                "detail": "Queries 40+ news sources and on-chain analytics. Outputs a sentiment score and key macro flags that feed the signal model.",
+                "summary": "Macro: bearish sentiment (score −0.34). Key flag: Fed rate decision in 3 days.",
+            },
+            {
+                "id": "model",    "order": 3, "type": "subagent",  "conditional": True,
+                "name": "FinanceGPT",
+                "exec_label": "Running portfolio model",
+                "purpose": "Sub-agent. Called when portfolio analysis is requested. Runs DCF and correlation analysis.",
+                "detail": "Builds a correlation matrix across your holdings, runs Monte Carlo simulation (10k paths), outputs VaR at 95% and 99% confidence.",
+                "summary": "Portfolio VaR (95%): $1,240. Correlation risk: BTC/ETH at 0.87 — consider hedging.",
+            },
+            {
+                "id": "signal",   "order": 4, "type": "internal",  "conditional": False,
+                "name": "Signal Generator",
+                "exec_label": "Generating trade signals",
+                "purpose": "Combines market data, macro context, and portfolio state to produce final buy/sell signals with confidence scores.",
+                "detail": "Ensemble of LSTM, momentum, and mean-reversion models. Each signal includes entry price, stop-loss, take-profit, and confidence %.",
+                "summary": "Generated 4 signals — 2 long BTC, 1 short ETH, 1 hold. Avg confidence: 73%.",
+            },
+        ],
+    },
+    3: {  # DataSift Analytics
+        "composable": True,
+        "stage_count": 4,
+        "workflow_label": "4-stage analytics pipeline",
+        "workflow_summary": "Evaluates data source → calls WebCrawler X if external data needed → calls ResearchBot for domain context → runs analysis pipeline.",
+        "trigger_rules": [
+            {"condition": "External data source required", "calls": "WebCrawler X",   "trigger": "automatic"},
+            {"condition": "Domain context needed",         "calls": "ResearchBot Pro","trigger": "automatic"},
+        ],
+        "sub_agents": [
+            {"id": 5, "name": "WebCrawler X",    "role": "External data acquisition", "billing": "per_minute","est_cost_low": 0.02, "est_cost_high": 0.06, "verified": False},
+            {"id": 6, "name": "ResearchBot Pro", "role": "Domain knowledge context",  "billing": "per_token", "est_cost_low": 0.01, "est_cost_high": 0.03, "verified": True},
+        ],
+        "base_cost_label":      "$0.18000 / min",
+        "subagent_range_label": "$0.03 – $0.09",
+        "total_range_label":    "$0.21 – $0.27 / min",
+        "steps": [
+            {"name": "DataSift Analytics", "role": "main",     "action": "Evaluate data source & task scope"},
+            {"name": "WebCrawler X",       "role": "subagent", "action": "Acquire external data (if needed)"},
+            {"name": "ResearchBot Pro",    "role": "subagent", "action": "Provide domain context (if needed)"},
+            {"name": "DataSift Analytics", "role": "main",     "action": "Run analysis pipeline & generate report"},
+        ],
+        "stages": [
+            {
+                "id": "eval",     "order": 1, "type": "internal",  "conditional": False,
+                "name": "Source Evaluator",
+                "exec_label": "Evaluating your data source",
+                "purpose": "Assesses the data source — CSV, endpoint, or database — and determines if external acquisition is needed.",
+                "detail": "Validates schema, detects column types, checks for nulls and outliers. Determines if external enrichment is required.",
+                "summary": "Loaded Q1 sales CSV — 48,200 rows, 12 columns, 3.2% null rate detected.",
+            },
+            {
+                "id": "crawl",    "order": 2, "type": "subagent",  "conditional": True,
+                "name": "WebCrawler X",
+                "exec_label": "Acquiring external data",
+                "purpose": "Sub-agent. Fetches external data when the source requires web enrichment.",
+                "detail": "Renders JS pages, handles pagination and rate limiting. Outputs structured JSON ready for merge with your dataset.",
+                "summary": "Scraped 240 competitor pricing records — merged with your dataset.",
+            },
+            {
+                "id": "context",  "order": 3, "type": "subagent",  "conditional": True,
+                "name": "ResearchBot Pro",
+                "exec_label": "Gathering domain context",
+                "purpose": "Sub-agent. Provides industry benchmarks and domain knowledge to interpret your data accurately.",
+                "detail": "Queries industry reports and publishes domain averages. Outputs a context layer that improves anomaly detection accuracy.",
+                "summary": "Added retail sector benchmarks — identified 14% above-average churn signal.",
+            },
+            {
+                "id": "analyse",  "order": 4, "type": "internal",  "conditional": False,
+                "name": "Analysis Engine",
+                "exec_label": "Running analysis pipeline",
+                "purpose": "Runs statistical modelling, anomaly detection, and chart generation on the combined dataset.",
+                "detail": "Applies EDA, regression, clustering (k-means), and time-series decomposition. Outputs executive summary + downloadable charts.",
+                "summary": "Analysis complete — 6 key insights, 3 anomalies flagged, 8 charts generated.",
+            },
+        ],
+    },
+    7: {  # SecureAudit AI
+        "composable": True,
+        "stage_count": 4,
+        "workflow_label": "4-stage security audit",
+        "workflow_summary": "Runs static analysis via CodeReview Pro first → performs deep security scan → generates prioritised vulnerability report.",
+        "trigger_rules": [
+            {"condition": "Always — static analysis required first", "calls": "CodeReview Pro", "trigger": "automatic"},
+        ],
+        "sub_agents": [
+            {"id": 1, "name": "CodeReview Pro", "role": "Initial static analysis pass", "billing": "per_token", "est_cost_low": 0.004, "est_cost_high": 0.010, "verified": True},
+        ],
+        "base_cost_label":      "$0.01500 / token",
+        "subagent_range_label": "$0.004 – $0.010",
+        "total_range_label":    "$0.019 – $0.025",
+        "steps": [
+            {"name": "SecureAudit AI",  "role": "main",     "action": "Parse contract / infrastructure config"},
+            {"name": "CodeReview Pro",  "role": "subagent", "action": "Static analysis & code quality pass"},
+            {"name": "SecureAudit AI",  "role": "main",     "action": "Deep vulnerability scan & CVE matching"},
+            {"name": "SecureAudit AI",  "role": "main",     "action": "Compile prioritised remediation report"},
+        ],
+        "stages": [
+            {
+                "id": "parse",    "order": 1, "type": "internal",  "conditional": False,
+                "name": "Contract Parser",
+                "exec_label": "Parsing your contract",
+                "purpose": "Parses Solidity, Vyper, or infrastructure config files and builds an annotated control-flow graph.",
+                "detail": "Detects compiler version, pragma settings, inheritance chains, and external call sites. Flags non-standard patterns for deep scan.",
+                "summary": "Parsed ERC-20 contract — 847 lines, 12 functions, 3 external call sites detected.",
+            },
+            {
+                "id": "static",   "order": 2, "type": "subagent",  "conditional": False,
+                "name": "CodeReview Pro",
+                "exec_label": "Running static analysis",
+                "purpose": "Sub-agent. Always called — provides code quality pass and flags structural issues before deep security scan.",
+                "detail": "Checks code style, gas optimisation opportunities, and basic logic errors. Results are passed to the vulnerability scanner as annotated context.",
+                "summary": "Static analysis complete — 2 gas inefficiencies, 1 logic warning passed to scanner.",
+            },
+            {
+                "id": "scan",     "order": 3, "type": "internal",  "conditional": False,
+                "name": "Vulnerability Scanner",
+                "exec_label": "Scanning for vulnerabilities",
+                "purpose": "Matches the annotated contract against CVE database and known DeFi exploit patterns (reentrancy, flash loan attacks, etc.).",
+                "detail": "Runs 180+ security checks including reentrancy, integer overflow, access control, oracle manipulation, and front-running vectors.",
+                "summary": "Scan complete — 1 critical (reentrancy in withdraw()), 1 high (missing access control).",
+            },
+            {
+                "id": "report",   "order": 4, "type": "internal",  "conditional": False,
+                "name": "Report Compiler",
+                "exec_label": "Compiling audit report",
+                "purpose": "Generates a prioritised audit report with issue severity, code location, exploit scenario, and recommended fix.",
+                "detail": "Output includes: executive summary, per-finding breakdown with PoC exploit snippets, diff-ready patches, and a machine-readable SARIF file.",
+                "summary": "Audit report compiled — 2 findings, remediation patches generated.",
+            },
+        ],
+    },
+}
+
+# Standalone agents (no A2A) — simple 3-stage workflow
+def _standalone_stages(agent_name):
+    return [
+        {
+            "id": "parse",   "order": 1, "type": "internal", "conditional": False,
+            "name": "Input Parser",
+            "exec_label": "Parsing your request",
+            "purpose": "Validates and normalises the input — detects task type, format, and required output structure.",
+            "detail": "Handles text, files, and structured data. Extracts task intent and maps to internal processing parameters.",
+            "summary": "Input parsed — task type detected, parameters extracted.",
+        },
+        {
+            "id": "process", "order": 2, "type": "internal", "conditional": False,
+            "name": "Core Processor",
+            "exec_label": "Processing your request",
+            "purpose": f"{agent_name}'s primary model runs the task end-to-end with no sub-agent delegation.",
+            "detail": "Single-model execution. Deterministic output with no variable sub-agent costs. Completion time is fixed to the agent's average.",
+            "summary": "Core processing complete.",
+        },
+        {
+            "id": "format",  "order": 3, "type": "internal", "conditional": False,
+            "name": "Output Formatter",
+            "exec_label": "Formatting results",
+            "purpose": "Structures the output to the requested format and runs a final quality check before delivery.",
+            "detail": "Supports JSON, Markdown, PDF, and plain text output. Quality gate rejects outputs below confidence threshold.",
+            "summary": "Output formatted and quality-checked — ready for delivery.",
+        },
+    ]
+
+STANDALONE = {
+    "composable": False,
+    "stage_count": 3,
+    "workflow_label": "3-stage standalone pipeline",
+    "workflow_summary": "This agent operates independently. It does not call other agents.",
+    "trigger_rules": [],
+    "sub_agents": [],
+    "base_cost_label": "—",
+    "subagent_range_label": "None",
+    "total_range_label": "Base price only",
+    "steps": [],
+    "stages": [],
+}
 
 AGENTS = [
     {
@@ -409,20 +683,23 @@ def agent_detail(agent_id):
         {"user": "0x7f8e...2a", "rating": 4, "comment": "Great results, surge pricing was a bit steep during peak hours.", "date": "Apr 10, 2026"},
         {"user": "0x1d2e...9f", "rating": 5, "comment": "Best agent on the marketplace for this use case. Highly recommend.", "date": "Apr 8, 2026"},
     ]
-    return render_template("agent_detail.html", agent=agent, reviews=reviews)
+    a2a = A2A_WORKFLOWS.get(agent_id, {**STANDALONE, "stages": _standalone_stages(agent["name"])})
+    return render_template("agent_detail.html", agent=agent, reviews=reviews, a2a=a2a)
 
 @app.route("/checkout/<int:agent_id>")
 def checkout(agent_id):
     agent = next((a for a in AGENTS if a["id"] == agent_id), None)
     if not agent:
         return redirect(url_for("marketplace"))
-    return render_template("checkout.html", agent=agent)
+    a2a = A2A_WORKFLOWS.get(agent_id, {**STANDALONE, "stages": _standalone_stages(agent["name"])})
+    return render_template("checkout.html", agent=agent, a2a=a2a)
 
 @app.route("/order/<order_id>")
 def order_detail(order_id):
     order = next((o for o in ORDERS if o["id"] == order_id), ORDERS[0])
     agent = next((a for a in AGENTS if a["id"] == order["agent_id"]), AGENTS[0])
-    return render_template("order.html", order=order, agent=agent)
+    a2a   = A2A_WORKFLOWS.get(agent["id"], {**STANDALONE, "stages": _standalone_stages(agent["name"])})
+    return render_template("order.html", order=order, agent=agent, a2a=a2a)
 
 @app.route("/how-it-works")
 def how_it_works():

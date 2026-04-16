@@ -2,12 +2,14 @@
 {% block title %}Order {{ order.id }}{% endblock %}
 
 {% block content %}
+{% set a2a = a2a if a2a is defined else none %}
 <div class="container" style="padding-top:40px; padding-bottom:64px;">
+
   <div class="flex-between mb-32">
     <div>
-      <div class="text-sm text-muted mb-8">Order ID: <strong style="color:var(--text);">{{ order.id }}</strong></div>
-      <h1 style="font-size:1.75rem; margin-bottom:4px;">{{ order.task }}</h1>
-      <div class="flex-center gap-12 mt-8">
+      <div style="font-family:var(--font-mono); font-size:.6875rem; color:var(--text-3); margin-bottom:8px; letter-spacing:.04em;">{{ order.id }}</div>
+      <h1 style="font-size:1.5rem; margin-bottom:8px;">{{ order.task }}</h1>
+      <div class="flex-center gap-12">
         {% if order.status == 'completed' %}
           <span class="badge badge-approved">✓ Completed</span>
         {% elif order.status == 'in_progress' %}
@@ -15,175 +17,506 @@
         {% elif order.status == 'in_escrow' %}
           <span class="badge badge-escrow">🔒 In Escrow</span>
         {% endif %}
-        <span class="text-sm text-muted">{{ order.date }}</span>
+        <span style="font-family:var(--font-mono); font-size:.75rem; color:var(--text-3);">{{ order.date }}</span>
       </div>
     </div>
-    {% if order.status == 'in_progress' or order.status == 'in_escrow' %}
+    {% if order.status in ['in_progress', 'in_escrow'] %}
     <button class="btn btn-success" id="mark-complete">Mark Complete & Release</button>
     {% endif %}
   </div>
 
-  <div style="display:grid; grid-template-columns:1fr 360px; gap:32px; align-items:start;">
-    <!-- Main -->
+  <div style="display:grid; grid-template-columns:1fr 360px; gap:28px; align-items:start;">
+
+    <!-- ── Main ──────────────────────────────────────────────────────────── -->
     <div class="flex-col gap-20">
 
-      <!-- Timeline -->
-      <div class="card">
-        <h3 style="margin-bottom:24px;">Order Progress</h3>
-        <div class="timeline">
-          <div class="timeline-item">
-            <div class="timeline-dot done">✓</div>
-            <div class="timeline-content" style="padding-top:4px;">
-              <h4>Payment Received</h4>
-              <p>${{ order.amount }} USDC locked in escrow on Avalanche C-Chain</p>
-              <div class="text-xs text-muted mt-4">{{ order.date }} · Tx: 0x3f8a4c...b12d</div>
-            </div>
+      <!-- ── ExecutionProgress ─────────────────────────────────────────────── -->
+      <div class="exec-progress" id="exec-progress-panel">
+        <div class="exec-progress-header">
+          <span class="exec-flow-title">Execution Progress</span>
+          {% if order.status == 'in_progress' %}
+          <span class="live-indicator"><span class="live-dot"></span> Live</span>
+          {% elif order.status == 'completed' %}
+          <span class="badge badge-approved">All stages complete</span>
+          {% else %}
+          <span class="badge badge-escrow">Awaiting start</span>
+          {% endif %}
+        </div>
+
+        {% for stage in a2a.stages %}
+        {% set is_done    = order.status == 'completed' %}
+        {% set is_active  = order.status == 'in_progress' and loop.index == 2 %}
+        {% set is_waiting = not is_done and not is_active %}
+        <div class="exec-stage-row {{ 'done' if is_done else ('active' if is_active else 'waiting') }}"
+             data-type="{{ stage.type }}" data-stage-idx="{{ loop.index0 }}">
+          <div class="exec-stage-num {{ 'done' if is_done else ('active' if is_active else 'waiting') }}
+               {{ 'subagent-done' if (is_done and stage.type == 'subagent') else '' }}">
+            {% if is_done %}✓{% elif is_active %}⟳{% else %}{{ loop.index }}{% endif %}
           </div>
-          <div class="timeline-item">
-            {% if order.status in ['in_progress', 'completed'] %}
-            <div class="timeline-dot done">✓</div>
-            {% else %}
-            <div class="timeline-dot active">⟳</div>
-            {% endif %}
-            <div class="timeline-content" style="padding-top:4px;">
-              <h4>Task In Progress</h4>
-              <p>Agent is executing your task. Real-time updates below.</p>
+          <div style="flex:1; min-width:0;">
+            <div class="exec-stage-label">
+              {{ stage.exec_label }}
+              {% if stage.type == 'subagent' %}<span class="badge badge-approved" style="font-size:.5rem; margin-left:6px;">sub-agent</span>{% endif %}
+              {% if stage.conditional %}<span class="badge badge-review" style="font-size:.5rem; margin-left:4px;">if needed</span>{% endif %}
             </div>
+            <div class="exec-stage-sub">{{ stage.name }}</div>
           </div>
-          <div class="timeline-item">
-            {% if order.status == 'completed' %}
-            <div class="timeline-dot done">✓</div>
-            {% elif order.status == 'in_progress' %}
-            <div class="timeline-dot active">⟳</div>
-            {% else %}
-            <div class="timeline-dot">3</div>
-            {% endif %}
-            <div class="timeline-content" style="padding-top:4px;">
-              <h4>Task Completed</h4>
-              <p>Results delivered and awaiting your confirmation.</p>
-            </div>
-          </div>
-          <div class="timeline-item" style="padding-bottom:0;">
-            {% if order.status == 'completed' %}
-            <div class="timeline-dot done">✓</div>
-            {% else %}
-            <div class="timeline-dot">4</div>
-            {% endif %}
-            <div class="timeline-content" style="padding-top:4px;">
-              <h4>Payment Released</h4>
-              <p>Escrow funds released to seller upon confirmation.</p>
-              {% if order.status == 'completed' %}
-              <div class="text-xs text-muted mt-4">Tx: 0xabc1d2...e34f</div>
-              {% endif %}
-            </div>
+          <div class="exec-stage-time {{ 'done' if is_done }}" data-time-slot="{{ loop.index0 }}">
+            {% if is_done %}{{ loop.index }}s{% else %}—{% endif %}
           </div>
         </div>
+        {% endfor %}
       </div>
 
-      <!-- Task Output / Result -->
+      <!-- ── Cost Tracker + Per-Step Breakdown ────────────────────────────── -->
+      {% if order.status in ['in_progress', 'in_escrow'] %}
+      <div class="cost-tracker">
+        <!-- Total + bar -->
+        <div class="cost-tracker-row">
+          <span class="cost-tracker-label">Total Cost So Far</span>
+          <span class="cost-tracker-max" id="budget-max-display">/ $1.00 max</span>
+        </div>
+        <div class="flex-between">
+          <span class="cost-tracker-value" id="running-cost">$0.000</span>
+          <span style="font-family:var(--font-mono); font-size:.6875rem; color:var(--text-3);" id="budget-pct">0%</span>
+        </div>
+        <div class="cost-bar-wrap">
+          <div class="cost-bar-fill" id="cost-bar" style="width:0%;"></div>
+        </div>
+
+        {% if agent.id in [1, 3, 4, 7] %}
+        <!-- Per-step live breakdown -->
+        <div style="border-top:1px solid var(--border); margin-top:14px; padding-top:12px;">
+          <div style="font-family:var(--font-mono); font-size:.5625rem; text-transform:uppercase; letter-spacing:.1em; color:var(--text-3); margin-bottom:10px;">Cost by Step</div>
+
+          <!-- Base agent -->
+          <div class="flex-between mb-8">
+            <div class="flex-center gap-8">
+              <div style="width:6px; height:6px; border-radius:50%; background:var(--blue); flex-shrink:0;"></div>
+              <span style="font-family:var(--font-mono); font-size:.75rem; color:var(--text-2);">{{ agent.name }}</span>
+              <span class="badge badge-testing" style="font-size:.5rem;">base</span>
+            </div>
+            <span style="font-family:var(--font-mono); font-size:.75rem; color:var(--text);" id="breakdown-base">$0.000</span>
+          </div>
+
+          <!-- Sub-agent 1 -->
+          <div class="flex-between mb-8" id="breakdown-sub1-row">
+            <div class="flex-center gap-8">
+              <div style="width:6px; height:6px; border-radius:50%; background:var(--green); flex-shrink:0;"></div>
+              <span style="font-family:var(--font-mono); font-size:.75rem; color:var(--text-2);">
+                {% if agent.id == 1 %}SecureAudit AI{% elif agent.id == 4 %}ResearchBot Pro{% elif agent.id == 3 %}WebCrawler X{% elif agent.id == 7 %}CodeReview Pro{% endif %}
+              </span>
+              <span class="badge badge-approved" style="font-size:.5rem;">sub-agent</span>
+            </div>
+            <span style="font-family:var(--font-mono); font-size:.75rem; color:var(--text);" id="breakdown-sub1">—</span>
+          </div>
+
+          <!-- Sub-agent 2 -->
+          <div class="flex-between mb-8" id="breakdown-sub2-row" style="opacity:.4;">
+            <div class="flex-center gap-8">
+              <div style="width:6px; height:6px; border-radius:50%; background:var(--green); flex-shrink:0;"></div>
+              <span style="font-family:var(--font-mono); font-size:.75rem; color:var(--text-2);">
+                {% if agent.id == 1 %}TestingMaster{% elif agent.id == 4 %}FinanceGPT{% elif agent.id == 3 %}ResearchBot Pro{% elif agent.id == 7 %}SecureAudit AI{% endif %}
+              </span>
+              <span class="badge badge-approved" style="font-size:.5rem;">sub-agent</span>
+            </div>
+            <span style="font-family:var(--font-mono); font-size:.75rem; color:var(--text);" id="breakdown-sub2">—</span>
+          </div>
+
+          <!-- Platform fee -->
+          <div class="flex-between" style="padding-top:10px; border-top:1px solid var(--border);">
+            <span style="font-family:var(--font-mono); font-size:.75rem; color:var(--text-3);">Platform fee (10 bps)</span>
+            <span style="font-family:var(--font-mono); font-size:.75rem; color:var(--text-3);" id="breakdown-fee">$0.000</span>
+          </div>
+        </div>
+        {% endif %}
+      </div>
+
+      {% elif order.status == 'completed' %}
+      <!-- ── Final Receipt ─────────────────────────────────────────────── -->
+      <div class="cost-tracker" style="border-color:var(--green-border);">
+        <div class="cost-tracker-row">
+          <span class="cost-tracker-label" style="color:var(--green);">Final Receipt</span>
+          <span class="badge badge-approved">Released to Seller</span>
+        </div>
+        <div class="flex-between mb-12">
+          <span class="cost-tracker-value">${{ "%.3f"|format(order.amount) }} USDC</span>
+          <span style="font-family:var(--font-mono); font-size:.6875rem; color:var(--green);">Within budget ✓</span>
+        </div>
+        <div class="cost-bar-wrap mb-16">
+          <div class="cost-bar-fill" style="width:72%;"></div>
+        </div>
+
+        {% if agent.id in [1, 3, 4, 7] %}
+        <!-- Per-step final receipt -->
+        <div style="border-top:1px solid var(--border); padding-top:14px;">
+          <div style="font-family:var(--font-mono); font-size:.5625rem; text-transform:uppercase; letter-spacing:.1em; color:var(--text-3); margin-bottom:12px;">Cost Breakdown</div>
+
+          {% set receipt = [
+            (agent.name,     'base',      '%.4f'|format(agent.current_price * 10), 'blue'),
+            ('SecureAudit AI' if agent.id == 1 else ('ResearchBot Pro' if agent.id == 4 else ('WebCrawler X' if agent.id == 3 else 'CodeReview Pro')), 'sub-agent', '0.0180', 'green'),
+            ('TestingMaster'  if agent.id == 1 else ('FinanceGPT'      if agent.id == 4 else ('ResearchBot Pro' if agent.id == 3 else 'SecureAudit AI')), 'sub-agent', '0.0040', 'green'),
+          ] %}
+
+          {% for name, role, cost, color in receipt %}
+          <div class="flex-between mb-10">
+            <div class="flex-center gap-8">
+              <div style="width:6px; height:6px; border-radius:50%; background:var(--{{ color }}); flex-shrink:0;"></div>
+              <span style="font-family:var(--font-mono); font-size:.8125rem; color:var(--text);">{{ name }}</span>
+              <span class="badge {{ 'badge-testing' if role == 'base' else 'badge-approved' }}" style="font-size:.5rem;">{{ role }}</span>
+            </div>
+            <span style="font-family:var(--font-mono); font-size:.8125rem; font-weight:600; color:var(--text);">${{ cost }}</span>
+          </div>
+          {% endfor %}
+
+          <div class="flex-between mb-10">
+            <span style="font-family:var(--font-mono); font-size:.8125rem; color:var(--text-3);">Platform fee (10 bps)</span>
+            <span style="font-family:var(--font-mono); font-size:.8125rem; color:var(--text-3);">${{ "%.4f"|format(order.amount * 0.001) }}</span>
+          </div>
+
+          <div class="flex-between" style="padding-top:12px; border-top:1px solid var(--border-2);">
+            <span style="font-family:var(--font-mono); font-size:.875rem; font-weight:700; color:var(--text);">Total Charged</span>
+            <span style="font-family:var(--font-mono); font-size:.875rem; font-weight:700; color:var(--green);">${{ "%.3f"|format(order.amount) }} USDC</span>
+          </div>
+
+          <div class="flex-between mt-10">
+            <span style="font-family:var(--font-mono); font-size:.75rem; color:var(--text-3);">Unused from cap ($1.00)</span>
+            <span style="font-family:var(--font-mono); font-size:.75rem; color:var(--text-2);">+${{ "%.3f"|format(1.00 - order.amount) }} returned</span>
+          </div>
+        </div>
+        {% endif %}
+      </div>
+      {% endif %}
+
+      <!-- Task Output -->
       <div class="card">
         <div class="flex-between mb-16">
           <h3>Task Output</h3>
           {% if order.status == 'completed' %}
           <span class="badge badge-approved">Delivered</span>
           {% elif order.status == 'in_progress' %}
-          <div class="live-indicator"><span class="live-dot"></span> Processing…</div>
+          <div class="live-indicator"><span class="live-dot"></span> Processing</div>
           {% endif %}
         </div>
 
         {% if order.status == 'completed' %}
-        <div style="background:var(--card-2); border:1px solid var(--border); border-radius:8px; padding:16px; font-family: 'Courier New', monospace; font-size:.8125rem; color: var(--text); line-height:1.7;">
-          <div style="color:var(--success); margin-bottom:12px;">// Task completed successfully</div>
-          <div style="color:var(--text-2);">// Agent: {{ order.agent }}</div>
-          <div style="color:var(--text-2); margin-bottom:12px;">// Duration: 3m 42s · Tokens: 2,840</div>
-          <div>Analysis complete. 3 critical issues found:</div>
-          <div style="color:var(--error);">  [HIGH] SQL injection vulnerability at line 142</div>
-          <div style="color:var(--warning);">  [MED]  Unvalidated input in auth middleware</div>
-          <div style="color:var(--warning);">  [MED]  Hardcoded credentials in config.py</div>
-          <div style="color:var(--success);">  [LOW]  Missing rate limiting on /api/search</div>
-          <div style="margin-top:12px;">Remediation report generated: <span style="color:var(--accent);">report_20260415.pdf</span></div>
+        <div style="background:var(--card-2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:16px; font-family:var(--font-mono); font-size:.8rem; line-height:1.8; color:var(--text);">
+          <div style="color:var(--green); margin-bottom:10px;">// Task completed — {{ agent.name }}</div>
+          <div style="color:var(--text-2);">// Duration: 3m 42s · Base: ${{ "%.3f"|format(agent.current_price * 10) }}</div>
+          {% if agent.id in [1,3,4,7] %}
+          <div style="color:var(--text-2); margin-bottom:12px;">// Sub-agent cost: $0.022 · Total: ${{ "%.3f"|format(order.amount) }}</div>
+          {% endif %}
+          <div style="margin-bottom:8px;">Analysis complete. 3 critical findings:</div>
+          <div style="color:var(--red);">  [HIGH] SQL injection at line 142</div>
+          <div style="color:var(--amber);">  [MED]  Unvalidated input in auth middleware</div>
+          <div style="color:var(--amber);">  [MED]  Hardcoded credentials in config.py</div>
+          <div style="margin-top:12px;">Report: <span style="color:var(--blue);">report_20260415.pdf</span></div>
         </div>
         <div style="display:flex; gap:10px; margin-top:14px;">
-          <button class="btn btn-secondary btn-sm" onclick="showToast('Downloading report…', 'info')">⬇ Download Report</button>
-          <button class="btn btn-ghost btn-sm" onclick="showToast('Output copied to clipboard', 'success')">📋 Copy Output</button>
+          <button class="btn btn-secondary btn-sm" onclick="showToast('Downloading…', 'info')">⬇ Download Report</button>
+          <button class="btn btn-ghost btn-sm" onclick="showToast('Copied to clipboard', 'success')">📋 Copy Output</button>
         </div>
         {% elif order.status == 'in_progress' %}
-        <div style="display:flex; flex-direction:column; gap:12px;">
-          <div class="skeleton skel-line" style="height:12px;"></div>
-          <div class="skeleton skel-line short" style="height:12px;"></div>
-          <div class="skeleton skel-line" style="height:12px;"></div>
-          <div class="skeleton skel-line xshort" style="height:12px;"></div>
+        <div class="flex-col gap-10">
+          <div class="skeleton skel-line"></div>
+          <div class="skeleton skel-line short"></div>
+          <div class="skeleton skel-line"></div>
+          <div class="skeleton skel-line xshort"></div>
         </div>
-        <div class="progress-bar mt-16">
-          <div class="progress-fill" style="width:62%;"></div>
-        </div>
-        <div class="text-xs text-muted mt-8">62% complete · Est. 2 min remaining</div>
+        <div class="progress-bar mt-16"><div class="progress-fill" style="width:62%;"></div></div>
+        <div style="font-family:var(--font-mono); font-size:.6875rem; color:var(--text-3); margin-top:8px;">62% complete · Est. 2 min remaining</div>
         {% else %}
         <div class="empty-state" style="padding:32px;">
-          <div class="icon">⏳</div>
+          <div class="icon" style="font-size:1.5rem;">⏳</div>
           <h3>Waiting to start</h3>
-          <p>Output will appear here once the agent begins processing.</p>
+          <p>Output appears once execution begins.</p>
         </div>
         {% endif %}
       </div>
+
+      <!-- ── ProcessingSummary (completed composable orders only) ─────────── -->
+      {% if order.status == 'completed' and a2a.stages %}
+      <div class="processing-summary">
+        <div class="processing-summary-header">
+          <div class="flex-center gap-10">
+            <h3 style="font-size:.9375rem;">Processing Summary</h3>
+            <span class="badge badge-approved">{{ a2a.stages|length }} stages</span>
+          </div>
+          <span class="summary-chevron" style="font-size:.625rem; color:var(--text-3); transition:transform .2s;">▶</span>
+        </div>
+        <div style="display:none;">
+          {% for stage in a2a.stages %}
+          <div class="summary-stage-row">
+            <div class="summary-check {{ 'subagent' if stage.type == 'subagent' }}">✓</div>
+            <div>
+              <div class="summary-stage-name">{{ stage.name }}</div>
+              <div class="summary-stage-outcome">{{ stage.summary }}</div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Standard timeline -->
+      <div class="card">
+        <h3 style="margin-bottom:20px;">Order Timeline</h3>
+        <div class="timeline">
+          <div class="timeline-item">
+            <div class="timeline-dot done">✓</div>
+            <div class="timeline-content" style="padding-top:3px;">
+              <h4>Payment Locked in Escrow</h4>
+              <p>${{ order.amount }} USDC · Tx: 0x3f8a4c...b12d · {{ order.date }}</p>
+            </div>
+          </div>
+          <div class="timeline-item">
+            <div class="timeline-dot {{ 'done' if order.status == 'completed' else 'active' }}">{{ '✓' if order.status == 'completed' else '⟳' }}</div>
+            <div class="timeline-content" style="padding-top:3px;">
+              <h4>Execution{% if agent.id in [1,3,4,7] %} (A2A Pipeline){% endif %}</h4>
+              <p>{{ 'Completed' if order.status == 'completed' else 'In progress — real-time flow above' }}</p>
+            </div>
+          </div>
+          <div class="timeline-item">
+            <div class="timeline-dot {{ 'active' if order.status == 'completed' else '' }}">{{ '⟳' if order.status == 'completed' else '3' }}</div>
+            <div class="timeline-content" style="padding-top:3px;">
+              <h4>Confirm Delivery</h4>
+              <p>{{ 'Awaiting your confirmation' if order.status == 'completed' else 'Pending task completion' }}</p>
+            </div>
+          </div>
+          <div class="timeline-item" style="padding-bottom:0;">
+            <div class="timeline-dot">4</div>
+            <div class="timeline-content" style="padding-top:3px;">
+              <h4>Funds Released</h4>
+              <p>Exact amount used transferred to seller. Remainder returned.</p>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
-    <!-- Sidebar -->
+    <!-- ── Sidebar ────────────────────────────────────────────────────── -->
     <div class="flex-col gap-16">
-      <!-- Payment Summary -->
       <div class="card">
         <h4 style="margin-bottom:16px;">Payment Summary</h4>
-        <div class="flex-between mb-10 text-sm">
-          <span class="text-muted">Agent</span>
-          <span class="font-bold">{{ order.agent }}</span>
-        </div>
+        <div class="flex-between mb-10 text-sm"><span class="text-muted">Agent</span><span class="font-bold">{{ agent.name }}</span></div>
         <div class="flex-between mb-10 text-sm">
           <span class="text-muted">Amount</span>
-          <span class="font-bold text-accent">${{ order.amount }} USDC</span>
+          <span class="font-bold font-mono" style="color:var(--green);">${{ order.amount }} USDC</span>
         </div>
+        {% if agent.id in [1,3,4,7] %}
         <div class="flex-between mb-10 text-sm">
-          <span class="text-muted">Platform fee</span>
-          <span>${{ "%.4f"|format(order.amount * 0.001) }}</span>
+          <span class="text-muted">Sub-agent costs</span>
+          <span class="font-mono" style="color:var(--amber);">Variable</span>
         </div>
+        {% endif %}
         <div class="flex-between mb-16 text-sm">
-          <span class="text-muted">Escrow status</span>
+          <span class="text-muted">Escrow</span>
           <span class="badge {% if order.status == 'completed' %}badge-approved{% else %}badge-escrow{% endif %}">
-            {% if order.status == 'completed' %}Released{% else %}Locked{% endif %}
+            {{ 'Released' if order.status == 'completed' else 'Locked' }}
           </span>
         </div>
         <div class="divider"></div>
-        <div class="text-xs text-muted">Settled on Avalanche C-Chain · x402 Protocol</div>
+        <div style="font-family:var(--font-mono); font-size:.5625rem; color:var(--text-3); text-transform:uppercase; letter-spacing:.08em;">Avalanche C-Chain · x402 Protocol</div>
       </div>
 
-      <!-- Agent Info -->
       <div class="card">
         <h4 style="margin-bottom:12px;">Agent</h4>
         <a href="/agent/{{ agent.id }}" class="flex-center gap-12" style="text-decoration:none;">
-          <div class="agent-avatar" style="width:40px; height:40px; background:#1E3A5F; border-radius:10px; font-size:1.1rem;">🤖</div>
+          {% set cat_codes = {'Development':'DEV','Data & Analytics':'DAT','Content':'CON','Finance':'FIN','Research':'RES','Security':'SEC','Automation':'AUT'} %}
+          <div class="agent-avatar" style="background:var(--card-3); color:var(--green);">{{ cat_codes.get(agent.category,'AGT') }}</div>
           <div>
             <div class="font-bold text-sm">{{ agent.name }}</div>
-            <div class="text-xs text-muted">{{ agent.seller }}</div>
+            <div style="font-family:var(--font-mono); font-size:.625rem; color:var(--text-3);">{{ agent.seller }}</div>
           </div>
         </a>
       </div>
 
       {% if order.status == 'completed' %}
-      <div class="card" style="text-align:center; border-color: rgba(34,197,94,.2);">
-        <div style="font-size:1.5rem; margin-bottom:8px;">⭐</div>
+      <div class="card" style="text-align:center; border-color:var(--green-border);">
+        <div style="font-size:1.25rem; margin-bottom:8px;">⭐</div>
         <div class="font-bold mb-8">Rate this agent</div>
-        <p class="text-sm mb-16">Help other buyers with your experience</p>
+        <p class="text-sm mb-14">Your rating builds their on-chain reputation</p>
         <button class="btn btn-secondary btn-sm w-full" onclick="openModal('rating-modal')">Leave a Review</button>
       </div>
       {% endif %}
 
       {% if order.status in ['in_progress', 'in_escrow'] %}
-      <div class="card" style="background:rgba(239,68,68,.04); border-color:rgba(239,68,68,.15);">
-        <h4 style="margin-bottom:8px; color:var(--error);">Need Help?</h4>
-        <p class="text-sm mb-12">If the agent isn't performing as expected, you can raise a dispute.</p>
+      <div class="card" style="background:rgba(255,61,78,.03); border-color:rgba(255,61,78,.12);">
+        <h4 style="margin-bottom:8px; color:var(--red);">Issue?</h4>
+        <p class="text-sm mb-12">If the agent isn't performing correctly, raise a dispute.</p>
         <button class="btn btn-ghost btn-sm w-full" onclick="showToast('Dispute form opened', 'info')">Open Dispute</button>
       </div>
       {% endif %}
     </div>
   </div>
 </div>
+
+<!-- ── Over-Budget Approval Modal ───────────────────────────────────────────── -->
+<div class="modal-overlay" id="budget-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 style="color:var(--amber);">⚠ Additional Budget Required</h3>
+      <button class="modal-close">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="budget-alert">
+        <span class="budget-alert-icon">⚡</span>
+        <p>The agent needs additional budget to complete the task. Sub-agent <strong>SecureAudit AI</strong> encountered more vulnerabilities than estimated and requires an extra <strong>$0.03 USDC</strong>.</p>
+      </div>
+      <div class="cost-breakdown">
+        <div class="cost-row"><span class="cost-label">Current spend</span><span class="cost-value font-mono">$0.82</span></div>
+        <div class="cost-row"><span class="cost-label">Current max cap</span><span class="cost-value font-mono">$1.00</span></div>
+        <div class="cost-row"><span class="cost-label">Additional needed</span><span class="cost-value range">+$0.03</span></div>
+        <div class="cost-row total"><span class="cost-label">New total if approved</span><span class="cost-value font-mono">$0.85</span></div>
+      </div>
+      <p class="text-xs text-muted mt-12" style="font-family:var(--font-mono);">
+        Execution is paused. If you cancel, completed sub-agent work is still charged ($0.82).
+      </p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-danger btn-sm" onclick="closeModal('budget-modal'); showToast('Execution cancelled. $0.82 charged for completed work.', 'warning')">Cancel</button>
+      <button class="btn btn-gradient btn-sm" onclick="closeModal('budget-modal'); showToast('Budget approved. Execution resuming…', 'success')">Approve +$0.03</button>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ── ExecutionProgress driver ───────────────────────────────────────────────────
+(function() {
+  const panel = document.getElementById('exec-progress-panel');
+  if (!panel) return;
+  const rows     = panel.querySelectorAll('.exec-stage-row');
+  const isLive   = {{ 'true' if order.status == 'in_progress' else 'false' }};
+  if (!isLive || !rows.length) return;
+
+  // Reset all to waiting first
+  rows.forEach((row, i) => {
+    if (i === 0) return; // first row already shown as done
+    row.className = 'exec-stage-row waiting';
+    const num = row.querySelector('.exec-stage-num');
+    if (num) { num.textContent = i + 1; num.className = 'exec-stage-num waiting'; }
+    const t = row.querySelector('[data-time-slot]');
+    if (t) t.textContent = '—';
+  });
+
+  runExecutionProgress([], 'exec-progress-panel');
+})();
+
+// ── Cost tracker ───────────────────────────────────────────────────────────────
+(function() {
+  const maxSpend = 1.00;
+  const costEl   = document.getElementById('running-cost');
+  const barEl    = document.getElementById('cost-bar');
+  const pctEl    = document.getElementById('budget-pct');
+  const maxDisp  = document.getElementById('budget-max-display');
+  const isA2A    = {{ 'true' if agent.id in [1,3,4,7] else 'false' }};
+
+  if (!costEl) return; // completed or escrow — no simulation needed
+
+  if (maxDisp) maxDisp.textContent = '/ $' + maxSpend.toFixed(2) + ' max';
+
+  // Per-step cost accumulators
+  let baseAmt  = 0.0;
+  let sub1Amt  = 0.0;
+  let sub2Amt  = 0.0;
+  let sub1Done = false;
+  let sub2Done = false;
+
+  // Base runs from start
+  // Sub-agent 1 starts ~2s in, completes ~7s
+  // Sub-agent 2 starts ~5s in, completes ~11s
+
+  function updateBreakdown() {
+    const fee = (baseAmt + sub1Amt + sub2Amt) * 0.001;
+    const el = (id) => document.getElementById(id);
+    if (el('breakdown-base')) el('breakdown-base').textContent = '$' + baseAmt.toFixed(4);
+    if (el('breakdown-sub1')) el('breakdown-sub1').textContent = sub1Done ? '$' + sub1Amt.toFixed(4) : (sub1Amt > 0 ? '~$' + sub1Amt.toFixed(4) : '—');
+    if (el('breakdown-sub2')) el('breakdown-sub2').textContent = sub2Done ? '$' + sub2Amt.toFixed(4) : (sub2Amt > 0 ? '~$' + sub2Amt.toFixed(4) : '—');
+    if (el('breakdown-fee'))  el('breakdown-fee').textContent  = '$' + fee.toFixed(4);
+
+    // Fade in sub-agent rows once they start
+    if (sub1Amt > 0) { const r = el('breakdown-sub1-row'); if (r) r.style.opacity = '1'; }
+    if (sub2Amt > 0) { const r = el('breakdown-sub2-row'); if (r) r.style.opacity = '1'; }
+  }
+
+  function updateTotal() {
+    const total = baseAmt + sub1Amt + sub2Amt;
+    const pct   = (total / maxSpend) * 100;
+    if (costEl) costEl.textContent = '$' + total.toFixed(3);
+    if (pctEl)  pctEl.textContent  = Math.round(pct) + '%';
+    if (barEl) {
+      barEl.style.width = Math.min(pct, 100) + '%';
+      barEl.className = 'cost-bar-fill' +
+        (pct > 90 ? ' danger' : pct > 70 ? ' warning' : '');
+    }
+    updateBreakdown();
+  }
+
+  // Phase 1 — base agent ticking from t=0
+  const baseTick = setInterval(() => {
+    baseAmt += Math.random() * 0.006 + 0.002;
+    updateTotal();
+  }, 900);
+
+  if (isA2A) {
+    // Phase 2 — sub-agent 1 starts at 2s
+    setTimeout(() => {
+      const sub1Tick = setInterval(() => {
+        if (sub1Done) { clearInterval(sub1Tick); return; }
+        sub1Amt += Math.random() * 0.004 + 0.001;
+        updateTotal();
+      }, 900);
+    }, 2000);
+
+    // Sub-agent 1 completes at 7s
+    setTimeout(() => {
+      sub1Done = true;
+      const sub1Status = document.getElementById('sub1-status');
+      const sub1Cost   = document.getElementById('sub1-cost');
+      const step1      = document.getElementById('exec-step-1');
+      if (sub1Status) { sub1Status.textContent = 'Done'; sub1Status.className = 'exec-step-status done'; }
+      if (sub1Cost)   sub1Cost.textContent = '$' + sub1Amt.toFixed(4);
+      if (step1) step1.className = step1.className.replace('running', 'done');
+      updateTotal();
+      showToast('SecureAudit AI completed — $' + sub1Amt.toFixed(4), 'success');
+    }, 7000);
+
+    // Phase 3 — sub-agent 2 starts at 5s
+    setTimeout(() => {
+      const sub2Tick = setInterval(() => {
+        if (sub2Done) { clearInterval(sub2Tick); return; }
+        sub2Amt += Math.random() * 0.003 + 0.001;
+        updateTotal();
+      }, 900);
+    }, 5000);
+
+    // Sub-agent 2 completes at 11s
+    setTimeout(() => {
+      sub2Done = true;
+      const sub2Status = document.getElementById('sub2-status');
+      const sub2Cost   = document.getElementById('sub2-cost');
+      const step2      = document.getElementById('exec-step-2');
+      if (sub2Status) { sub2Status.textContent = 'Done'; sub2Status.className = 'exec-step-status done'; }
+      if (sub2Cost)   sub2Cost.textContent = '$' + sub2Amt.toFixed(4);
+      if (step2) step2.className = step2.className.replace('running', 'done');
+      updateTotal();
+      showToast('TestingMaster completed — $' + sub2Amt.toFixed(4), 'success');
+    }, 11000);
+
+    // Over-budget modal at 14s if approaching cap
+    setTimeout(() => {
+      const total = baseAmt + sub1Amt + sub2Amt;
+      if (total / maxSpend > 0.80) openModal('budget-modal');
+    }, 14000);
+  }
+
+  // Stop all ticks at target
+  setTimeout(() => {
+    clearInterval(baseTick);
+  }, 25000);
+})();
+</script>
 {% endblock %}

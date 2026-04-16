@@ -103,6 +103,47 @@
       </div>
       <div class="text-xs text-muted mt-10">Test results will appear once processing begins</div>
       {% endif %}
+
+      <!-- Subagent Workflow Preview -->
+      {% set mock_stages = [
+        ('Input Parser',     'internal', False),
+        ('Reasoning Engine', 'internal', False),
+        ('SecureAudit AI',   'subagent', True),
+        ('Output Formatter', 'internal', False),
+      ] if item.agent in ['ContentForge', 'WebCrawler X'] else [
+        ('Input Parser',     'internal', False),
+        ('Core Processor',   'internal', False),
+        ('Output Formatter', 'internal', False),
+      ] %}
+      <div style="border-top:1px solid var(--border); padding-top:16px; margin-top:16px;">
+        <div class="flex-between mb-12">
+          <div style="font-family:var(--font-mono); font-size:.5625rem; text-transform:uppercase; letter-spacing:.1em; color:var(--text-3);">
+            Subagent Workflow — Buyer View
+          </div>
+          {% if mock_stages|selectattr(2)|list|length > 0 %}
+          <span class="exec-type-badge exec-type-composable">⛓ {{ mock_stages|length }} stages</span>
+          {% else %}
+          <span class="exec-type-badge exec-type-standalone">◼ Standalone</span>
+          {% endif %}
+        </div>
+        <div class="workflow-preview">
+          <div class="workflow-preview-header">How this agent works — as buyers will see it</div>
+          {% for name, type, conditional in mock_stages %}
+          <div class="workflow-preview-row">
+            <div style="width:7px; height:7px; border-radius:50%; flex-shrink:0;
+                 background:{{ 'var(--green)' if type == 'subagent' else 'var(--blue)' }};"></div>
+            <span style="font-family:var(--font-mono); font-size:.625rem; color:var(--text-3); width:18px; flex-shrink:0;">{{ loop.index }}</span>
+            <span style="font-weight:600; flex:1;">{{ name }}</span>
+            {% if type == 'subagent' %}
+            <span class="badge badge-approved" style="font-size:.5rem;">sub-agent</span>
+            {% endif %}
+            {% if conditional %}
+            <span class="badge badge-review" style="font-size:.5rem;">conditional</span>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+      </div>
     </div>
     {% endfor %}
   </div>

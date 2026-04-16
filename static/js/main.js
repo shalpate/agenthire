@@ -255,6 +255,174 @@ if (submitRatingBtn) {
   });
 }
 
+// ── SubagentWorkflow — stage expand/collapse ──────────────────────────────────
+document.addEventListener('click', (e) => {
+  const trigger = e.target.closest('.stage-trigger');
+  if (!trigger) return;
+  const item = trigger.closest('.stage-item');
+  if (!item) return;
+  const isOpen = item.classList.contains('open');
+  // close all in same list
+  item.closest('.stage-list')?.querySelectorAll('.stage-item').forEach(i => i.classList.remove('open'));
+  if (!isOpen) item.classList.add('open');
+});
+
+// ── ProcessingSummary toggle ───────────────────────────────────────────────────
+document.addEventListener('click', (e) => {
+  const hdr = e.target.closest('.processing-summary-header');
+  if (!hdr) return;
+  const body = hdr.nextElementSibling;
+  if (!body) return;
+  const isHidden = body.style.display === 'none' || body.style.display === '';
+  body.style.display = isHidden ? 'block' : 'none';
+  const chevron = hdr.querySelector('.summary-chevron');
+  if (chevron) chevron.style.transform = isHidden ? 'rotate(90deg)' : '';
+});
+
+// ── SubagentEditor ─────────────────────────────────────────────────────────────
+let stageCount = 0;
+
+function initSubagentEditor() {
+  const toggle    = document.getElementById('subagent-toggle');
+  const panel     = document.getElementById('subagent-editor-panel');
+  if (!toggle || !panel) return;
+
+  toggle.addEventListener('click', () => {
+    const sw = toggle.querySelector('.toggle-switch');
+    const on = sw?.classList.toggle('on');
+    panel.style.display = on ? 'block' : 'none';
+    const label = toggle.querySelector('.toggle-label');
+    if (label) label.textContent = on ? 'Multi-stage with sub-agents' : 'Standalone (no sub-agents)';
+    updateEditorPreview();
+  });
+}
+
+function addStage(name = '', purpose = '', type = 'internal') {
+  stageCount++;
+  const list = document.getElementById('stage-editor-list');
+  if (!list) return;
+  const id = 'stage-' + stageCount;
+  const el = document.createElement('div');
+  el.className = 'stage-editor-item';
+  el.dataset.stageId = id;
+  el.innerHTML = `
+    <div class="stage-editor-header">
+      <span class="stage-editor-handle">⠿</span>
+      <span class="stage-editor-order">Stage ${list.children.length + 1}</span>
+      <span class="stage-editor-name">${name || 'New Stage'}</span>
+      <button class="btn btn-ghost btn-sm" style="padding:3px 8px; margin-left:auto;" onclick="removeStage(this)">✕</button>
+    </div>
+    <div class="stage-editor-body">
+      <div class="form-group">
+        <label class="form-label">Stage Name</label>
+        <input type="text" class="form-input stage-name-input" value="${name}" placeholder="e.g. Input Parser"
+               oninput="this.closest('.stage-editor-item').querySelector('.stage-editor-name').textContent = this.value || 'New Stage'; updateEditorPreview();">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Purpose</label>
+        <input type="text" class="form-input stage-purpose-input" value="${purpose}" placeholder="What this stage does…" oninput="updateEditorPreview()">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Type</label>
+        <div class="stage-type-toggle">
+          <button class="stage-type-btn ${type === 'internal' ? 'active internal' : ''}" onclick="setStageType(this,'internal')">Internal</button>
+          <button class="stage-type-btn ${type === 'subagent' ? 'active subagent' : ''}" onclick="setStageType(this,'subagent')">Sub-Agent</button>
+        </div>
+      </div>
+      <label class="filter-option">
+        <input type="checkbox" ${type === 'subagent' ? '' : 'disabled'} class="stage-conditional"> Conditional (only called when needed)
+      </label>
+    </div>
+  `;
+  list.appendChild(el);
+  renumberStages();
+  updateEditorPreview();
+}
+
+function removeStage(btn) {
+  btn.closest('.stage-editor-item')?.remove();
+  renumberStages();
+  updateEditorPreview();
+}
+
+function setStageType(btn, type) {
+  const group = btn.closest('.stage-type-toggle');
+  group.querySelectorAll('.stage-type-btn').forEach(b => b.className = 'stage-type-btn');
+  btn.classList.add('active', type);
+  const cond = btn.closest('.stage-editor-item').querySelector('.stage-conditional');
+  if (cond) cond.disabled = (type !== 'subagent');
+  updateEditorPreview();
+}
+
+function renumberStages() {
+  document.querySelectorAll('#stage-editor-list .stage-editor-item').forEach((el, i) => {
+    const ord = el.querySelector('.stage-editor-order');
+    if (ord) ord.textContent = `Stage ${i + 1}`;
+  });
+}
+
+function updateEditorPreview() {
+  const preview = document.getElementById('editor-preview-list');
+  if (!preview) return;
+  const items = document.querySelectorAll('#stage-editor-list .stage-editor-item');
+  if (!items.length) { preview.innerHTML = '<div style="font-size:.8125rem;color:var(--text-3);padding:12px 16px;">No stages defined.</div>'; return; }
+  preview.innerHTML = [...items].map((el, i) => {
+    const name    = el.querySelector('.stage-name-input')?.value || 'Unnamed Stage';
+    const purpose = el.querySelector('.stage-purpose-input')?.value || '—';
+    const isSubagent = el.querySelector('.stage-type-btn.active.subagent');
+    const dot = isSubagent
+      ? `<div style="width:7px;height:7px;border-radius:50%;background:var(--green);flex-shrink:0;"></div>`
+      : `<div style="width:7px;height:7px;border-radius:50%;background:var(--blue);flex-shrink:0;"></div>`;
+    return `<div class="workflow-preview-row">${dot}<span style="font-family:var(--font-mono);font-size:.6875rem;color:var(--text-3);width:16px;">${i+1}</span><div><div style="font-weight:600;font-size:.875rem;">${name}</div><div style="font-size:.75rem;color:var(--text-3);">${purpose}</div></div></div>`;
+  }).join('');
+}
+
+// ── ExecutionProgress — state machine ─────────────────────────────────────────
+function runExecutionProgress(stages, containerId) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
+  let currentIdx = 0;
+  const rows = container.querySelectorAll('.exec-stage-row');
+  const timers = container.querySelectorAll('.exec-stage-time');
+
+  function advance() {
+    if (currentIdx >= rows.length) return;
+    const row = rows[currentIdx];
+    const numEl = row.querySelector('.exec-stage-num');
+    const timeEl = timers[currentIdx];
+
+    // Set active
+    row.classList.remove('waiting');
+    row.classList.add('active');
+    if (numEl) { numEl.textContent = '⟳'; numEl.className = 'exec-stage-num active'; }
+
+    const duration = 2500 + Math.random() * 2500;
+    let elapsed = 0;
+    const tick = setInterval(() => {
+      elapsed += 100;
+      if (timeEl) timeEl.textContent = (elapsed / 1000).toFixed(1) + 's';
+    }, 100);
+
+    setTimeout(() => {
+      clearInterval(tick);
+      row.classList.remove('active');
+      row.classList.add('done');
+      const isSubagent = row.dataset.type === 'subagent';
+      if (numEl) { numEl.textContent = '✓'; numEl.className = isSubagent ? 'exec-stage-num subagent-done' : 'exec-stage-num done'; }
+      if (timeEl) { timeEl.classList.add('done'); }
+      currentIdx++;
+      if (currentIdx < rows.length) {
+        setTimeout(advance, 400);
+      } else {
+        showToast('All stages complete — awaiting delivery', 'success');
+      }
+    }, duration);
+  }
+
+  advance();
+}
+
 // ── Chart helpers (called from page scripts) ───────────────────────────────────
 function makeLineChart(id, labels, datasets, options = {}) {
   const ctx = document.getElementById(id);
