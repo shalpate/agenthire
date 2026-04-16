@@ -779,5 +779,62 @@ def api_price(agent_id):
         "multiplier": agent["surge_multiplier"],
     })
 
+# ── x402 / on-chain integration ────────────────────────────────────────────────
+# Stub endpoint for the frontend x402 flow. In production this forwards
+# the signed EIP-3009 permit to the backend facilitator service which:
+#   1. calls MockUSDC.transferWithAuthorization(...)
+#   2. calls EscrowPayment.depositFunds(...)
+# and returns a sessionId. For the mockup we accept the signed payload and
+# return a deterministic pretend session id so the UI flow can be demo'd end-to-end.
+#
+# Wire this to the real backend by setting FACILITATOR_URL to the backend-ref
+# server (see ai-agent-marketplace/backend-ref/example-agent-server.js).
+import os
+import uuid
+FACILITATOR_URL = os.environ.get("FACILITATOR_URL")
+
+@app.route("/api/x402/pay", methods=["POST"])
+def api_x402_pay():
+    payload = request.get_json(silent=True) or {}
+    required = ["from", "to", "value", "validBefore", "nonce", "v", "r", "s", "agentId"]
+    missing = [k for k in required if k not in payload]
+    if missing:
+        return jsonify({"error": f"missing fields: {missing}"}), 400
+
+    if FACILITATOR_URL:
+        try:
+            import requests
+            r = requests.post(f"{FACILITATOR_URL}/x402/execute", json=payload, timeout=30)
+            return (r.text, r.status_code, r.headers.items())
+        except Exception as e:
+            return jsonify({"error": f"facilitator unreachable: {e}"}), 502
+
+    # Mockup fallback — pretend the payment went through.
+    return jsonify({
+        "sessionId": str(uuid.uuid4())[:8],
+        "agentId": payload["agentId"],
+        "status": "mock_settled",
+        "note": "FACILITATOR_URL not set; this is a mock response. Point FACILITATOR_URL at the backend-ref server to wire real on-chain settlement.",
+    })
+
+# On-chain deployment metadata for the frontend. Exposed so the UI can link
+# to Snowtrace without hardcoding addresses in templates.
+@app.route("/api/onchain/info")
+def api_onchain_info():
+    return jsonify({
+        "chainId": 43113,
+        "chain": "Avalanche Fuji",
+        "explorer": "https://testnet.snowtrace.io",
+        "contracts": {
+            "MockUSDC":           "0x9C49D730Dfb82B7663aBE6069B5bFe867fa34c9f",
+            "AgentRegistry":      "0x6B71b84Fa3C313ccC43D63A400Ab47e6A0d4BCbB",
+            "ReputationContract": "0x40ef89Ce1E248Df00AF6Dc37f96BBf92A9Bf603A",
+            "StakingSlashing":    "0xfc942b4d1Eb363F25886b3F5935394BD4932B896",
+            "EscrowPayment":      "0xD19990C7CB8C386fa865135Ce9706A5A37A3f2f2",
+            "AuctionMarket":      "0xa7AEEca5a76bd5Cd38B15dfcC2c288d3645E53E3",
+        },
+    })
+
+
 if __name__ == "__main__":
     app.run(debug=True, port=5000)

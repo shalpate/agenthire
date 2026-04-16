@@ -218,10 +218,62 @@
           <p>{% if a2a.composable %}Funds held in escrow up to your max spend cap. Unused balance returned on completion.{% else %}Full amount held in escrow — released after task confirmation.{% endif %}</p>
         </div>
 
-        <button class="btn btn-gradient btn-full btn-lg" id="confirm-pay">
+        <button class="btn btn-gradient btn-full btn-lg" id="confirm-pay"
+                data-agent-id="{{ agent.id }}"
+                data-agent-name="{{ agent.name }}">
           Confirm & Pay in Escrow
         </button>
+        <div id="pay-status" style="margin-top:12px; font-family:var(--font-mono); font-size:.75rem; color:var(--text-3); text-align:center;"></div>
         <a href="/agent/{{ agent.id }}" class="btn btn-ghost btn-full btn-sm mt-8">← Back to Agent</a>
+
+        <script>
+        // Web3-backed checkout. Signs an EIP-3009 permit and posts to /api/x402/pay.
+        // Falls back to direct approve + depositFunds if user declines the permit.
+        (() => {
+          const btn = document.getElementById('confirm-pay');
+          const statusEl = document.getElementById('pay-status');
+          if (!btn) return;
+          btn.addEventListener('click', async () => {
+            const agentId = Number(btn.dataset.agentId);
+            const maxSpendInput = document.getElementById('max-spend-input');
+            const depositUSDC = Number(maxSpendInput && maxSpendInput.value) || 10;
+            const tokenBudget = Math.floor(depositUSDC * 1e6);
+            btn.disabled = true;
+            const setStatus = (s) => { statusEl.textContent = s; };
+            try {
+              if (!window.AgentHire || !window.AgentHire.connected) {
+                setStatus('Connecting wallet...');
+                await window.AgentHire.connectWallet();
+              }
+              // Ensure balance
+              const bal = await window.AgentHire.getUsdcBalance();
+              if (bal < BigInt(Math.floor(depositUSDC * 1e6))) {
+                setStatus('Low USDC — minting test USDC...');
+                await window.AgentHire.mintUSDC(Math.max(1000, depositUSDC));
+              }
+              setStatus('Signing x402 payment permit...');
+              const facilitator = window.AgentHire.address; // on testnet: facilitator = self
+              const r = await window.AgentHire.payWithX402({
+                agentId, depositUSDC, tokenBudget,
+                categoryId: 0, facilitator,
+              });
+              if (r.status === 'mock_settled') {
+                setStatus('Paid (mock). Session ' + r.sessionId);
+                if (window.showToast) showToast('Payment signed — session ' + r.sessionId, 'success');
+              } else {
+                setStatus('Settled on-chain. Session ' + (r.sessionId || ''));
+                if (window.showToast) showToast('Payment settled on-chain', 'success');
+              }
+              setTimeout(() => window.location.href = '/order/' + (r.sessionId || 'ORD-001'), 1500);
+            } catch (e) {
+              console.error(e);
+              setStatus('Failed: ' + (e.message || e));
+              if (window.showToast) showToast('Payment failed: ' + (e.message || e), 'error');
+              btn.disabled = false;
+            }
+          });
+        })();
+        </script>
       </div>
     </div>
   </div>
