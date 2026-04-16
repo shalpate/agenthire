@@ -343,8 +343,44 @@
       {% if order.status in ['in_progress', 'in_escrow'] %}
       <div class="card" style="background:rgba(255,61,78,.03); border-color:rgba(255,61,78,.12);">
         <h4 style="margin-bottom:8px; color:var(--red);">Issue?</h4>
-        <p class="text-sm mb-12">If the agent isn't performing correctly, raise a dispute.</p>
-        <button class="btn btn-ghost btn-sm w-full" onclick="showToast('Dispute form opened', 'info')">Open Dispute</button>
+        <p class="text-sm mb-12">If the agent isn't performing correctly, raise a dispute. The gatekeeper reviews and (if upheld) signs an on-chain incident.</p>
+        <button class="btn btn-ghost btn-sm w-full" id="open-dispute-btn" data-agent-id="{{ agent.id }}">Open Dispute</button>
+        <div id="dispute-status" style="margin-top:8px; font-family:var(--font-mono); font-size:.625rem; color:var(--text-3);"></div>
+        <script>
+        (() => {
+          const btn = document.getElementById('open-dispute-btn');
+          if (!btn) return;
+          btn.addEventListener('click', async () => {
+            const agentId = Number(btn.dataset.agentId);
+            const setStatus = (s) => { document.getElementById('dispute-status').textContent = s; };
+            const reason = prompt('Describe what went wrong (this is sent to the gatekeeper for review):');
+            if (!reason) return;
+            const severity = confirm('Major incident? (OK = major / -200 + slash, Cancel = minor / -50)') ? 2 : 1;
+            try {
+              if (!window.AgentHire.connected) await window.AgentHire.connectWallet();
+              setStatus('submitting to gatekeeper...');
+              const res = await fetch('/api/dispute/submit', {
+                method: 'POST',
+                headers: {'content-type':'application/json'},
+                body: JSON.stringify({
+                  agentId, severity, reason,
+                  affectedUser: window.AgentHire.address,
+                  orderId: '{{ order.id }}',
+                }),
+              });
+              const body = await res.json();
+              if (!res.ok) throw new Error(body.error || 'failed');
+              if (body.txHash) {
+                setStatus('gatekeeper signed · tx ' + body.txHash.slice(0,10) + '...');
+                if (window.showToast) showToast('Incident signed on-chain. Agent penalized.', 'success');
+              } else {
+                setStatus('submitted · awaiting gatekeeper review');
+                if (window.showToast) showToast('Dispute submitted. Gatekeeper will review.', 'info');
+              }
+            } catch (e) { setStatus('failed: ' + (e.message||'').slice(0,120)); }
+          });
+        })();
+        </script>
       </div>
       {% endif %}
     </div>

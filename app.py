@@ -817,6 +817,33 @@ def api_x402_pay():
         "note": "FACILITATOR_URL not set; this is a mock response. Point FACILITATOR_URL at the backend-ref server to wire real on-chain settlement.",
     })
 
+# Submit a dispute. Proxies to the gatekeeper backend, which (optionally) signs
+# an on-chain incident. If GATEKEEPER_URL not set, logs + returns pending.
+@app.route("/api/dispute/submit", methods=["POST"])
+def api_dispute_submit():
+    payload = request.get_json(silent=True) or {}
+    required = ["agentId", "severity", "reason", "affectedUser"]
+    for k in required:
+        if k not in payload:
+            return jsonify({"error": f"missing {k}"}), 400
+
+    gk_url = os.environ.get("GATEKEEPER_URL")
+    if gk_url:
+        try:
+            import requests
+            r = requests.post(f"{gk_url}/incident/sign", json=payload, timeout=15)
+            return (r.text, r.status_code, r.headers.items())
+        except Exception as e:
+            return jsonify({"error": f"gatekeeper unreachable: {e}"}), 502
+
+    # Mock path: log and accept without signing
+    print(f"[dispute] agent={payload['agentId']} sev={payload['severity']} reason={payload['reason']!r}")
+    return jsonify({
+        "status": "pending_review",
+        "note": "GATEKEEPER_URL not set; dispute logged but no on-chain incident was signed.",
+    })
+
+
 # Read a live escrow session from chain via the facilitator proxy.
 @app.route("/api/session/<session_id>")
 def api_session(session_id):

@@ -57,6 +57,11 @@
               <span>Stake <b id="oc-stake" style="color:var(--text-1)">—</b></span>
               <a id="oc-link" href="#" target="_blank" style="color:var(--text-3); margin-left:auto;">snowtrace ↗</a>
             </div>
+            <!-- Per-category tier badges — ERC-8004-style specialization -->
+            <div id="oc-categories" style="display:none; margin-top:8px; font-family:var(--font-mono); font-size:.6875rem; color:var(--text-3);">
+              <span style="text-transform:uppercase; letter-spacing:.06em;">Specialization:</span>
+              <span id="oc-cat-badges" style="display:inline-flex; gap:6px; margin-left:6px;"></span>
+            </div>
             <script>
             (async () => {
               // Agent IDs on-chain start at 1; Flask mock IDs happen to align.
@@ -74,6 +79,21 @@
                 document.getElementById('oc-stake').textContent = p.stake.amountUSDC.toFixed(0) + ' USDC';
                 const info = await fetch('/api/onchain/info').then(r => r.json()).catch(() => null);
                 if (info) document.getElementById('oc-link').href = info.explorer + '/address/' + info.contracts.ReputationContract;
+                // Per-category tiers
+                const CATS = ['General', 'Dev', 'Research', 'Finance', 'Content', 'Security'];
+                const provider = new ethers.JsonRpcProvider(window.AGENTHIRE_CHAIN.rpcUrl);
+                const rep = new ethers.Contract(window.AGENTHIRE_ADDRESSES.ReputationContract, window.AGENTHIRE_ABIS.ReputationContract, provider);
+                const badges = [];
+                for (let cid = 0; cid < CATS.length; cid++) {
+                  try {
+                    const tier = Number(await rep.getCategoryTier(ocAgentId, cid));
+                    if (tier > 1) badges.push(`<span style="padding:2px 6px; background:var(--surface-0); border:1px solid var(--border-2); border-radius:999px;">${CATS[cid]} T${tier}</span>`);
+                  } catch (_) {}
+                }
+                if (badges.length) {
+                  document.getElementById('oc-categories').style.display = 'block';
+                  document.getElementById('oc-cat-badges').innerHTML = badges.join('');
+                }
               } catch (e) { console.warn('on-chain rep read failed:', e); }
             })();
             </script>

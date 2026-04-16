@@ -35,6 +35,106 @@
     </div>
   </div>
 
+  <!-- ── On-chain Stake Card ───────────────────────────────────────────────── -->
+  <div class="chart-wrap mb-24" style="background:var(--surface-1); border:1px solid var(--border-2);">
+    <div class="chart-header">
+      <span class="chart-title">On-chain stake</span>
+      <span class="badge badge-testing">Avalanche Fuji · StakingSlashing</span>
+    </div>
+    <div id="stake-panel" style="padding:16px 4px 4px; font-family:var(--font-mono); font-size:.8125rem;">
+      <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:18px; margin-bottom:14px;">
+        <div><div style="color:var(--text-3); font-size:.6875rem; text-transform:uppercase; margin-bottom:2px;">Agent ID</div><div id="stake-agentid" style="color:var(--text-1); font-weight:600;">—</div></div>
+        <div><div style="color:var(--text-3); font-size:.6875rem; text-transform:uppercase; margin-bottom:2px;">Staked</div><div id="stake-amount" style="color:var(--green); font-weight:700; font-size:1rem;">— USDC</div></div>
+        <div><div style="color:var(--text-3); font-size:.6875rem; text-transform:uppercase; margin-bottom:2px;">Incidents</div><div id="stake-incidents" style="color:var(--text-1);">—</div></div>
+        <div><div style="color:var(--text-3); font-size:.6875rem; text-transform:uppercase; margin-bottom:2px;">Tier target</div><div id="stake-tier" style="color:var(--text-1);">—</div></div>
+        <div><div style="color:var(--text-3); font-size:.6875rem; text-transform:uppercase; margin-bottom:2px;">Unstake available</div><div id="stake-unstake" style="color:var(--text-1);">—</div></div>
+      </div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+        <input id="stake-input" type="number" value="100" min="100" step="100" class="input" style="width:140px; font-family:var(--font-mono);">
+        <button id="stake-add" class="btn btn-gradient btn-sm">Stake USDC</button>
+        <button id="stake-req" class="btn btn-ghost btn-sm">Request unstake</button>
+        <button id="stake-done" class="btn btn-ghost btn-sm">Complete unstake</button>
+        <span id="stake-status" style="margin-left:auto; font-size:.6875rem; color:var(--text-3);"></span>
+      </div>
+      <div style="margin-top:10px; padding:8px 10px; background:var(--surface-0); border-radius:var(--radius-sm); font-size:.6875rem; color:var(--text-3); line-height:1.5;">
+        Min stake 100 USDC (Tier 1) · 500 (Tier 2) · 2000 (Tier 3). Unstake has a 7-day delay. A slash during that delay cancels the request — re-submit after. Slashes: 25/75/100% on 1st/2nd/3rd major incident, distributed 60% harmed user / 40% insurance.
+      </div>
+    </div>
+  </div>
+
+  <script>
+  (() => {
+    const AGENT_ID = 1;  // demo: seller dashboard is for agent 1. In prod, look up via getAgentByWallet(connectedAddress).
+    const el = (id) => document.getElementById(id);
+    const setStatus = (s) => { el('stake-status').textContent = s; };
+
+    async function refresh() {
+      if (!window.AgentHire || !window.ethereum) return;
+      try {
+        const provider = new ethers.JsonRpcProvider(window.AGENTHIRE_CHAIN.rpcUrl);
+        const staking = new ethers.Contract(window.AGENTHIRE_ADDRESSES.StakingSlashing, window.AGENTHIRE_ABIS.StakingSlashing, provider);
+        const rep = new ethers.Contract(window.AGENTHIRE_ADDRESSES.ReputationContract, window.AGENTHIRE_ABIS.ReputationContract, provider);
+        const [s, req, profile] = await Promise.all([
+          staking.getStake(AGENT_ID),
+          staking.getUnstakeRequest(AGENT_ID),
+          rep.getCreditProfile(AGENT_ID),
+        ]);
+        el('stake-agentid').textContent = '#' + AGENT_ID;
+        el('stake-amount').textContent = (Number(s[0])/1e6).toFixed(2) + ' USDC';
+        el('stake-incidents').textContent = s[1].toString() + (s[2] ? ' (banned)' : '');
+        el('stake-tier').textContent = profile.tier.toString();
+        if (req.amount > 0n) {
+          const avail = Number(req.availableAt);
+          const now = Math.floor(Date.now()/1000);
+          if (now >= avail) el('stake-unstake').textContent = 'READY: ' + (Number(req.amount)/1e6).toFixed(2) + ' USDC';
+          else el('stake-unstake').textContent = (Number(req.amount)/1e6).toFixed(2) + ' USDC · ' + new Date(avail*1000).toLocaleDateString();
+        } else el('stake-unstake').textContent = '—';
+      } catch (e) { console.warn('stake refresh failed', e); }
+    }
+
+    el('stake-add').addEventListener('click', async () => {
+      const amt = Number(el('stake-input').value) || 100;
+      try {
+        if (!window.AgentHire.connected) await window.AgentHire.connectWallet();
+        setStatus('approving USDC...');
+        const amtWei = BigInt(Math.floor(amt * 1e6));
+        const bal = await window.AgentHire.getUsdcBalance();
+        if (bal < amtWei) { setStatus('minting USDC...'); await window.AgentHire.mintUSDC(Math.max(1000, amt)); }
+        const usdc = window.AgentHire.contracts.MockUSDC;
+        await (await usdc.approve(window.AGENTHIRE_ADDRESSES.StakingSlashing, amtWei)).wait();
+        setStatus('staking...');
+        const tx = await window.AgentHire.contracts.StakingSlashing.stake(AGENT_ID, amtWei);
+        await tx.wait();
+        setStatus('staked ✓'); if (window.showToast) showToast(`Staked ${amt} USDC`, 'success'); refresh();
+      } catch (e) { setStatus('failed: ' + (e.message||'').slice(0, 80)); }
+    });
+
+    el('stake-req').addEventListener('click', async () => {
+      const amt = Number(el('stake-input').value) || 100;
+      try {
+        if (!window.AgentHire.connected) await window.AgentHire.connectWallet();
+        setStatus('requesting unstake...');
+        const tx = await window.AgentHire.contracts.StakingSlashing.requestUnstake(AGENT_ID, BigInt(Math.floor(amt * 1e6)));
+        await tx.wait();
+        setStatus('unstake queued — 7-day delay'); if (window.showToast) showToast('Unstake queued', 'success'); refresh();
+      } catch (e) { setStatus('failed: ' + (e.message||'').slice(0, 80)); }
+    });
+
+    el('stake-done').addEventListener('click', async () => {
+      try {
+        if (!window.AgentHire.connected) await window.AgentHire.connectWallet();
+        setStatus('completing unstake...');
+        const tx = await window.AgentHire.contracts.StakingSlashing.completeUnstake(AGENT_ID, window.AgentHire.address);
+        await tx.wait();
+        setStatus('unstake complete ✓'); if (window.showToast) showToast('Unstake withdrawn', 'success'); refresh();
+      } catch (e) { setStatus('failed: ' + (e.message||'').slice(0, 80)); }
+    });
+
+    refresh();
+    setInterval(refresh, 30000);
+  })();
+  </script>
+
   <div class="grid-2 gap-24 mb-32">
     <!-- Revenue Chart -->
     <div class="chart-wrap">
