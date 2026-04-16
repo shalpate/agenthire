@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+{% block title %}Earnings{% endblock %}
+
+{% block content %}
+<div class="container" style="padding-top:40px; padding-bottom:64px;">
+  <div class="mb-32">
+    <h1 style="font-size:1.75rem; margin-bottom:4px;">Earnings</h1>
+    <p>Revenue analytics, surge earnings, and payout history</p>
+  </div>
+
+  <!-- Stats -->
+  <div class="grid-4 mb-32">
+    <div class="stat-card">
+      <div class="text-xs text-muted mb-8" style="text-transform:uppercase; letter-spacing:.06em;">Total Revenue</div>
+      <div class="stat-value">${{ "{:,.2f}".format(earnings.total_revenue) }}</div>
+      <div class="stat-change up mt-8">↑ 18.4%</div>
+    </div>
+    <div class="stat-card">
+      <div class="text-xs text-muted mb-8" style="text-transform:uppercase; letter-spacing:.06em;">Escrowed</div>
+      <div class="stat-value">${{ "{:,.2f}".format(earnings.escrow_funds) }}</div>
+      <div class="text-xs text-muted mt-8">Pending release</div>
+    </div>
+    <div class="stat-card">
+      <div class="text-xs text-muted mb-8" style="text-transform:uppercase; letter-spacing:.06em;">Released</div>
+      <div class="stat-value">${{ "{:,.2f}".format(earnings.released_payouts) }}</div>
+      <div class="stat-change up mt-8">↑ Available</div>
+    </div>
+    <div class="stat-card">
+      <div class="text-xs text-muted mb-8" style="text-transform:uppercase; letter-spacing:.06em;">Platform Fees</div>
+      <div class="stat-value">${{ "{:,.2f}".format(earnings.platform_fees) }}</div>
+      <div class="text-xs text-muted mt-8">10 bps of revenue</div>
+    </div>
+  </div>
+
+  <!-- Revenue Chart -->
+  <div class="chart-wrap mb-24">
+    <div class="chart-header">
+      <span class="chart-title">Revenue vs Surge Earnings (12 months)</span>
+      <div class="flex-center gap-12">
+        <div class="flex-center gap-6 text-xs text-muted"><div style="width:10px;height:3px;background:var(--accent);border-radius:2px;"></div>Revenue</div>
+        <div class="flex-center gap-6 text-xs text-muted"><div style="width:10px;height:3px;background:var(--warning);border-radius:2px;"></div>Surge</div>
+      </div>
+    </div>
+    <div style="height:240px;">
+      <canvas id="earnings-chart" class="chart-canvas"></canvas>
+    </div>
+  </div>
+
+  <div class="grid-2 gap-24 mb-32">
+    <!-- Surge Analytics -->
+    <div class="card" style="border-color: rgba(245,158,11,.2);">
+      <div class="flex-center gap-10 mb-20">
+        <span style="font-size:1.25rem;">⚡</span>
+        <h3>Surge Analytics</h3>
+      </div>
+
+      <div class="grid-2 gap-16 mb-20">
+        <div style="background:var(--card-2); border:1px solid var(--border); border-radius:8px; padding:14px;">
+          <div class="text-xs text-muted mb-4">Surge Revenue (Apr)</div>
+          <div class="font-bold" style="font-size:1.25rem; color:var(--warning);">$1,620</div>
+          <div class="stat-change up" style="display:inline-block; margin-top:6px;">19.2% of total</div>
+        </div>
+        <div style="background:var(--card-2); border:1px solid var(--border); border-radius:8px; padding:14px;">
+          <div class="text-xs text-muted mb-4">Peak Multiplier</div>
+          <div class="font-bold" style="font-size:1.25rem; color:var(--warning);">2.1×</div>
+          <div class="text-xs text-muted mt-6">AlphaTrader AI</div>
+        </div>
+      </div>
+
+      <div class="font-bold text-sm mb-12">Peak Demand Windows</div>
+      {% for window in [('9:00 AM – 11:00 AM UTC', 'High', '1.6×–2.1×'), ('2:00 PM – 4:00 PM UTC', 'Medium', '1.2×–1.5×'), ('8:00 PM – 10:00 PM UTC', 'High', '1.4×–1.8×')] %}
+      <div class="flex-between py-10" style="border-bottom: 1px solid {{ 'var(--border)' if not loop.last else 'transparent' }};">
+        <div>
+          <div class="text-sm font-bold">{{ window[0] }}</div>
+          <div class="text-xs text-muted">Multiplier: {{ window[2] }}</div>
+        </div>
+        <span class="badge {{ 'badge-surge' if window[1] == 'High' else 'badge-testing' }}">{{ window[1] }}</span>
+      </div>
+      {% endfor %}
+    </div>
+
+    <!-- Usage Trends -->
+    <div class="card">
+      <h3 style="margin-bottom:20px;">Usage Trends</h3>
+      <div style="height:200px; margin-bottom:20px;">
+        <canvas id="usage-chart"></canvas>
+      </div>
+      <div class="flex-between text-sm">
+        <span class="text-muted">Total tasks (Apr)</span>
+        <span class="font-bold">2,841</span>
+      </div>
+      <div class="flex-between text-sm mt-10">
+        <span class="text-muted">Avg task value</span>
+        <span class="font-bold text-accent">$2.96</span>
+      </div>
+      <div class="flex-between text-sm mt-10">
+        <span class="text-muted">Completion rate</span>
+        <span class="font-bold text-success">98.3%</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Transaction History -->
+  <div class="card">
+    <div class="flex-between mb-16">
+      <h3>Transaction History</h3>
+      <button class="btn btn-ghost btn-sm" onclick="showToast('Exporting CSV…', 'info')">Export CSV</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Agent</th>
+            <th>Type</th>
+            <th>Amount</th>
+            <th>Fee</th>
+            <th>Net</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for tx in [
+            ('Apr 15, 2026', 'CodeReview Pro', 'Task Payment', 12.40, 0.012, 12.388, 'released'),
+            ('Apr 15, 2026', 'AlphaTrader AI', 'Task Payment (Surge)', 27.00, 0.027, 26.973, 'escrow'),
+            ('Apr 14, 2026', 'TranslateFlow', 'Task Payment', 3.20, 0.003, 3.197, 'released'),
+            ('Apr 14, 2026', 'CodeReview Pro', 'Task Payment (Surge)', 18.60, 0.019, 18.581, 'released'),
+            ('Apr 13, 2026', 'DataSift Analytics', 'Task Payment', 18.00, 0.018, 17.982, 'released'),
+          ] %}
+          <tr>
+            <td class="text-muted">{{ tx[0] }}</td>
+            <td class="font-bold">{{ tx[1] }}</td>
+            <td>
+              {{ tx[2] }}
+              {% if 'Surge' in tx[2] %}<span class="badge badge-surge" style="margin-left:6px;">⚡</span>{% endif %}
+            </td>
+            <td class="font-bold">${{ "%.2f"|format(tx[3]) }}</td>
+            <td class="text-muted">${{ "%.3f"|format(tx[4]) }}</td>
+            <td class="font-bold text-success">${{ "%.3f"|format(tx[5]) }}</td>
+            <td>
+              {% if tx[6] == 'released' %}
+              <span class="badge badge-approved">Released</span>
+              {% else %}
+              <span class="badge badge-escrow">In Escrow</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+makeLineChart('earnings-chart',
+  {{ earnings.labels | tojson }},
+  [
+    { label: 'Total Revenue', data: {{ earnings.monthly | tojson }}, borderColor: '#3B82F6', backgroundColor: 'rgba(59,130,246,.08)', fill: true },
+    { label: 'Surge Earnings', data: {{ earnings.surge_earnings | tojson }}, borderColor: '#F59E0B', backgroundColor: 'rgba(245,158,11,.06)', fill: true },
+  ]
+);
+
+makeBarChart('usage-chart',
+  ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],
+  [{ label: 'Tasks', data: [320, 480, 390, 520, 610, 280, 241], backgroundColor: 'rgba(59,130,246,.5)', borderColor: '#3B82F6', borderWidth: 1 }]
+);
+</script>
+{% endblock %}

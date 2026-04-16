@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% block title %}Seller Dashboard{% endblock %}
+
+{% block content %}
+<div class="container" style="padding-top:40px; padding-bottom:64px;">
+  <div class="flex-between mb-32">
+    <div>
+      <h1 style="font-size:1.75rem; margin-bottom:4px;">Seller Dashboard</h1>
+      <p class="text-sm text-muted">Connected: 0x3f8a...c12d</p>
+    </div>
+    <a href="/seller/create" class="btn btn-primary">+ New Agent</a>
+  </div>
+
+  <!-- Stats -->
+  <div class="grid-4 mb-32">
+    <div class="stat-card">
+      <div class="text-xs text-muted mb-8" style="text-transform:uppercase; letter-spacing:.06em;">Total Revenue</div>
+      <div class="stat-value">${{ "{:,.2f}".format(earnings.total_revenue) }}</div>
+      <div class="stat-change up mt-8">↑ 18% this month</div>
+    </div>
+    <div class="stat-card">
+      <div class="text-xs text-muted mb-8" style="text-transform:uppercase; letter-spacing:.06em;">Active Orders</div>
+      <div class="stat-value">{{ orders|selectattr('status','equalto','in_progress')|list|length + orders|selectattr('status','equalto','in_escrow')|list|length }}</div>
+      <div class="stat-change up mt-8">↑ 3 new today</div>
+    </div>
+    <div class="stat-card">
+      <div class="text-xs text-muted mb-8" style="text-transform:uppercase; letter-spacing:.06em;">Listed Agents</div>
+      <div class="stat-value">{{ agents|length }}</div>
+      <div class="stat-change up mt-8">↑ 1 new</div>
+    </div>
+    <div class="stat-card">
+      <div class="text-xs text-muted mb-8" style="text-transform:uppercase; letter-spacing:.06em;">Avg Rating</div>
+      <div class="stat-value" style="display:flex; align-items:center; gap:8px;">4.7 <span style="color:var(--warning); font-size:1.25rem;">★</span></div>
+      <div class="stat-change up mt-8">↑ 0.1 vs last month</div>
+    </div>
+  </div>
+
+  <div class="grid-2 gap-24 mb-32">
+    <!-- Revenue Chart -->
+    <div class="chart-wrap">
+      <div class="chart-header">
+        <span class="chart-title">Revenue (Last 12 months)</span>
+        <span class="badge badge-testing">USDC</span>
+      </div>
+      <div style="height:200px;">
+        <canvas id="revenue-chart" class="chart-canvas"></canvas>
+      </div>
+    </div>
+
+    <!-- My Agents -->
+    <div class="card">
+      <div class="flex-between mb-16">
+        <h3>My Agents</h3>
+        <a href="/seller/create" class="btn btn-ghost btn-sm">Manage →</a>
+      </div>
+      {% for agent in agents %}
+      <div class="flex-between py-12" style="border-bottom: 1px solid {{ 'var(--border)' if not loop.last else 'transparent' }};">
+        <div class="flex-center gap-10">
+          {% set colors = ['#1E3A5F','#2D1B4E','#1A3A2E'] %}
+          {% set emojis = ['🤖','⚡','🧠'] %}
+          <div class="agent-avatar" style="width:36px; height:36px; border-radius:8px; font-size:.9rem; background:{{ colors[loop.index0 % 3] }};">{{ emojis[loop.index0 % 3] }}</div>
+          <div>
+            <div class="font-bold text-sm">{{ agent.name }}</div>
+            <div class="text-xs text-muted">{{ "{:,}".format(agent.tasks_completed) }} tasks</div>
+          </div>
+        </div>
+        <div style="text-align:right;">
+          {% if agent.verified %}
+          <span class="badge badge-verified">✓ Verified</span>
+          {% else %}
+          <span class="badge badge-unverified">Unverified</span>
+          {% endif %}
+          {% if agent.surge_active %}
+          <span class="badge badge-surge">⚡ Surge</span>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Recent Orders -->
+  <div class="card">
+    <div class="flex-between mb-16">
+      <h3>Recent Orders</h3>
+      <a href="/seller/orders" class="btn btn-ghost btn-sm">View All →</a>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Order ID</th>
+            <th>Agent</th>
+            <th>Buyer</th>
+            <th>Amount</th>
+            <th>Status</th>
+            <th>Date</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for order in orders %}
+          <tr>
+            <td class="font-bold text-accent">{{ order.id }}</td>
+            <td>{{ order.agent }}</td>
+            <td class="text-muted">{{ order.buyer }}</td>
+            <td class="font-bold">${{ "%.2f"|format(order.amount) }}</td>
+            <td>
+              {% if order.status == 'completed' %}
+              <span class="badge badge-approved">Completed</span>
+              {% elif order.status == 'in_progress' %}
+              <span class="badge badge-testing">In Progress</span>
+              {% elif order.status == 'in_escrow' %}
+              <span class="badge badge-escrow">In Escrow</span>
+              {% endif %}
+            </td>
+            <td class="text-muted">{{ order.date }}</td>
+            <td><a href="/order/{{ order.id }}" class="btn btn-ghost btn-sm">View</a></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+makeLineChart('revenue-chart',
+  {{ earnings.labels | tojson }},
+  [
+    {
+      label: 'Revenue (USDC)',
+      data: {{ earnings.monthly | tojson }},
+      borderColor: '#3B82F6',
+      backgroundColor: 'rgba(59,130,246,.08)',
+      fill: true,
+    },
+    {
+      label: 'Surge Earnings',
+      data: {{ earnings.surge_earnings | tojson }},
+      borderColor: '#F59E0B',
+      backgroundColor: 'rgba(245,158,11,.06)',
+      fill: true,
+    }
+  ]
+);
+</script>
+{% endblock %}

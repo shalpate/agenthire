@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% block title %}Verification Queue{% endblock %}
+
+{% block content %}
+<div class="admin-layout">
+  <aside class="admin-sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-label">Protocol</div>
+      <a href="/admin/dashboard" class="sidebar-link"><span class="sidebar-icon">📊</span> Dashboard</a>
+      <a href="/admin/verification-queue" class="sidebar-link active"><span class="sidebar-icon">🛡</span> Verification Queue</a>
+      <a href="/admin/moderation" class="sidebar-link"><span class="sidebar-icon">🚩</span> Moderation</a>
+      <a href="/admin/payouts" class="sidebar-link"><span class="sidebar-icon">💰</span> Payouts</a>
+    </div>
+  </aside>
+
+  <main class="admin-main">
+    <div class="flex-between mb-32">
+      <div>
+        <h1 style="font-size:1.75rem; margin-bottom:4px;">Verification Queue</h1>
+        <p>{{ queue|length }} agents awaiting review</p>
+      </div>
+      <div class="flex-center gap-10">
+        <span class="badge badge-warning" style="font-size:.875rem; padding:6px 14px;">{{ queue|selectattr('status','in',['pending','testing','human_review'])|list|length }} Pending</span>
+      </div>
+    </div>
+
+    <div class="flex-col gap-20">
+      {% set status_meta = {
+        'pending':      ('badge-pending',  '⏳', 'Pending'),
+        'testing':      ('badge-testing',  '🔬', 'Testing'),
+        'human_review': ('badge-review',   '👁', 'Human Review'),
+        'approved':     ('badge-approved', '✓',  'Approved'),
+        'rejected':     ('badge-rejected', '✕',  'Rejected'),
+      } %}
+      {% for item in queue %}
+      {% set meta = status_meta[item.status] %}
+      <div class="card">
+        <!-- Header -->
+        <div class="flex-between mb-20">
+          <div class="flex-center gap-16">
+            <div style="width:48px; height:48px; border-radius:12px; background:var(--card-2); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:1.25rem;">🤖</div>
+            <div>
+              <div class="flex-center gap-10 mb-4">
+                <span class="font-bold" style="font-size:1.0625rem;">{{ item.agent }}</span>
+                <span class="badge {{ meta[0] }}">{{ meta[1] }} {{ meta[2] }}</span>
+                <span class="badge {{ 'badge-testing' if item.tier == 'thorough' else 'badge-pending' }}">{{ item.tier.title() }} Audit</span>
+              </div>
+              <div class="text-sm text-muted">{{ item.id }} · by <strong style="color:var(--text);">{{ item.seller }}</strong> · Submitted {{ item.submitted }}</div>
+            </div>
+          </div>
+          <div class="text-sm font-bold text-accent">{{ '$50' if item.tier == 'thorough' else '$10' }} USDC</div>
+        </div>
+
+        {% if item.safety_score is not none %}
+        <div class="grid-2 gap-32 mb-20">
+          <!-- Test Scores -->
+          <div>
+            <div class="font-bold text-sm mb-14">Automated Test Results</div>
+            <div class="score-bar">
+              <div class="score-row">
+                <span class="score-label">Safety</span>
+                <div class="score-track"><div class="score-fill {{ 'warn' if item.safety_score < 85 }}" style="width:{{ item.safety_score }}%;"></div></div>
+                <span class="score-value">{{ item.safety_score }}%</span>
+              </div>
+              <div class="score-row">
+                <span class="score-label">Performance</span>
+                <div class="score-track"><div class="score-fill {{ 'warn' if item.performance_score < 85 }}" style="width:{{ item.performance_score }}%;"></div></div>
+                <span class="score-value">{{ item.performance_score }}%</span>
+              </div>
+              <div class="score-row">
+                <span class="score-label">Reliability</span>
+                <div class="score-track"><div class="score-fill {{ 'warn' if item.reliability_score < 85 }}" style="width:{{ item.reliability_score }}%;"></div></div>
+                <span class="score-value">{{ item.reliability_score }}%</span>
+              </div>
+            </div>
+          </div>
+
+          {% if item.status == 'human_review' %}
+          <!-- Human Review Checklist -->
+          <div>
+            <div class="font-bold text-sm mb-14">Human Review Checklist</div>
+            <div class="flex-col gap-8">
+              {% for check in ['Output quality meets standard', 'No harmful content generated', 'Pricing model is accurate', 'API endpoint is stable', 'Terms of service compliant'] %}
+              <label class="flex-center gap-10" style="cursor:pointer; font-size:.875rem;">
+                <input type="checkbox" style="accent-color:var(--accent); width:15px; height:15px;" {% if loop.index <= 3 %}checked{% endif %}>
+                <span {{ 'class="text-muted"' if loop.index > 3 }}>{{ check }}</span>
+              </label>
+              {% endfor %}
+            </div>
+          </div>
+          {% endif %}
+        </div>
+        {% else %}
+        <div class="flex-center gap-12 mb-20">
+          <div class="skeleton skel-line" style="height:10px; flex:1;"></div>
+          <div class="skeleton skel-line" style="height:10px; flex:1;"></div>
+          <div class="skeleton skel-line" style="height:10px; flex:1;"></div>
+        </div>
+        {% endif %}
+
+        <!-- Notes -->
+        {% if item.status in ['human_review', 'testing'] %}
+        <div class="form-group mb-16">
+          <label class="form-label">Reviewer Notes</label>
+          <textarea class="form-textarea" placeholder="Add notes for this review…" style="min-height:70px;"></textarea>
+        </div>
+        {% endif %}
+
+        <!-- Actions -->
+        {% if item.status not in ['approved', 'rejected'] %}
+        <div class="flex-between">
+          <div class="action-group flex-center gap-10">
+            <button class="btn btn-success btn-sm approve-btn">✓ Approve</button>
+            <button class="btn btn-danger btn-sm reject-btn">✕ Reject</button>
+          </div>
+          {% if item.status == 'pending' %}
+          <button class="btn btn-secondary btn-sm" onclick="showToast('Tests started for {{ item.agent }}', 'info')">Start Testing</button>
+          {% elif item.status == 'testing' %}
+          <button class="btn btn-secondary btn-sm" onclick="showToast('Escalated to human review', 'info')">Escalate to Human Review</button>
+          {% endif %}
+        </div>
+        {% else %}
+        <div class="flex-center gap-10">
+          <span class="badge {{ meta[0] }}" style="font-size:.875rem; padding:5px 14px;">{{ meta[1] }} {{ meta[2] }}</span>
+          <span class="text-sm text-muted">Decision recorded</span>
+        </div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </main>
+</div>
+{% endblock %}

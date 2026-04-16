@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+{% block title %}Marketplace{% endblock %}
+
+{% block content %}
+<div class="container" style="padding-top:32px; padding-bottom:64px;">
+
+  <!-- Header + Search -->
+  <div class="mb-24">
+    <h1 style="font-size:1.75rem; margin-bottom:16px;">Agent Marketplace</h1>
+    <form method="get" action="/marketplace" id="filter-form">
+      <div class="search-bar" style="max-width:640px;">
+        <span class="search-icon">🔍</span>
+        <input type="text" name="q" id="marketplace-search" placeholder="Search agents by name, category, or capability…" value="{{ filters.q }}">
+        {% if filters.q %}<button type="button" onclick="document.querySelector('[name=q]').value=''; document.getElementById('filter-form').submit();" style="background:none;border:none;color:var(--text-2);cursor:pointer;">✕</button>{% endif %}
+      </div>
+
+      <div class="marketplace-layout mt-24">
+
+        <!-- Sidebar Filters -->
+        <aside class="filter-sidebar">
+          <div class="filter-group">
+            <h4>Category</h4>
+            <label class="filter-option">
+              <input type="radio" name="category" value="" {% if not filters.category %}checked{% endif %} onchange="this.form.submit()"> All Categories
+            </label>
+            {% for cat in categories %}
+            <label class="filter-option">
+              <input type="radio" name="category" value="{{ cat }}" {% if filters.category == cat %}checked{% endif %} onchange="this.form.submit()"> {{ cat }}
+            </label>
+            {% endfor %}
+          </div>
+
+          <div class="filter-group">
+            <h4>Verification</h4>
+            <label class="filter-option">
+              <input type="radio" name="verified" value="" {% if not filters.verified %}checked{% endif %} onchange="this.form.submit()"> All
+            </label>
+            <label class="filter-option">
+              <input type="radio" name="verified" value="verified" {% if filters.verified == 'verified' %}checked{% endif %} onchange="this.form.submit()"> Verified only
+            </label>
+            <label class="filter-option">
+              <input type="radio" name="verified" value="unverified" {% if filters.verified == 'unverified' %}checked{% endif %} onchange="this.form.submit()"> Unverified
+            </label>
+          </div>
+
+          <div class="filter-group">
+            <h4>Use Case</h4>
+            <label class="filter-option">
+              <input type="radio" name="use_case" value="" {% if not filters.use_case %}checked{% endif %} onchange="this.form.submit()"> All
+            </label>
+            {% for uc in use_cases %}
+            <label class="filter-option">
+              <input type="radio" name="use_case" value="{{ uc }}" {% if filters.use_case == uc %}checked{% endif %} onchange="this.form.submit()"> {{ uc }}
+            </label>
+            {% endfor %}
+          </div>
+
+          <div class="filter-group">
+            <h4>Featured</h4>
+            <label class="filter-option">
+              <input type="checkbox" name="featured" value="1" {% if filters.featured %}checked{% endif %} onchange="this.form.submit()"> Featured only
+            </label>
+          </div>
+
+          <button type="button" class="btn btn-ghost btn-sm w-full" onclick="window.location='/marketplace'">Clear Filters</button>
+        </aside>
+
+        <!-- Main Grid -->
+        <div class="marketplace-main">
+          <!-- Sort Bar -->
+          <div class="flex-between mb-16" style="flex-wrap:wrap; gap:12px;">
+            <span class="text-sm text-muted">{{ agents|length }} agent{{ 's' if agents|length != 1 }}</span>
+            <div class="sort-bar">
+              <span class="text-xs text-muted" style="margin-right:4px;">Sort:</span>
+              {% for s, label in [('relevance','Relevance'),('price_low','Price ↑'),('price_high','Price ↓'),('rating','Rating'),('newest','Newest')] %}
+              <button type="button" class="sort-btn {{ 'active' if filters.sort == s }}" onclick="document.querySelector('[name=sort]')?.remove(); let i=document.createElement('input'); i.type='hidden'; i.name='sort'; i.value='{{ s }}'; document.getElementById('filter-form').appendChild(i); document.getElementById('filter-form').submit();">{{ label }}</button>
+              {% endfor %}
+            </div>
+          </div>
+
+          {% if agents %}
+          {% set cat_codes   = {'Development':'DEV','Data & Analytics':'DAT','Content':'CON','Finance':'FIN','Research':'RES','Security':'SEC','Automation':'AUT'} %}
+          {% set cat_colors  = {'Development':'#1a2a1a','Data & Analytics':'#1a1a2e','Content':'#2a1a2a','Finance':'#1a2a2a','Research':'#2a2a1a','Security':'#2a1a1a','Automation':'#1e1a2a'} %}
+          <div class="grid-agents" style="background:var(--border); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden;">
+            {% for agent in agents %}
+            <a href="/agent/{{ agent.id }}" style="text-decoration:none;">
+              <div class="agent-card {{ 'verified' if agent.verified else 'unverified' }} {{ 'featured' if agent.featured }}">
+                <div class="agent-card-header">
+                  <div class="flex-center gap-12">
+                    <div class="agent-avatar" style="background:{{ cat_colors.get(agent.category,'#1a1a2a') }}; color:var(--{{ 'green' if agent.verified else 'amber' }});">
+                      {{ cat_codes.get(agent.category, 'AGT') }}
+                    </div>
+                    <div>
+                      <div class="agent-card-name">{{ agent.name }}</div>
+                      <div style="font-size:.6875rem; color:var(--text-3); font-family:var(--font-mono);">{{ agent.seller }}</div>
+                    </div>
+                  </div>
+                  <div class="flex-col gap-4" style="align-items:flex-end;">
+                    {% if agent.verified %}
+                    <span class="badge badge-verified">✓ Verified</span>
+                    {% else %}
+                    <span class="badge badge-unverified">Unverified</span>
+                    {% endif %}
+                    {% if agent.featured %}<span class="badge badge-featured">Featured</span>{% endif %}
+                  </div>
+                </div>
+
+                {% if agent.surge_active %}
+                <div class="surge-banner" style="padding:5px 9px; font-size:.6875rem;">
+                  ⚡ SURGE ×{{ agent.surge_multiplier }}
+                </div>
+                {% endif %}
+
+                <p class="agent-card-desc">{{ agent.description }}</p>
+
+                <div class="agent-card-footer">
+                  <div>
+                    <div class="price-small">${{ "%.5f"|format(agent.current_price) }}</div>
+                    <div style="font-family:var(--font-mono); font-size:.625rem; color:var(--text-3); margin-top:2px; text-transform:uppercase; letter-spacing:.04em;">
+                      {{ 'per token' if agent.billing == 'per_token' else 'per min' }}
+                    </div>
+                  </div>
+                  <div class="flex-center gap-10">
+                    {% set demand = (agent.tasks_completed / 5000) | int %}
+                    <div class="signal-bars">
+                      {% for i in range(5) %}
+                      <div class="signal-bar {% if i < demand %}{{ 'surge' if agent.surge_active else 'active' }}{% endif %}"
+                           style="height:{{ (i+1)*3+3 }}px;"></div>
+                      {% endfor %}
+                    </div>
+                    <div class="rating">
+                      <span class="stars">★</span>
+                      <span class="rating-value">{{ agent.rating }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </a>
+            {% endfor %}
+          </div>
+          {% else %}
+          <div class="empty-state">
+            <div class="icon">🔍</div>
+            <h3>No agents found</h3>
+            <p>Try adjusting your filters or search query.</p>
+            <a href="/marketplace" class="btn btn-secondary mt-16">Clear All Filters</a>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

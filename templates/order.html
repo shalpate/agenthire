@@ -1,0 +1,189 @@
+{% extends "base.html" %}
+{% block title %}Order {{ order.id }}{% endblock %}
+
+{% block content %}
+<div class="container" style="padding-top:40px; padding-bottom:64px;">
+  <div class="flex-between mb-32">
+    <div>
+      <div class="text-sm text-muted mb-8">Order ID: <strong style="color:var(--text);">{{ order.id }}</strong></div>
+      <h1 style="font-size:1.75rem; margin-bottom:4px;">{{ order.task }}</h1>
+      <div class="flex-center gap-12 mt-8">
+        {% if order.status == 'completed' %}
+          <span class="badge badge-approved">✓ Completed</span>
+        {% elif order.status == 'in_progress' %}
+          <span class="badge badge-testing">⟳ In Progress</span>
+        {% elif order.status == 'in_escrow' %}
+          <span class="badge badge-escrow">🔒 In Escrow</span>
+        {% endif %}
+        <span class="text-sm text-muted">{{ order.date }}</span>
+      </div>
+    </div>
+    {% if order.status == 'in_progress' or order.status == 'in_escrow' %}
+    <button class="btn btn-success" id="mark-complete">Mark Complete & Release</button>
+    {% endif %}
+  </div>
+
+  <div style="display:grid; grid-template-columns:1fr 360px; gap:32px; align-items:start;">
+    <!-- Main -->
+    <div class="flex-col gap-20">
+
+      <!-- Timeline -->
+      <div class="card">
+        <h3 style="margin-bottom:24px;">Order Progress</h3>
+        <div class="timeline">
+          <div class="timeline-item">
+            <div class="timeline-dot done">✓</div>
+            <div class="timeline-content" style="padding-top:4px;">
+              <h4>Payment Received</h4>
+              <p>${{ order.amount }} USDC locked in escrow on Avalanche C-Chain</p>
+              <div class="text-xs text-muted mt-4">{{ order.date }} · Tx: 0x3f8a4c...b12d</div>
+            </div>
+          </div>
+          <div class="timeline-item">
+            {% if order.status in ['in_progress', 'completed'] %}
+            <div class="timeline-dot done">✓</div>
+            {% else %}
+            <div class="timeline-dot active">⟳</div>
+            {% endif %}
+            <div class="timeline-content" style="padding-top:4px;">
+              <h4>Task In Progress</h4>
+              <p>Agent is executing your task. Real-time updates below.</p>
+            </div>
+          </div>
+          <div class="timeline-item">
+            {% if order.status == 'completed' %}
+            <div class="timeline-dot done">✓</div>
+            {% elif order.status == 'in_progress' %}
+            <div class="timeline-dot active">⟳</div>
+            {% else %}
+            <div class="timeline-dot">3</div>
+            {% endif %}
+            <div class="timeline-content" style="padding-top:4px;">
+              <h4>Task Completed</h4>
+              <p>Results delivered and awaiting your confirmation.</p>
+            </div>
+          </div>
+          <div class="timeline-item" style="padding-bottom:0;">
+            {% if order.status == 'completed' %}
+            <div class="timeline-dot done">✓</div>
+            {% else %}
+            <div class="timeline-dot">4</div>
+            {% endif %}
+            <div class="timeline-content" style="padding-top:4px;">
+              <h4>Payment Released</h4>
+              <p>Escrow funds released to seller upon confirmation.</p>
+              {% if order.status == 'completed' %}
+              <div class="text-xs text-muted mt-4">Tx: 0xabc1d2...e34f</div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Task Output / Result -->
+      <div class="card">
+        <div class="flex-between mb-16">
+          <h3>Task Output</h3>
+          {% if order.status == 'completed' %}
+          <span class="badge badge-approved">Delivered</span>
+          {% elif order.status == 'in_progress' %}
+          <div class="live-indicator"><span class="live-dot"></span> Processing…</div>
+          {% endif %}
+        </div>
+
+        {% if order.status == 'completed' %}
+        <div style="background:var(--card-2); border:1px solid var(--border); border-radius:8px; padding:16px; font-family: 'Courier New', monospace; font-size:.8125rem; color: var(--text); line-height:1.7;">
+          <div style="color:var(--success); margin-bottom:12px;">// Task completed successfully</div>
+          <div style="color:var(--text-2);">// Agent: {{ order.agent }}</div>
+          <div style="color:var(--text-2); margin-bottom:12px;">// Duration: 3m 42s · Tokens: 2,840</div>
+          <div>Analysis complete. 3 critical issues found:</div>
+          <div style="color:var(--error);">  [HIGH] SQL injection vulnerability at line 142</div>
+          <div style="color:var(--warning);">  [MED]  Unvalidated input in auth middleware</div>
+          <div style="color:var(--warning);">  [MED]  Hardcoded credentials in config.py</div>
+          <div style="color:var(--success);">  [LOW]  Missing rate limiting on /api/search</div>
+          <div style="margin-top:12px;">Remediation report generated: <span style="color:var(--accent);">report_20260415.pdf</span></div>
+        </div>
+        <div style="display:flex; gap:10px; margin-top:14px;">
+          <button class="btn btn-secondary btn-sm" onclick="showToast('Downloading report…', 'info')">⬇ Download Report</button>
+          <button class="btn btn-ghost btn-sm" onclick="showToast('Output copied to clipboard', 'success')">📋 Copy Output</button>
+        </div>
+        {% elif order.status == 'in_progress' %}
+        <div style="display:flex; flex-direction:column; gap:12px;">
+          <div class="skeleton skel-line" style="height:12px;"></div>
+          <div class="skeleton skel-line short" style="height:12px;"></div>
+          <div class="skeleton skel-line" style="height:12px;"></div>
+          <div class="skeleton skel-line xshort" style="height:12px;"></div>
+        </div>
+        <div class="progress-bar mt-16">
+          <div class="progress-fill" style="width:62%;"></div>
+        </div>
+        <div class="text-xs text-muted mt-8">62% complete · Est. 2 min remaining</div>
+        {% else %}
+        <div class="empty-state" style="padding:32px;">
+          <div class="icon">⏳</div>
+          <h3>Waiting to start</h3>
+          <p>Output will appear here once the agent begins processing.</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="flex-col gap-16">
+      <!-- Payment Summary -->
+      <div class="card">
+        <h4 style="margin-bottom:16px;">Payment Summary</h4>
+        <div class="flex-between mb-10 text-sm">
+          <span class="text-muted">Agent</span>
+          <span class="font-bold">{{ order.agent }}</span>
+        </div>
+        <div class="flex-between mb-10 text-sm">
+          <span class="text-muted">Amount</span>
+          <span class="font-bold text-accent">${{ order.amount }} USDC</span>
+        </div>
+        <div class="flex-between mb-10 text-sm">
+          <span class="text-muted">Platform fee</span>
+          <span>${{ "%.4f"|format(order.amount * 0.001) }}</span>
+        </div>
+        <div class="flex-between mb-16 text-sm">
+          <span class="text-muted">Escrow status</span>
+          <span class="badge {% if order.status == 'completed' %}badge-approved{% else %}badge-escrow{% endif %}">
+            {% if order.status == 'completed' %}Released{% else %}Locked{% endif %}
+          </span>
+        </div>
+        <div class="divider"></div>
+        <div class="text-xs text-muted">Settled on Avalanche C-Chain · x402 Protocol</div>
+      </div>
+
+      <!-- Agent Info -->
+      <div class="card">
+        <h4 style="margin-bottom:12px;">Agent</h4>
+        <a href="/agent/{{ agent.id }}" class="flex-center gap-12" style="text-decoration:none;">
+          <div class="agent-avatar" style="width:40px; height:40px; background:#1E3A5F; border-radius:10px; font-size:1.1rem;">🤖</div>
+          <div>
+            <div class="font-bold text-sm">{{ agent.name }}</div>
+            <div class="text-xs text-muted">{{ agent.seller }}</div>
+          </div>
+        </a>
+      </div>
+
+      {% if order.status == 'completed' %}
+      <div class="card" style="text-align:center; border-color: rgba(34,197,94,.2);">
+        <div style="font-size:1.5rem; margin-bottom:8px;">⭐</div>
+        <div class="font-bold mb-8">Rate this agent</div>
+        <p class="text-sm mb-16">Help other buyers with your experience</p>
+        <button class="btn btn-secondary btn-sm w-full" onclick="openModal('rating-modal')">Leave a Review</button>
+      </div>
+      {% endif %}
+
+      {% if order.status in ['in_progress', 'in_escrow'] %}
+      <div class="card" style="background:rgba(239,68,68,.04); border-color:rgba(239,68,68,.15);">
+        <h4 style="margin-bottom:8px; color:var(--error);">Need Help?</h4>
+        <p class="text-sm mb-12">If the agent isn't performing as expected, you can raise a dispute.</p>
+        <button class="btn btn-ghost btn-sm w-full" onclick="showToast('Dispute form opened', 'info')">Open Dispute</button>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

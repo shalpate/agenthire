@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+{% block title %}Admin Dashboard{% endblock %}
+
+{% block content %}
+<div class="admin-layout">
+  <!-- Sidebar -->
+  <aside class="admin-sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-label">Protocol</div>
+      <a href="/admin/dashboard" class="sidebar-link active"><span class="sidebar-icon">📊</span> Dashboard</a>
+      <a href="/admin/verification-queue" class="sidebar-link"><span class="sidebar-icon">🛡</span> Verification Queue</a>
+      <a href="/admin/moderation" class="sidebar-link"><span class="sidebar-icon">🚩</span> Moderation</a>
+      <a href="/admin/payouts" class="sidebar-link"><span class="sidebar-icon">💰</span> Payouts</a>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Marketplace</div>
+      <a href="/marketplace" class="sidebar-link"><span class="sidebar-icon">🏪</span> Browse Agents</a>
+    </div>
+    <div class="sidebar-section" style="margin-top:auto; padding-top:24px; border-top:1px solid var(--border);">
+      <div class="text-xs text-muted" style="padding:0 12px; margin-bottom:8px;">Network</div>
+      <div class="sidebar-link" style="cursor:default;">
+        <span class="live-dot"></span>
+        <span class="text-xs text-success font-bold">Avalanche C-Chain</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="admin-main">
+    <div class="flex-between mb-32">
+      <div>
+        <h1 style="font-size:1.75rem; margin-bottom:4px;">Protocol Dashboard</h1>
+        <p class="text-sm text-muted">AgentHire · Admin · Apr 15, 2026</p>
+      </div>
+      <div class="flex-center gap-10">
+        <div class="footer-chain"><span class="live-dot"></span> Live</div>
+      </div>
+    </div>
+
+    <!-- Key Metrics -->
+    <div class="grid-4 mb-32">
+      <div class="stat-card">
+        <div class="text-xs text-muted mb-8" style="text-transform:uppercase; letter-spacing:.06em;">Total Agents</div>
+        <div class="stat-value">{{ stats.total_agents }}</div>
+        <div class="stat-change up mt-8">↑ 3 new this week</div>
+      </div>
+      <div class="stat-card">
+        <div class="text-xs text-muted mb-8" style="text-transform:uppercase; letter-spacing:.06em;">Pending Verifications</div>
+        <div class="stat-value" style="color:var(--warning);">{{ stats.pending_verifications }}</div>
+        <a href="/admin/verification-queue" class="text-xs text-accent mt-8" style="display:block;">Review queue →</a>
+      </div>
+      <div class="stat-card">
+        <div class="text-xs text-muted mb-8" style="text-transform:uppercase; letter-spacing:.06em;">Active Orders</div>
+        <div class="stat-value">{{ stats.active_orders }}</div>
+        <div class="stat-change up mt-8">2 in escrow</div>
+      </div>
+      <div class="stat-card">
+        <div class="text-xs text-muted mb-8" style="text-transform:uppercase; letter-spacing:.06em;">Surge Revenue %</div>
+        <div class="stat-value" style="color:var(--warning);">{{ stats.surge_revenue_pct }}%</div>
+        <div class="stat-change up mt-8">↑ of total volume</div>
+      </div>
+    </div>
+
+    <div class="grid-2 gap-24 mb-32">
+      <!-- Hourly Revenue -->
+      <div class="chart-wrap">
+        <div class="chart-header">
+          <span class="chart-title">Revenue by Hour (Today)</span>
+          <span class="live-indicator"><span class="live-dot"></span> Live</span>
+        </div>
+        <div style="height:200px;">
+          <canvas id="hourly-chart"></canvas>
+        </div>
+      </div>
+
+      <!-- Platform Split -->
+      <div class="chart-wrap">
+        <div class="chart-header">
+          <span class="chart-title">Revenue Breakdown</span>
+        </div>
+        <div style="height:200px;">
+          <canvas id="breakdown-chart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Volume + Surge -->
+    <div class="card mb-24">
+      <div class="flex-between mb-20">
+        <h3>Total Volume</h3>
+        <div class="flex-center gap-12">
+          <span class="text-2xl font-bold" style="font-size:1.5rem; font-weight:700;">${{ "{:,.2f}".format(stats.total_volume) }} USDC</span>
+          <span class="stat-change up">↑ 22.4%</span>
+        </div>
+      </div>
+      <div class="grid-4">
+        <div>
+          <div class="text-xs text-muted mb-4">Settled Today</div>
+          <div class="font-bold" style="font-size:1.125rem;">$8,420</div>
+        </div>
+        <div>
+          <div class="text-xs text-muted mb-4">Surge Volume</div>
+          <div class="font-bold" style="font-size:1.125rem; color:var(--warning);">$1,548</div>
+        </div>
+        <div>
+          <div class="text-xs text-muted mb-4">Protocol Fees (10 bps)</div>
+          <div class="font-bold" style="font-size:1.125rem; color:var(--success);">$142.83</div>
+        </div>
+        <div>
+          <div class="text-xs text-muted mb-4">Avg Order Value</div>
+          <div class="font-bold" style="font-size:1.125rem;">$24.20</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recent Agents -->
+    <div class="card">
+      <div class="flex-between mb-16">
+        <h3>All Agents</h3>
+        <a href="/marketplace" class="btn btn-ghost btn-sm">View Marketplace →</a>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Agent</th>
+              <th>Seller</th>
+              <th>Category</th>
+              <th>Verification</th>
+              <th>Rating</th>
+              <th>Tasks</th>
+              <th>Surge</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for agent in agents[:8] %}
+            <tr>
+              <td class="font-bold">{{ agent.name }}</td>
+              <td class="text-muted">{{ agent.seller }}</td>
+              <td>{{ agent.category }}</td>
+              <td>
+                {% if agent.verified %}
+                <span class="badge badge-verified">✓ {{ agent.verification_tier.title() }}</span>
+                {% else %}
+                <span class="badge badge-unverified">Unverified</span>
+                {% endif %}
+              </td>
+              <td>
+                <div class="rating">
+                  <span class="stars">★</span>
+                  <span class="rating-value">{{ agent.rating }}</span>
+                </div>
+              </td>
+              <td>{{ "{:,}".format(agent.tasks_completed) }}</td>
+              <td>
+                {% if agent.surge_active %}
+                <span class="badge badge-surge">⚡ {{ agent.surge_multiplier }}×</span>
+                {% else %}
+                <span class="text-muted text-xs">—</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+makeBarChart('hourly-chart',
+  {{ stats.revenue_labels | tojson }},
+  [{
+    label: 'Revenue (USDC)',
+    data: {{ stats.hourly_revenue | tojson }},
+    backgroundColor: 'rgba(59,130,246,.5)',
+    borderColor: '#3B82F6',
+    borderWidth: 1,
+  }]
+);
+
+makeDoughnutChart('breakdown-chart',
+  ['Base Revenue', 'Surge Revenue', 'Protocol Fees'],
+  [81.6, 18.4, 0.14],
+  ['#3B82F6', '#F59E0B', '#22C55E']
+);
+</script>
+{% endblock %}

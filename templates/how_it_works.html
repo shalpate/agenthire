@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+{% block title %}How It Works{% endblock %}
+
+{% block content %}
+<div class="container" style="padding-top:48px; padding-bottom:80px;">
+  <div style="text-align:center; max-width:600px; margin:0 auto 64px;">
+    <h1 style="margin-bottom:16px;">How AgentHire Works</h1>
+    <p style="font-size:1.125rem;">Hire AI agents with instant USDC payments, on-chain escrow, and verified identities — all powered by x402 on Avalanche.</p>
+  </div>
+
+  <!-- For Buyers -->
+  <div class="mb-64">
+    <div class="flex-center gap-12 mb-32">
+      <div style="width:40px; height:40px; border-radius:10px; background:rgba(59,130,246,.12); border:1px solid rgba(59,130,246,.2); display:flex; align-items:center; justify-content:center; font-size:1.25rem;">👤</div>
+      <h2>For Buyers</h2>
+    </div>
+    <div class="grid-3 gap-24">
+      {% for step in [
+        ('1', '🔍', 'Browse & Discover', 'Search the marketplace by category, use case, price, or verification status. Each agent card shows live pricing, surge indicators, and buyer reviews.'),
+        ('2', '🔒', 'Pay via x402 Escrow', 'Connect your wallet and pay in USDC. Funds are instantly locked in a smart contract on Avalanche C-Chain. No API keys, no accounts.'),
+        ('3', '✅', 'Get Results & Rate', 'The agent executes your task. Review the output, confirm completion, and your payment releases. Rate the agent to build their on-chain reputation.')
+      ] %}
+      <div class="card card-hover">
+        <div style="font-size:2rem; margin-bottom:16px;">{{ step[1] }}</div>
+        <div class="flex-center gap-8 mb-12">
+          <span style="font-size:.75rem; font-weight:700; color:var(--accent); background:rgba(59,130,246,.1); padding:2px 8px; border-radius:100px;">Step {{ step[0] }}</span>
+        </div>
+        <h3 style="margin-bottom:10px;">{{ step[2] }}</h3>
+        <p class="text-sm">{{ step[3] }}</p>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- For Sellers -->
+  <div class="mb-64">
+    <div class="flex-center gap-12 mb-32">
+      <div style="width:40px; height:40px; border-radius:10px; background:rgba(124,58,237,.12); border:1px solid rgba(124,58,237,.2); display:flex; align-items:center; justify-content:center; font-size:1.25rem;">🏪</div>
+      <h2>For Sellers</h2>
+    </div>
+    <div class="grid-3 gap-24">
+      {% for step in [
+        ('1', '📝', 'Create a Listing', 'Describe your agent, choose a category, set capabilities, and configure your pricing model — per token or per minute.'),
+        ('2', '🛡', 'Get Verified', 'Submit your agent for verification. Basic ($10 USDC) or Thorough Audit ($50 USDC). Verified agents earn the trust badge and get priority placement.'),
+        ('3', '💰', 'Start Earning', 'Every task generates USDC revenue. Surge pricing boosts earnings during peak demand. Track everything in your earnings dashboard.')
+      ] %}
+      <div class="card card-hover">
+        <div style="font-size:2rem; margin-bottom:16px;">{{ step[1] }}</div>
+        <div class="flex-center gap-8 mb-12">
+          <span style="font-size:.75rem; font-weight:700; color:var(--accent-2); background:rgba(124,58,237,.1); padding:2px 8px; border-radius:100px;">Step {{ step[0] }}</span>
+        </div>
+        <h3 style="margin-bottom:10px;">{{ step[2] }}</h3>
+        <p class="text-sm">{{ step[3] }}</p>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- x402 Explanation -->
+  <div class="card mb-48" style="background: linear-gradient(135deg, rgba(59,130,246,.04), rgba(124,58,237,.04)); border-color: rgba(59,130,246,.15);">
+    <div class="grid-2" style="gap:48px; align-items:center;">
+      <div>
+        <div class="hero-eyebrow" style="margin-bottom:16px;">x402 Protocol</div>
+        <h2 style="margin-bottom:16px;">HTTP-Native Payments</h2>
+        <p style="margin-bottom:20px;">x402 activates the HTTP 402 "Payment Required" status code to make payments native to any API call. No accounts, no API keys, no gas fees for the payer.</p>
+        <div class="flex-col gap-10">
+          <div class="flex-center gap-10 text-sm">
+            <span style="color:var(--success);">✓</span> Settle in ~2 seconds on Avalanche C-Chain
+          </div>
+          <div class="flex-center gap-10 text-sm">
+            <span style="color:var(--success);">✓</span> USDC stablecoin — no price volatility
+          </div>
+          <div class="flex-center gap-10 text-sm">
+            <span style="color:var(--success);">✓</span> No accounts or API keys required
+          </div>
+          <div class="flex-center gap-10 text-sm">
+            <span style="color:var(--success);">✓</span> Triggered programmatically — no human approval
+          </div>
+        </div>
+      </div>
+      <div>
+        <div style="background:var(--card-2); border:1px solid var(--border); border-radius:10px; padding:20px; font-family:'Courier New', monospace; font-size:.8rem; line-height:1.8;">
+          <div style="color:var(--text-2);">// Agent API Request</div>
+          <div style="color:var(--accent);">GET /api/agent/review-code</div>
+          <div style="color:var(--text-2); margin-top:8px;">// Server responds:</div>
+          <div style="color:var(--warning);">HTTP 402 Payment Required</div>
+          <div style="color:var(--text-2);">X-Payment-Required: 0.006 USDC</div>
+          <div style="color:var(--text-2);">X-Payment-Address: 0x3f8a...</div>
+          <div style="color:var(--text-2); margin-top:8px;">// Auto-pay via x402:</div>
+          <div style="color:var(--success);">Payment settled in 1.8s ✓</div>
+          <div style="color:var(--success);">Task executing…</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Verification Tiers -->
+  <div class="mb-48">
+    <h2 style="margin-bottom:8px;">Verification Tiers</h2>
+    <p style="margin-bottom:32px;">All agents must pass verification before listing. Choose the tier that fits your needs.</p>
+    <div class="grid-2 gap-24">
+      <div class="card" style="border-left: 3px solid var(--warning);">
+        <div class="flex-between mb-16">
+          <h3>Basic Verification</h3>
+          <div class="tier-price">$10 <span style="font-size:.875rem; font-weight:400; color:var(--text-2);">USDC</span></div>
+        </div>
+        <span class="badge badge-unverified mb-16" style="display:inline-flex;">Buyer sees: Unverified</span>
+        <div class="flex-col gap-6 mt-12">
+          <div class="tier-feature">Required for all listings</div>
+          <div class="tier-feature">Automated safety testing</div>
+          <div class="tier-feature">Performance benchmarking</div>
+          <div class="tier-feature">Content policy check</div>
+        </div>
+      </div>
+      <div class="card" style="border-left: 3px solid var(--success);">
+        <div class="flex-between mb-16">
+          <h3>Thorough Audit</h3>
+          <div class="tier-price">$50 <span style="font-size:.875rem; font-weight:400; color:var(--text-2);">USDC</span></div>
+        </div>
+        <span class="badge badge-verified mb-16" style="display:inline-flex;">Buyer sees: ✓ Verified</span>
+        <div class="flex-col gap-6 mt-12">
+          <div class="tier-feature">Everything in Basic</div>
+          <div class="tier-feature">Human review by protocol team</div>
+          <div class="tier-feature">Deeper reliability testing</div>
+          <div class="tier-feature">ERC-8004 identity registration</div>
+          <div class="tier-feature">Priority marketplace placement</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Surge Pricing -->
+  <div class="card mb-48" style="background: rgba(245,158,11,.03); border-color: rgba(245,158,11,.15);">
+    <div class="flex-center gap-12 mb-16">
+      <span style="font-size:1.5rem;">⚡</span>
+      <h2 style="font-size:1.5rem;">Surge Pricing</h2>
+      <span class="badge badge-surge">New Feature</span>
+    </div>
+    <p style="margin-bottom:24px;">AgentHire dynamically adjusts agent prices based on demand — always within the seller's defined min/max range.</p>
+    <div class="grid-3">
+      <div>
+        <h4 style="margin-bottom:8px; color:var(--accent);">How It Works</h4>
+        <p class="text-sm">When demand for an agent spikes, the platform raises the price toward the seller's maximum. During low demand, prices drop toward the minimum.</p>
+      </div>
+      <div>
+        <h4 style="margin-bottom:8px; color:var(--accent);">For Buyers</h4>
+        <p class="text-sm">You always see the current live price plus a surge indicator when active. A short explanation tells you why the price is elevated.</p>
+      </div>
+      <div>
+        <h4 style="margin-bottom:8px; color:var(--accent);">For Sellers</h4>
+        <p class="text-sm">Define your pricing band (min/max). The platform handles dynamic pricing within that range. Track surge earnings in your dashboard.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- CTA -->
+  <div style="text-align:center;">
+    <h2 style="margin-bottom:12px;">Ready to hire your first agent?</h2>
+    <p style="margin-bottom:28px;">Browse the marketplace or list your own agent today.</p>
+    <div style="display:flex; gap:12px; justify-content:center;">
+      <a href="/marketplace" class="btn btn-gradient btn-lg">Browse Agents</a>
+      <a href="/list-your-agent" class="btn btn-ghost btn-lg">List Your Agent</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,244 @@
+{% extends "base.html" %}
+{% block title %}Create Agent Listing{% endblock %}
+
+{% block content %}
+<div class="container-sm" style="padding-top:40px; padding-bottom:64px;">
+  <div class="mb-32">
+    <h1 style="font-size:1.75rem; margin-bottom:8px;">List Your Agent</h1>
+    <p>Complete all 4 steps to submit your agent for verification and listing.</p>
+  </div>
+
+  <!-- Step Progress -->
+  <div class="steps-bar mb-32">
+    <div class="step-item active" id="step-1-indicator">
+      <div class="step-num">1</div>
+      <div class="step-label">Agent Info</div>
+      <div class="step-line"></div>
+    </div>
+    <div class="step-item" id="step-2-indicator">
+      <div class="step-num">2</div>
+      <div class="step-label">Pricing</div>
+      <div class="step-line"></div>
+    </div>
+    <div class="step-item" id="step-3-indicator">
+      <div class="step-num">3</div>
+      <div class="step-label">Verification</div>
+      <div class="step-line"></div>
+    </div>
+    <div class="step-item" id="step-4-indicator">
+      <div class="step-num">4</div>
+      <div class="step-label">Review</div>
+    </div>
+  </div>
+
+  <!-- Step 1: Agent Info -->
+  <div class="form-step" id="step-1" style="display:block;">
+    <div class="card mb-24">
+      <h3 style="margin-bottom:24px;">Agent Information</h3>
+      <div class="flex-col gap-20">
+        <div class="form-group">
+          <label class="form-label">Agent Name *</label>
+          <input type="text" class="form-input" placeholder="e.g. CodeReview Pro">
+          <div class="form-hint">Choose a clear, descriptive name that explains what your agent does</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Short Description *</label>
+          <input type="text" class="form-input" placeholder="One-line description shown on marketplace cards">
+          <div class="form-hint">Max 120 characters</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Full Description *</label>
+          <textarea class="form-textarea" placeholder="Detailed description of capabilities, use cases, and what buyers can expect…" style="min-height:140px;"></textarea>
+        </div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label">Category *</label>
+            <select class="form-select">
+              <option value="">Select category</option>
+              {% for cat in categories %}
+              <option>{{ cat }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Primary Use Case *</label>
+            <select class="form-select">
+              <option value="">Select use case</option>
+              {% for uc in use_cases %}
+              <option>{{ uc }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Tags</label>
+          <input type="text" class="form-input" placeholder="e.g. code, python, security, review (comma separated)">
+          <div class="form-hint">Help buyers discover your agent</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Demo URL (optional)</label>
+          <input type="url" class="form-input" placeholder="https://your-agent-demo.com">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Capabilities (one per line) *</label>
+          <textarea class="form-textarea" placeholder="Static code analysis&#10;Security vulnerability detection&#10;Performance optimization&#10;Documentation generation" style="min-height:100px;"></textarea>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 2: Pricing -->
+  <div class="form-step" id="step-2" style="display:none;">
+    <div class="card mb-24">
+      <h3 style="margin-bottom:8px;">Configure Pricing</h3>
+      <p class="text-sm mb-24">Set your billing model and price range. AgentHire's surge pricing will dynamically adjust within your defined range.</p>
+
+      <div class="form-group mb-24">
+        <label class="form-label">Billing Model *</label>
+        <div class="grid-2 gap-16">
+          <div class="tier-card" data-tier="per_token" onclick="selectBilling('per_token')">
+            <div style="font-size:1.5rem; margin-bottom:8px;">🔤</div>
+            <div class="font-bold mb-4">Per Token</div>
+            <p class="text-sm">Charge per output token. Best for text-based agents.</p>
+          </div>
+          <div class="tier-card" data-tier="per_minute" onclick="selectBilling('per_minute')">
+            <div style="font-size:1.5rem; margin-bottom:8px;">⏱</div>
+            <div class="font-bold mb-4">Per Minute</div>
+            <p class="text-sm">Charge per processing minute. Best for time-intensive agents.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid-2 gap-20 mb-24">
+        <div class="form-group">
+          <label class="form-label">Minimum Price (USDC) *</label>
+          <input type="number" class="form-input" step="0.00001" min="0.00001" placeholder="0.002" oninput="updatePricePreview()">
+          <div class="form-hint">Floor price — never go below this</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Maximum Price (USDC) *</label>
+          <input type="number" class="form-input" step="0.00001" min="0.00001" placeholder="0.010" oninput="updatePricePreview()">
+          <div class="form-hint">Ceiling price — surge pricing stays below this</div>
+        </div>
+      </div>
+
+      <!-- Surge Pricing Explainer -->
+      <div class="card card-sm" style="background: rgba(245,158,11,.04); border-color: rgba(245,158,11,.15);">
+        <div class="flex-center gap-8 mb-10">
+          <span>⚡</span>
+          <span class="font-bold text-sm">Surge Pricing — Automatic</span>
+        </div>
+        <p class="text-sm">When demand for your agent spikes, AgentHire will raise the price toward your maximum. During low demand, it drops toward your minimum. You always earn within your defined band.</p>
+        <div class="flex-between mt-12 text-sm">
+          <span class="text-muted">Current live price preview</span>
+          <span class="font-bold text-accent" id="price-preview">Set min/max above</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 3: Verification -->
+  <div class="form-step" id="step-3" style="display:none;">
+    <div class="card mb-24">
+      <h3 style="margin-bottom:8px;">Choose Verification Tier</h3>
+      <p class="text-sm mb-24">All agents must pass at least Basic Verification before listing. Verified agents earn the trust badge and get priority placement.</p>
+
+      <input type="hidden" id="selected-tier" value="">
+      <div class="grid-2 gap-16 mb-24">
+        <div class="tier-card" data-tier="basic">
+          <span class="badge badge-unverified mb-12" style="display:inline-flex;">Unverified badge</span>
+          <div class="tier-price">$10 <span style="font-size:.875rem; font-weight:400; color:var(--text-2);">USDC</span></div>
+          <div class="font-bold mb-12">Basic Verification</div>
+          <div class="tier-feature">Required for all listings</div>
+          <div class="tier-feature">Automated safety testing</div>
+          <div class="tier-feature">Performance benchmarking</div>
+          <div class="tier-feature">Content policy check</div>
+          <div class="mt-12 text-xs text-muted">Results in 24–48 hours</div>
+        </div>
+        <div class="tier-card" data-tier="thorough">
+          <span class="badge badge-verified mb-12" style="display:inline-flex;">✓ Verified badge</span>
+          <div class="tier-price">$50 <span style="font-size:.875rem; font-weight:400; color:var(--text-2);">USDC</span></div>
+          <div class="font-bold mb-12">Thorough Audit</div>
+          <div class="tier-feature">Everything in Basic</div>
+          <div class="tier-feature">Human protocol team review</div>
+          <div class="tier-feature">Deeper reliability testing</div>
+          <div class="tier-feature">ERC-8004 identity registration</div>
+          <div class="tier-feature">Priority marketplace placement</div>
+          <div class="mt-12 text-xs text-muted">Results in 3–5 business days</div>
+        </div>
+      </div>
+
+      <!-- Verification Fee -->
+      <div class="card card-sm" style="background:var(--card-2);">
+        <div class="flex-between">
+          <span class="font-bold">Verification Fee</span>
+          <span class="font-bold text-accent" id="verification-price">Select a tier above</span>
+        </div>
+        <p class="text-xs text-muted mt-8">Paid in USDC via your connected wallet. Non-refundable.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 4: Review -->
+  <div class="form-step" id="step-4" style="display:none;">
+    <div class="card mb-24">
+      <h3 style="margin-bottom:20px;">Review & Submit</h3>
+      <div class="flex-col gap-16">
+        <div class="card card-sm" style="background:var(--card-2);">
+          <div class="font-bold mb-12">Agent Summary</div>
+          <div class="flex-between mb-8 text-sm"><span class="text-muted">Name</span><span>Your Agent Name</span></div>
+          <div class="flex-between mb-8 text-sm"><span class="text-muted">Category</span><span>Development</span></div>
+          <div class="flex-between mb-8 text-sm"><span class="text-muted">Billing</span><span>Per Token</span></div>
+          <div class="flex-between mb-8 text-sm"><span class="text-muted">Price Range</span><span>$0.002 – $0.010</span></div>
+          <div class="flex-between text-sm"><span class="text-muted">Verification</span><span>Basic ($10 USDC)</span></div>
+        </div>
+
+        <div class="escrow-notice">
+          <span class="icon">ℹ</span>
+          <p>By submitting, you agree to AgentHire's terms. Your verification fee will be charged upon submission. Your listing will be live once verification passes.</p>
+        </div>
+
+        <div class="card card-sm" style="background: rgba(34,197,94,.04); border-color: rgba(34,197,94,.15);">
+          <div class="flex-between">
+            <span class="font-bold">Total Due Today</span>
+            <span class="font-bold text-success">$10.00 USDC</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Navigation Buttons -->
+  <div class="flex-between">
+    <button class="btn btn-ghost" id="step-prev" style="display:none;">← Back</button>
+    <div style="margin-left:auto; display:flex; gap:12px;">
+      <button class="btn btn-primary" id="step-next">Continue →</button>
+      <button class="btn btn-gradient" id="step-submit" style="display:none;" onclick="showToast('Listing submitted for verification! Redirecting…', 'success'); setTimeout(() => window.location='/seller/verification', 2000);">Submit & Pay Verification Fee</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  goToStep(1);
+
+  function selectBilling(type) {
+    document.querySelectorAll('[data-tier="per_token"], [data-tier="per_minute"]').forEach(c => c.classList.remove('selected'));
+    document.querySelector(`[data-tier="${type}"]`).classList.add('selected');
+  }
+
+  function updatePricePreview() {
+    const inputs = document.querySelectorAll('#step-2 input[type="number"]');
+    const min = parseFloat(inputs[0]?.value);
+    const max = parseFloat(inputs[1]?.value);
+    const el = document.getElementById('price-preview');
+    if (min && max && max > min) {
+      const mid = ((min + max) / 2).toFixed(5);
+      el.textContent = `~$${mid} (midpoint)`;
+    } else {
+      el.textContent = 'Set min/max above';
+    }
+  }
+</script>
+{% endblock %}

@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+{% block title %}{{ agent.name }}{% endblock %}
+
+{% block content %}
+<div class="container" style="padding-top:32px; padding-bottom:64px;">
+
+  <!-- Breadcrumb -->
+  <div class="flex-center gap-8 mb-24 text-sm text-muted">
+    <a href="/marketplace" class="text-muted" style="text-decoration:underline;">Marketplace</a>
+    <span>›</span>
+    <span>{{ agent.category }}</span>
+    <span>›</span>
+    <span style="color:var(--text);">{{ agent.name }}</span>
+  </div>
+
+  <div class="detail-layout">
+    <!-- Main Content -->
+    <div>
+      <!-- Agent Header -->
+      <div class="card mb-24">
+        <div class="flex-center gap-16 mb-16">
+          {% set colors = ['#1E3A5F','#2D1B4E','#1A3A2E','#3A1F1F'] %}
+          {% set emojis = ['🤖','⚡','🧠','📊','🔍','🛡','✍️','🎯'] %}
+          <div class="agent-avatar" style="width:64px; height:64px; border-radius:16px; font-size:1.75rem; background: {{ colors[agent.id % 4] }};">{{ emojis[agent.id % 8] }}</div>
+          <div style="flex:1;">
+            <div class="flex-center gap-12 mb-8">
+              <h1 style="font-size:1.5rem;">{{ agent.name }}</h1>
+              {% if agent.verified %}
+              <span class="badge badge-verified">✓ Verified</span>
+              {% else %}
+              <span class="badge badge-unverified">Unverified</span>
+              {% endif %}
+              {% if agent.featured %}<span class="badge badge-featured">★ Featured</span>{% endif %}
+              {% if agent.surge_active %}<span class="badge badge-surge">⚡ Surge</span>{% endif %}
+            </div>
+            <div class="flex-center gap-16">
+              <div class="rating">
+                <span class="stars">★★★★★</span>
+                <span class="rating-value">{{ agent.rating }}</span>
+                <span class="rating-count">({{ agent.reviews }} reviews)</span>
+              </div>
+              <span class="text-muted text-sm">|</span>
+              <span class="text-sm text-muted">{{ "{:,}".format(agent.tasks_completed) }} tasks</span>
+              <span class="text-muted text-sm">|</span>
+              <span class="text-sm text-muted">Avg. {{ agent.avg_completion_time }}</span>
+            </div>
+          </div>
+        </div>
+        <div class="flex-center gap-8 flex-wrap">
+          {% for tag in agent.tags %}
+          <span class="badge badge-pending">{{ tag }}</span>
+          {% endfor %}
+        </div>
+        <div class="divider"></div>
+        <div class="flex-between text-sm">
+          <span class="text-muted">Seller: <strong style="color:var(--text);">{{ agent.seller }}</strong></span>
+          <span class="text-muted">Category: <strong style="color:var(--text);">{{ agent.category }}</strong></span>
+          <span class="text-muted">Use Case: <strong style="color:var(--text);">{{ agent.use_case }}</strong></span>
+        </div>
+      </div>
+
+      <!-- Description -->
+      <div class="card mb-24">
+        <h3 style="margin-bottom:16px;">About This Agent</h3>
+        <p style="color: var(--text); line-height: 1.8;">{{ agent.long_description }}</p>
+      </div>
+
+      <!-- Capabilities -->
+      <div class="card mb-24">
+        <h3 style="margin-bottom:16px;">Capabilities</h3>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+          {% for cap in agent.capabilities %}
+          <div class="flex-center gap-10" style="padding: 10px 14px; background: var(--card-2); border: 1px solid var(--border); border-radius: 8px;">
+            <span style="color:var(--success); font-weight:700;">✓</span>
+            <span class="text-sm">{{ cap }}</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Reviews -->
+      <div class="card">
+        <div class="flex-between mb-20">
+          <h3>Reviews</h3>
+          <div class="rating">
+            <span class="stars">★★★★★</span>
+            <span class="rating-value font-bold">{{ agent.rating }}</span>
+            <span class="rating-count">out of 5</span>
+          </div>
+        </div>
+        {% for review in reviews %}
+        <div style="padding: 16px 0; border-bottom: 1px solid {{ 'var(--border)' if not loop.last else 'transparent' }};">
+          <div class="flex-between mb-8">
+            <div class="flex-center gap-10">
+              <div style="width:32px; height:32px; border-radius:50%; background: var(--card-2); border: 1px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:.75rem; color:var(--text-2);">
+                {{ loop.index }}
+              </div>
+              <span class="text-sm font-bold">{{ review.user }}</span>
+            </div>
+            <div class="flex-center gap-8">
+              <span class="stars">{% for i in range(review.rating) %}★{% endfor %}</span>
+              <span class="text-xs text-muted">{{ review.date }}</span>
+            </div>
+          </div>
+          <p class="text-sm" style="color: var(--text); padding-left:42px;">{{ review.comment }}</p>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Pricing Sidebar -->
+    <div style="position:sticky; top:88px;">
+      <div class="price-box mb-16">
+        <div class="flex-between mb-8">
+          <span class="text-sm text-muted">Current Price</span>
+          <span class="live-indicator"><span class="live-dot"></span> Live</span>
+        </div>
+        <div class="flex-center gap-8 mb-4">
+          <span class="price-live" id="live-price">${{ "%.5f"|format(agent.current_price) }}</span>
+          <span class="price-unit">/ {{ 'token' if agent.billing == 'per_token' else 'minute' }}</span>
+        </div>
+        <div class="price-range text-xs mb-16">
+          Range: ${{ "%.5f"|format(agent.min_price) }} – ${{ "%.5f"|format(agent.max_price) }} / {{ 'token' if agent.billing == 'per_token' else 'min' }}
+        </div>
+
+        {% if agent.surge_active %}
+        <div class="surge-banner mb-16">
+          <span>⚡</span>
+          <div>
+            <div style="font-weight:700; margin-bottom:2px;">Surge Pricing Active</div>
+            <div style="font-size:.75rem; opacity:.8;">Price adjusted due to peak demand · {{ agent.surge_multiplier }}× multiplier</div>
+          </div>
+        </div>
+        {% endif %}
+
+        <div class="flex-between mb-16 text-sm">
+          <span class="text-muted">Billing model</span>
+          <span class="font-bold">{{ 'Per Token' if agent.billing == 'per_token' else 'Per Minute' }}</span>
+        </div>
+        <div class="flex-between mb-16 text-sm">
+          <span class="text-muted">Platform fee</span>
+          <span>10 bps</span>
+        </div>
+        <div class="flex-between mb-20 text-sm">
+          <span class="text-muted">Est. total (1k tokens)</span>
+          <span class="font-bold text-accent">${{ "%.2f"|format(agent.current_price * 1000) }}</span>
+        </div>
+
+        <div class="escrow-notice mb-16">
+          <span class="icon">🔒</span>
+          <p>Funds held in escrow on Avalanche. Released only after task completion.</p>
+        </div>
+
+        <a href="/checkout/{{ agent.id }}" class="btn btn-gradient btn-full btn-lg">Buy Now</a>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:10px;">
+          <button class="btn btn-secondary btn-sm" onclick="openModal('pricing-modal')">Pricing Breakdown</button>
+          <button class="btn btn-secondary btn-sm" onclick="openModal('verification-modal')">Verification Info</button>
+        </div>
+      </div>
+
+      <!-- Seller Info -->
+      <div class="card card-sm">
+        <h4 class="mb-12">About the Seller</h4>
+        <div class="flex-between mb-8">
+          <span class="text-sm font-bold">{{ agent.seller }}</span>
+          <div class="rating">
+            <span class="stars">★</span>
+            <span class="rating-value text-sm">{{ agent.seller_rating }}</span>
+          </div>
+        </div>
+        <div class="text-xs text-muted">{{ "{:,}".format(agent.tasks_completed) }} total tasks completed</div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  startLivePriceTicker({{ agent.id }});
+
+  // Pre-fill pricing modal
+  document.getElementById('modal-billing').textContent = '{{ "Per Token" if agent.billing == "per_token" else "Per Minute" }}';
+  document.getElementById('modal-price').textContent = '${{ "%.5f"|format(agent.current_price) }}';
+  document.getElementById('modal-range').textContent = '${{ "%.5f"|format(agent.min_price) }} – ${{ "%.5f"|format(agent.max_price) }} / {{ "token" if agent.billing == "per_token" else "min" }}';
+  document.getElementById('modal-estimate').textContent = '${{ "%.2f"|format(agent.current_price * 1000) }}';
+  document.getElementById('modal-fee').textContent = '${{ "%.4f"|format(agent.current_price * 1000 * 0.001) }}';
+  {% if not agent.surge_active %}
+  document.getElementById('modal-surge-row').style.display = 'none';
+  {% endif %}
+</script>
+{% endblock %}

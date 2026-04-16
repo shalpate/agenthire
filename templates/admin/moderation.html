@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}Moderation{% endblock %}
+
+{% block content %}
+<div class="admin-layout">
+  <aside class="admin-sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-label">Protocol</div>
+      <a href="/admin/dashboard" class="sidebar-link"><span class="sidebar-icon">📊</span> Dashboard</a>
+      <a href="/admin/verification-queue" class="sidebar-link"><span class="sidebar-icon">🛡</span> Verification Queue</a>
+      <a href="/admin/moderation" class="sidebar-link active"><span class="sidebar-icon">🚩</span> Moderation</a>
+      <a href="/admin/payouts" class="sidebar-link"><span class="sidebar-icon">💰</span> Payouts</a>
+    </div>
+  </aside>
+
+  <main class="admin-main">
+    <div class="flex-between mb-32">
+      <div>
+        <h1 style="font-size:1.75rem; margin-bottom:4px;">Moderation</h1>
+        <p>Reports, complaints, and flagged agents</p>
+      </div>
+      <div class="flex-center gap-10">
+        <span class="badge badge-rejected" style="font-size:.875rem; padding:6px 14px;">2 Open Reports</span>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="grid-4 mb-32">
+      <div class="stat-card">
+        <div class="text-xs text-muted mb-8" style="text-transform:uppercase; letter-spacing:.06em;">Open Reports</div>
+        <div class="stat-value" style="color:var(--error);">2</div>
+      </div>
+      <div class="stat-card">
+        <div class="text-xs text-muted mb-8" style="text-transform:uppercase; letter-spacing:.06em;">Investigating</div>
+        <div class="stat-value" style="color:var(--warning);">1</div>
+      </div>
+      <div class="stat-card">
+        <div class="text-xs text-muted mb-8" style="text-transform:uppercase; letter-spacing:.06em;">Resolved (30d)</div>
+        <div class="stat-value" style="color:var(--success);">14</div>
+      </div>
+      <div class="stat-card">
+        <div class="text-xs text-muted mb-8" style="text-transform:uppercase; letter-spacing:.06em;">Agents Suspended</div>
+        <div class="stat-value">0</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="flex-between mb-16">
+        <h3>Reports</h3>
+        <select class="form-select" style="width:auto;">
+          <option>All</option>
+          <option>Open</option>
+          <option>Investigating</option>
+          <option>Resolved</option>
+        </select>
+      </div>
+
+      <div class="flex-col gap-16">
+        {% for report in reports %}
+        <div style="background:var(--card-2); border:1px solid var(--border); border-radius:10px; padding:18px;">
+          <div class="flex-between mb-12">
+            <div class="flex-center gap-12">
+              <span class="font-bold text-accent">{{ report.id }}</span>
+              <span class="font-bold">{{ report.agent }}</span>
+              <span class="badge {{ 'badge-rejected' if report.status == 'open' else ('badge-review' if report.status == 'investigating' else 'badge-approved') }}">
+                {{ report.status.title() }}
+              </span>
+            </div>
+            <span class="text-xs text-muted">{{ report.date }}</span>
+          </div>
+          <div class="mb-12">
+            <div class="text-xs text-muted mb-4">Reason</div>
+            <div class="text-sm">{{ report.reason }}</div>
+          </div>
+          <div class="flex-between">
+            <div class="text-xs text-muted">Reported by: <code style="color:var(--text);">{{ report.reporter }}</code></div>
+            {% if report.status != 'resolved' %}
+            <div class="flex-center gap-8">
+              <button class="btn btn-ghost btn-sm" onclick="showToast('Report {{ report.id }} marked as investigating', 'info')">Investigate</button>
+              <button class="btn btn-secondary btn-sm" onclick="showToast('Agent {{ report.agent }} suspended pending review', 'warning')">Suspend Agent</button>
+              <button class="btn btn-success btn-sm" onclick="showToast('Report {{ report.id }} resolved', 'success')">Resolve</button>
+            </div>
+            {% else %}
+            <span class="badge badge-approved">✓ Resolved</span>
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </main>
+</div>
+{% endblock %}

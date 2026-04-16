@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block title %}Payouts{% endblock %}
+
+{% block content %}
+<div class="admin-layout">
+  <aside class="admin-sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-label">Protocol</div>
+      <a href="/admin/dashboard" class="sidebar-link"><span class="sidebar-icon">📊</span> Dashboard</a>
+      <a href="/admin/verification-queue" class="sidebar-link"><span class="sidebar-icon">🛡</span> Verification Queue</a>
+      <a href="/admin/moderation" class="sidebar-link"><span class="sidebar-icon">🚩</span> Moderation</a>
+      <a href="/admin/payouts" class="sidebar-link active"><span class="sidebar-icon">💰</span> Payouts</a>
+    </div>
+  </aside>
+
+  <main class="admin-main">
+    <div class="flex-between mb-32">
+      <div>
+        <h1 style="font-size:1.75rem; margin-bottom:4px;">Payout Control</h1>
+        <p>Manage escrow releases, holds, and refunds</p>
+      </div>
+      <div class="flex-center gap-10">
+        <button class="btn btn-primary" onclick="showToast('Bulk release initiated for all eligible payouts', 'success')">Release All Eligible</button>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="grid-4 mb-32">
+      <div class="stat-card">
+        <div class="text-xs text-muted mb-8" style="text-transform:uppercase; letter-spacing:.06em;">Pending Release</div>
+        <div class="stat-value" style="color:var(--warning);">$5,060.50</div>
+        <div class="text-xs text-muted mt-8">2 payouts</div>
+      </div>
+      <div class="stat-card">
+        <div class="text-xs text-muted mb-8" style="text-transform:uppercase; letter-spacing:.06em;">Released (30d)</div>
+        <div class="stat-value" style="color:var(--success);">$2,640.20</div>
+        <div class="stat-change up mt-8">↑ On time</div>
+      </div>
+      <div class="stat-card">
+        <div class="text-xs text-muted mb-8" style="text-transform:uppercase; letter-spacing:.06em;">On Hold</div>
+        <div class="stat-value" style="color:var(--error);">$180.00</div>
+        <div class="text-xs text-muted mt-8">1 disputed</div>
+      </div>
+      <div class="stat-card">
+        <div class="text-xs text-muted mb-8" style="text-transform:uppercase; letter-spacing:.06em;">Protocol Revenue</div>
+        <div class="stat-value" style="color:var(--accent);">$142.83</div>
+        <div class="text-xs text-muted mt-8">10 bps collected</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="flex-between mb-16">
+        <h3>Payout Queue</h3>
+        <select class="form-select" style="width:auto;" onchange="filterPayouts(this.value)">
+          <option value="">All</option>
+          <option value="pending">Pending</option>
+          <option value="released">Released</option>
+          <option value="held">Held</option>
+        </select>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Payout ID</th>
+              <th>Seller</th>
+              <th>Agent</th>
+              <th>Amount</th>
+              <th>Net (after fee)</th>
+              <th>Status</th>
+              <th>Date</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="payouts-table">
+            {% for payout in payouts %}
+            <tr data-status="{{ payout.status }}">
+              <td class="font-bold text-accent">{{ payout.id }}</td>
+              <td class="font-bold">{{ payout.seller }}</td>
+              <td class="text-muted">{{ payout.agent }}</td>
+              <td class="font-bold">${{ "{:,.2f}".format(payout.amount) }}</td>
+              <td class="text-success font-bold">${{ "{:,.2f}".format(payout.amount * 0.999) }}</td>
+              <td>
+                {% if payout.status == 'released' %}
+                <span class="badge badge-approved">Released</span>
+                {% elif payout.status == 'pending' %}
+                <span class="badge badge-review">Pending</span>
+                {% elif payout.status == 'held' %}
+                <span class="badge badge-rejected">On Hold</span>
+                {% endif %}
+              </td>
+              <td class="text-muted">{{ payout.date }}</td>
+              <td>
+                <div class="flex-center gap-6">
+                  {% if payout.status == 'pending' %}
+                  <button class="btn btn-success btn-sm release-btn">Release</button>
+                  <button class="btn btn-ghost btn-sm hold-btn">Hold</button>
+                  {% elif payout.status == 'held' %}
+                  <button class="btn btn-success btn-sm release-btn">Release</button>
+                  <button class="btn btn-danger btn-sm refund-btn">Refund</button>
+                  {% elif payout.status == 'released' %}
+                  <span class="text-xs text-muted">Complete</span>
+                  {% endif %}
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function filterPayouts(status) {
+  document.querySelectorAll('#payouts-table tr').forEach(row => {
+    row.style.display = (!status || row.dataset.status === status) ? '' : 'none';
+  });
+}
+</script>
+{% endblock %}

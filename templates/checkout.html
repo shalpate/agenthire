@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+{% block title %}Checkout — {{ agent.name }}{% endblock %}
+
+{% block content %}
+<div class="container" style="padding-top:40px; padding-bottom:64px;">
+  <div class="flex-center gap-8 mb-24 text-sm text-muted">
+    <a href="/agent/{{ agent.id }}" class="text-muted" style="text-decoration:underline;">{{ agent.name }}</a>
+    <span>›</span>
+    <span style="color:var(--text);">Checkout</span>
+  </div>
+
+  <h1 style="font-size:1.75rem; margin-bottom:32px;">Complete Your Order</h1>
+
+  <div class="checkout-layout">
+    <!-- Left: Task + Wallet -->
+    <div class="flex-col gap-20">
+
+      <!-- Wallet Status -->
+      <div class="card">
+        <div class="flex-between mb-16">
+          <h3>Wallet</h3>
+          <span class="badge badge-pending" id="wallet-status-badge">Not Connected</span>
+        </div>
+        <p class="text-sm mb-16">Connect your wallet to pay with USDC on Avalanche C-Chain.</p>
+        <button class="btn btn-secondary w-full" id="checkout-wallet-btn">Connect Wallet</button>
+        <div class="flex-between mt-12 text-xs text-muted">
+          <span>Network</span>
+          <span>Avalanche C-Chain</span>
+        </div>
+        <div class="flex-between mt-8 text-xs text-muted">
+          <span>Token</span>
+          <span>USDC</span>
+        </div>
+      </div>
+
+      <!-- Task Submission -->
+      <div class="card">
+        <h3 style="margin-bottom:16px;">Task Details</h3>
+        <div class="form-group mb-16">
+          <label class="form-label">Task Description</label>
+          <textarea class="form-textarea" placeholder="Describe what you need the agent to do…" style="min-height:120px;"></textarea>
+        </div>
+        <div class="form-group mb-16">
+          <label class="form-label">Attach Files (optional)</label>
+          <div style="border: 2px dashed var(--border); border-radius: 8px; padding: 24px; text-align:center; cursor:pointer;" onclick="document.getElementById('file-upload').click();">
+            <div style="font-size:1.5rem; margin-bottom:8px;">📎</div>
+            <div class="text-sm text-muted">Click to upload or drag & drop</div>
+            <div class="text-xs text-muted mt-8">Max 50MB · PDF, TXT, CSV, ZIP</div>
+          </div>
+          <input type="file" id="file-upload" style="display:none;" multiple>
+        </div>
+      </div>
+
+      <!-- Escrow Explanation -->
+      <div class="card" style="background: rgba(59,130,246,.04); border-color: rgba(59,130,246,.15);">
+        <h4 style="margin-bottom:12px; color: var(--accent);">🔒 How Escrow Works</h4>
+        <div class="timeline">
+          <div class="timeline-item">
+            <div class="timeline-dot done">1</div>
+            <div class="timeline-content" style="padding-top:4px;">
+              <h4>Payment Locked</h4>
+              <p>Your USDC is held in a smart contract on Avalanche — neither you nor the seller can access it yet.</p>
+            </div>
+          </div>
+          <div class="timeline-item">
+            <div class="timeline-dot active">2</div>
+            <div class="timeline-content" style="padding-top:4px;">
+              <h4>Agent Executes Task</h4>
+              <p>The agent runs your task. You can monitor progress in real-time.</p>
+            </div>
+          </div>
+          <div class="timeline-item">
+            <div class="timeline-dot">3</div>
+            <div class="timeline-content" style="padding-top:4px;">
+              <h4>You Confirm Delivery</h4>
+              <p>Review the results. Confirm completion to release payment or raise a dispute.</p>
+            </div>
+          </div>
+          <div class="timeline-item" style="padding-bottom:0;">
+            <div class="timeline-dot">4</div>
+            <div class="timeline-content" style="padding-top:4px;">
+              <h4>Funds Released</h4>
+              <p>Payment goes to the seller. You can dispute within 48 hours of delivery.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: Order Summary -->
+    <div style="position:sticky; top:88px;">
+      <div class="price-box mb-16">
+        <h3 style="margin-bottom:20px;">Order Summary</h3>
+
+        <!-- Agent Info -->
+        <div class="flex-center gap-12 mb-20 pb-20" style="border-bottom: 1px solid var(--border);">
+          {% set emojis = ['🤖','⚡','🧠','📊','🔍','🛡','✍️','🎯'] %}
+          <div class="agent-avatar" style="background: #1E3A5F;">{{ emojis[agent.id % 8] }}</div>
+          <div>
+            <div class="font-bold">{{ agent.name }}</div>
+            <div class="text-xs text-muted">by {{ agent.seller }}</div>
+            {% if agent.verified %}<span class="badge badge-verified" style="margin-top:4px;">✓ Verified</span>{% endif %}
+          </div>
+        </div>
+
+        <!-- Pricing -->
+        <div class="flex-between mb-12">
+          <span class="text-sm text-muted">Billing model</span>
+          <span class="text-sm font-bold">{{ 'Per Token' if agent.billing == 'per_token' else 'Per Minute' }}</span>
+        </div>
+        <div class="flex-between mb-12">
+          <span class="text-sm text-muted">Current price</span>
+          <div class="flex-center gap-6">
+            <span class="live-indicator"><span class="live-dot"></span></span>
+            <span class="text-sm font-bold text-accent">${{ "%.5f"|format(agent.current_price) }} / {{ 'token' if agent.billing == 'per_token' else 'min' }}</span>
+          </div>
+        </div>
+
+        {% if agent.surge_active %}
+        <div class="surge-banner mb-12">
+          ⚡ Surge active — {{ agent.surge_multiplier }}× multiplier
+        </div>
+        {% endif %}
+
+        <div class="flex-between mb-12 text-sm">
+          <span class="text-muted">Est. quantity</span>
+          <span>1,000 {{ 'tokens' if agent.billing == 'per_token' else 'minutes' }}</span>
+        </div>
+        <div class="flex-between mb-12 text-sm">
+          <span class="text-muted">Subtotal</span>
+          <span>${{ "%.2f"|format(agent.current_price * 1000) }}</span>
+        </div>
+        <div class="flex-between mb-16 text-sm">
+          <span class="text-muted">Platform fee (10 bps)</span>
+          <span>${{ "%.4f"|format(agent.current_price * 1000 * 0.001) }}</span>
+        </div>
+
+        <div style="border-top: 1px solid var(--border); padding-top:16px; margin-bottom:20px;">
+          <div class="flex-between">
+            <span class="font-bold">Total (USDC)</span>
+            <span class="font-bold" style="font-size:1.25rem; color:var(--text);">
+              ${{ "%.4f"|format(agent.current_price * 1000 * 1.001) }}
+            </span>
+          </div>
+          <div class="text-xs text-muted mt-8">Final price adjusts to actual usage</div>
+        </div>
+
+        <div class="escrow-notice mb-16">
+          <span class="icon">🔒</span>
+          <p>Full amount held in escrow. Released after you confirm task completion.</p>
+        </div>
+
+        <button class="btn btn-gradient btn-full btn-lg" id="confirm-pay">
+          Confirm & Pay in Escrow
+        </button>
+        <a href="/agent/{{ agent.id }}" class="btn btn-ghost btn-full btn-sm mt-8">← Back to Agent</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  startLivePriceTicker({{ agent.id }});
+
+  // Checkout wallet button
+  const cwBtn = document.getElementById('checkout-wallet-btn');
+  const badge = document.getElementById('wallet-status-badge');
+  if (cwBtn) {
+    cwBtn.addEventListener('click', () => {
+      cwBtn.textContent = '0x3f8a...c12d ✓';
+      cwBtn.classList.remove('btn-secondary');
+      cwBtn.classList.add('btn-success');
+      badge.className = 'badge badge-approved';
+      badge.textContent = 'Connected';
+      showToast('Wallet connected', 'success');
+    });
+  }
+</script>
+{% endblock %}
