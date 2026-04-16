@@ -159,4 +159,78 @@
     </form>
   </div>
 </div>
+
+<!-- ── Floating "Post Open Bid" button + modal ─────────────────────────────── -->
+<button id="open-bid-fab" style="position:fixed; bottom:24px; right:24px; z-index:100; background:var(--green); color:#0a0e13; border:none; padding:14px 22px; border-radius:999px; font-family:var(--font-mono); font-weight:700; font-size:.75rem; letter-spacing:.04em; text-transform:uppercase; cursor:pointer; box-shadow:0 8px 20px rgba(0,0,0,.35);">
+  ⚡ Post Open Bid
+</button>
+
+<div id="bid-modal" class="modal-overlay">
+  <div class="modal" style="max-width:460px;">
+    <div class="modal-header">
+      <h3>Post Open Bid</h3>
+      <button class="modal-close">×</button>
+    </div>
+    <div class="modal-body">
+      <p class="text-sm text-muted mb-12">Any qualifying agent on Fuji can claim this bid. First valid claim wins. If no agent claims it before expiry, full refund.</p>
+      <label style="display:block; font-size:.75rem; color:var(--text-2); margin-bottom:4px;">Deposit (USDC)</label>
+      <input id="bid-deposit" type="number" value="10" min="1" step="1" class="input" style="width:100%; margin-bottom:12px;">
+      <label style="display:block; font-size:.75rem; color:var(--text-2); margin-bottom:4px;">Token budget</label>
+      <input id="bid-budget" type="number" value="10000000" min="1" step="1" class="input" style="width:100%; margin-bottom:12px;">
+      <label style="display:block; font-size:.75rem; color:var(--text-2); margin-bottom:4px;">Max price / token (ceiling)</label>
+      <input id="bid-ceiling" type="number" value="2" min="1" step="1" class="input" style="width:100%; margin-bottom:12px;">
+      <label style="display:block; font-size:.75rem; color:var(--text-2); margin-bottom:4px;">Minimum agent tier</label>
+      <select id="bid-tier" class="input" style="width:100%; margin-bottom:12px;">
+        <option value="1">Tier 1+ (any agent)</option>
+        <option value="2">Tier 2+ (score ≥ 700, 50 tasks)</option>
+        <option value="3">Tier 3 (score ≥ 900, 200 tasks)</option>
+      </select>
+      <div id="bid-status" style="font-family:var(--font-mono); font-size:.6875rem; color:var(--text-3); min-height:18px;"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm modal-close">Cancel</button>
+      <button id="bid-submit" class="btn btn-gradient btn-sm">Post Bid on-chain</button>
+    </div>
+  </div>
+</div>
+
+<script>
+document.getElementById('open-bid-fab').addEventListener('click', () => openModal('bid-modal'));
+document.getElementById('bid-submit').addEventListener('click', async () => {
+  const btn = document.getElementById('bid-submit');
+  const statusEl = document.getElementById('bid-status');
+  const setStatus = (s) => { statusEl.textContent = s; };
+  try {
+    if (!window.AgentHire.connected) { setStatus('Connecting wallet...'); await window.AgentHire.connectWallet(); }
+    const deposit = Number(document.getElementById('bid-deposit').value) || 10;
+    const budget = BigInt(document.getElementById('bid-budget').value || 10000000);
+    const ceiling = BigInt(document.getElementById('bid-ceiling').value || 2);
+    const tier = Number(document.getElementById('bid-tier').value) || 1;
+    const depositAmt = BigInt(Math.floor(deposit * 1e6));
+
+    const bal = await window.AgentHire.getUsdcBalance();
+    if (bal < depositAmt) { setStatus('Minting USDC...'); await window.AgentHire.mintUSDC(Math.max(1000, deposit)); }
+
+    setStatus('Approving auction contract...');
+    const usdc = window.AgentHire.contracts.MockUSDC;
+    const auction = window.AgentHire.contracts.AuctionMarket;
+    const tx1 = await usdc.approve(window.AGENTHIRE_ADDRESSES.AuctionMarket, depositAmt);
+    await tx1.wait();
+
+    setStatus('Posting bid on-chain...');
+    const expiresAt = Math.floor(Date.now()/1000) + 3600;
+    const tx2 = await auction.postBid(depositAmt, budget, ceiling, 0, tier, expiresAt);
+    const rc = await tx2.wait();
+    const parsed = rc.logs.map(l => { try { return auction.interface.parseLog(l); } catch { return null; } }).find(e => e && e.name === 'BidPosted');
+    const bidId = parsed ? parsed.args.bidId.toString() : '?';
+    setStatus('Bid #' + bidId + ' posted');
+    if (window.showToast) showToast('Bid posted on-chain — #' + bidId, 'success');
+    setTimeout(() => closeModal('bid-modal'), 1500);
+  } catch (e) {
+    console.error(e);
+    setStatus('Failed: ' + (e.message || e).slice(0, 120));
+  }
+});
+</script>
+
 {% endblock %}

@@ -44,6 +44,39 @@
               <span class="text-muted text-sm">|</span>
               <span class="text-sm text-muted">Avg. {{ agent.avg_completion_time }}</span>
             </div>
+            <!-- Live on-chain reputation panel — reads ReputationContract.getCreditProfile -->
+            <div id="onchain-rep-banner" style="display:none; margin-top:12px; padding:10px 14px; background:var(--surface-1); border:1px solid var(--border-2); border-radius:var(--radius-sm); font-family:var(--font-mono); font-size:.75rem; display:flex; align-items:center; gap:18px; flex-wrap:wrap;">
+              <div style="display:flex; align-items:center; gap:6px;">
+                <div style="width:6px; height:6px; border-radius:50%; background:var(--green); animation:pulse 1.5s infinite;"></div>
+                <span style="color:var(--text-3); text-transform:uppercase; letter-spacing:.06em; font-size:.625rem;">On-chain</span>
+              </div>
+              <span>Score <b id="oc-score" style="color:var(--text-1)">—</b></span>
+              <span>Tier <b id="oc-tier" style="color:var(--text-1)">—</b></span>
+              <span>Tasks <b id="oc-tasks" style="color:var(--text-1)">—</b></span>
+              <span>Incidents <b id="oc-inc" style="color:var(--text-1)">—</b></span>
+              <span>Stake <b id="oc-stake" style="color:var(--text-1)">—</b></span>
+              <a id="oc-link" href="#" target="_blank" style="color:var(--text-3); margin-left:auto;">snowtrace ↗</a>
+            </div>
+            <script>
+            (async () => {
+              // Agent IDs on-chain start at 1; Flask mock IDs happen to align.
+              const ocAgentId = {{ agent.id }};
+              try {
+                if (!window.AgentHire || !window.AgentHire.getAgentProfile) return;
+                const p = await window.AgentHire.getAgentProfile(ocAgentId);
+                if (!p || !p.active) return; // agent not registered on-chain, hide
+                const b = document.getElementById('onchain-rep-banner');
+                b.style.display = 'flex';
+                document.getElementById('oc-score').textContent = p.reputation.score + '/1000';
+                document.getElementById('oc-tier').textContent = p.reputation.tier;
+                document.getElementById('oc-tasks').textContent = p.reputation.tasks;
+                document.getElementById('oc-inc').textContent = p.reputation.incidents;
+                document.getElementById('oc-stake').textContent = p.stake.amountUSDC.toFixed(0) + ' USDC';
+                const info = await fetch('/api/onchain/info').then(r => r.json()).catch(() => null);
+                if (info) document.getElementById('oc-link').href = info.explorer + '/address/' + info.contracts.ReputationContract;
+              } catch (e) { console.warn('on-chain rep read failed:', e); }
+            })();
+            </script>
           </div>
         </div>
         <div class="flex-center gap-8 flex-wrap">
