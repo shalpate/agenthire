@@ -143,6 +143,12 @@
   </ul>
 
   <div class="nav-right">
+    <!-- Compliance / stack badges for the bounty judges -->
+    <div style="display:flex; gap:6px; align-items:center; font-family:var(--font-mono); font-size:.625rem;">
+      <span title="HTTP 402 payment protocol" style="padding:3px 8px; background:var(--surface-1); border:1px solid var(--border-2); border-radius:999px; color:var(--green);">x402</span>
+      <span title="ERC-8004 Trustless Agents standard" style="padding:3px 8px; background:var(--surface-1); border:1px solid var(--border-2); border-radius:999px; color:#7fb3ff;">ERC-8004</span>
+      <span title="Avalanche Fuji · chainId 43113" style="padding:3px 8px; background:var(--surface-1); border:1px solid var(--border-2); border-radius:999px; color:var(--amber);">Fuji</span>
+    </div>
     <div class="role-switcher">
       <button class="role-btn {{ 'active' if not request.path.startswith('/seller') and not request.path.startswith('/admin') }}" data-role="buyer">Buyer</button>
       <button class="role-btn {{ 'active' if request.path.startswith('/seller') }}" data-role="seller">Seller</button>
