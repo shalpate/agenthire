@@ -780,18 +780,25 @@ def api_price(agent_id):
     })
 
 # ── x402 / on-chain integration ────────────────────────────────────────────────
-# Stub endpoint for the frontend x402 flow. In production this forwards
-# the signed EIP-3009 permit to the backend facilitator service which:
-#   1. calls MockUSDC.transferWithAuthorization(...)
-#   2. calls EscrowPayment.depositFunds(...)
-# and returns a sessionId. For the mockup we accept the signed payload and
-# return a deterministic pretend session id so the UI flow can be demo'd end-to-end.
-#
-# Wire this to the real backend by setting FACILITATOR_URL to the backend-ref
-# server (see ai-agent-marketplace/backend-ref/example-agent-server.js).
+# Three layers of degradation:
+#   (1) FACILITATOR_URL env set → proxy to Node facilitator (fastest for dev)
+#   (2) FACILITATOR_PRIVATE_KEY set → use onchain.py (Python-native, no Node)
+#   (3) neither → mock responses (demo UI without any backend)
 import os
 import uuid
 FACILITATOR_URL = os.environ.get("FACILITATOR_URL")
+
+_onchain = None
+def _get_onchain():
+    global _onchain
+    if _onchain is None:
+        try:
+            from onchain import OnChain
+            _onchain = OnChain.from_env()
+        except Exception as e:
+            print(f"[onchain] unavailable: {e}")
+            _onchain = False
+    return _onchain or None
 
 @app.route("/api/x402/pay", methods=["POST"])
 def api_x402_pay():
@@ -809,12 +816,19 @@ def api_x402_pay():
         except Exception as e:
             return jsonify({"error": f"facilitator unreachable: {e}"}), 502
 
+    oc = _get_onchain()
+    if oc and oc.facilitator:
+        try:
+            return jsonify(oc.x402_execute(payload))
+        except Exception as e:
+            return jsonify({"error": f"onchain x402 failed: {e}"}), 500
+
     # Mockup fallback — pretend the payment went through.
     return jsonify({
         "sessionId": str(uuid.uuid4())[:8],
         "agentId": payload["agentId"],
         "status": "mock_settled",
-        "note": "FACILITATOR_URL not set; this is a mock response. Point FACILITATOR_URL at the backend-ref server to wire real on-chain settlement.",
+        "note": "No FACILITATOR_URL and no FACILITATOR_PRIVATE_KEY — mock response. Set either to enable real on-chain.",
     })
 
 # Submit a dispute. Proxies to the gatekeeper backend, which (optionally) signs
@@ -836,25 +850,47 @@ def api_dispute_submit():
         except Exception as e:
             return jsonify({"error": f"gatekeeper unreachable: {e}"}), 502
 
+    oc = _get_onchain()
+    if oc and oc.gatekeeper:
+        try:
+            return jsonify(oc.submit_incident(
+                int(payload["agentId"]),
+                payload["affectedUser"],
+                int(payload["severity"]),
+            ))
+        except Exception as e:
+            return jsonify({"error": f"onchain gatekeeper failed: {e}"}), 500
+
     # Mock path: log and accept without signing
     print(f"[dispute] agent={payload['agentId']} sev={payload['severity']} reason={payload['reason']!r}")
     return jsonify({
         "status": "pending_review",
-        "note": "GATEKEEPER_URL not set; dispute logged but no on-chain incident was signed.",
+        "note": "No GATEKEEPER_URL and no GATEKEEPER_PRIVATE_KEY — dispute logged but no on-chain incident was signed.",
     })
 
 
-# Read a live escrow session from chain via the facilitator proxy.
+# Read a live escrow session from chain. Prefers Python-native onchain.py,
+# falls back to the Node facilitator if configured.
 @app.route("/api/session/<session_id>")
 def api_session(session_id):
-    if not FACILITATOR_URL:
-        return jsonify({"error": "FACILITATOR_URL not configured"}), 503
     try:
-        import requests
-        r = requests.get(f"{FACILITATOR_URL}/session/{session_id}", timeout=10)
-        return (r.text, r.status_code, r.headers.items())
-    except Exception as e:
-        return jsonify({"error": str(e)}), 502
+        sid = int(session_id)
+    except ValueError:
+        return jsonify({"error": "session id must be numeric"}), 400
+    oc = _get_onchain()
+    if oc:
+        try:
+            return jsonify(oc.get_session(sid))
+        except Exception as e:
+            return jsonify({"error": str(e)}), 502
+    if FACILITATOR_URL:
+        try:
+            import requests
+            r = requests.get(f"{FACILITATOR_URL}/session/{session_id}", timeout=10)
+            return (r.text, r.status_code, r.headers.items())
+        except Exception as e:
+            return jsonify({"error": str(e)}), 502
+    return jsonify({"error": "no on-chain backend configured"}), 503
 
 
 # On-chain deployment metadata for the frontend. Exposed so the UI can link

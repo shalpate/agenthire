@@ -1,1 +1,5 @@
 flask>=3.0.0
+requests>=2.31.0
+# Optional — enables Python-native on-chain calls (no Node service needed).
+web3>=6.15.0
+eth-account>=0.11.0
