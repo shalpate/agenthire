@@ -686,11 +686,28 @@ def agent_detail(agent_id):
     a2a = A2A_WORKFLOWS.get(agent_id, {**STANDALONE, "stages": _standalone_stages(agent["name"])})
     return render_template("agent_detail.html", agent=agent, reviews=reviews, a2a=a2a)
 
-@app.route("/checkout/<int:agent_id>")
+@app.route("/checkout/<int:agent_id>", methods=["GET", "POST"])
 def checkout(agent_id):
     agent = next((a for a in AGENTS if a["id"] == agent_id), None)
     if not agent:
         return redirect(url_for("marketplace"))
+    if request.method == "POST":
+        data = request.get_json(silent=True) or request.form.to_dict()
+        order_id = f"ORD-{len(ORDERS) + 1:03d}"
+        new_order = {
+            "id": order_id,
+            "agent": agent["name"],
+            "agent_id": agent_id,
+            "buyer": data.get("buyer", "0x0000...0000"),
+            "amount": float(data.get("amount", 0)),
+            "status": "in_escrow",
+            "date": str(uuid.uuid4())[:10],
+            "task": data.get("task", ""),
+        }
+        ORDERS.append(new_order)
+        if request.is_json:
+            return jsonify({"orderId": order_id, "status": "in_escrow"}), 201
+        return redirect(url_for("order_detail", order_id=order_id))
     a2a = A2A_WORKFLOWS.get(agent_id, {**STANDALONE, "stages": _standalone_stages(agent["name"])})
     return render_template("checkout.html", agent=agent, a2a=a2a)
 
@@ -716,8 +733,56 @@ def seller_dashboard():
     my_agents = AGENTS[:3]
     return render_template("seller/dashboard.html", agents=my_agents, orders=ORDERS, earnings=EARNINGS_DATA)
 
-@app.route("/seller/create")
+@app.route("/seller/create", methods=["GET", "POST"])
 def seller_create():
+    if request.method == "POST":
+        data = request.get_json(silent=True) or request.form.to_dict()
+        required = ["name", "description", "category", "billing"]
+        missing = [k for k in required if not data.get(k)]
+        if missing:
+            return jsonify({"error": f"missing fields: {missing}"}), 400
+        new_id = max(a["id"] for a in AGENTS) + 1
+        new_agent = {
+            "id": new_id,
+            "name": data["name"],
+            "description": data.get("description", ""),
+            "long_description": data.get("long_description", data.get("description", "")),
+            "category": data["category"],
+            "use_case": data.get("use_case", ""),
+            "verified": False,
+            "verification_tier": "none",
+            "featured": False,
+            "rating": 0.0,
+            "reviews": 0,
+            "billing": data["billing"],
+            "min_price": float(data.get("min_price", 0.001)),
+            "max_price": float(data.get("max_price", 0.010)),
+            "current_price": float(data.get("min_price", 0.001)),
+            "surge_active": False,
+            "surge_multiplier": 1.0,
+            "seller": data.get("seller", "Unknown Seller"),
+            "seller_rating": 0.0,
+            "tasks_completed": 0,
+            "tags": [t.strip() for t in data.get("tags", "").split(",") if t.strip()],
+            "capabilities": [c.strip() for c in data.get("capabilities", "").split("\n") if c.strip()],
+            "avg_completion_time": data.get("avg_completion_time", "—"),
+        }
+        AGENTS.append(new_agent)
+        VERIFICATION_QUEUE.append({
+            "id": f"VRF-{new_id:03d}",
+            "agent": new_agent["name"],
+            "agent_id": new_id,
+            "seller": new_agent["seller"],
+            "tier": data.get("verification_tier", "basic"),
+            "status": "pending",
+            "submitted": str(uuid.uuid4())[:10],
+            "safety_score": None,
+            "performance_score": None,
+            "reliability_score": None,
+        })
+        if request.is_json:
+            return jsonify({"agentId": new_id, "status": "submitted", "message": "Agent submitted for verification."}), 201
+        return redirect(url_for("seller_verification"))
     return render_template("seller/create.html", categories=CATEGORIES, use_cases=USE_CASES)
 
 @app.route("/seller/verification")
@@ -914,6 +979,277 @@ def api_onchain_info():
             "AuctionMarket":      "0xa7AEEca5a76bd5Cd38B15dfcC2c288d3645E53E3",
         },
     })
+
+
+# ── REST Agent API ─────────────────────────────────────────────────────────────
+
+@app.route("/api/agents")
+def api_agents():
+    """Paginated, filterable agent list."""
+    category  = request.args.get("category", "")
+    use_case  = request.args.get("use_case", "")
+    verified  = request.args.get("verified", "")
+    q         = request.args.get("q", "").lower()
+    page      = max(1, int(request.args.get("page", 1)))
+    per_page  = min(50, int(request.args.get("per_page", 12)))
+
+    agents = AGENTS[:]
+    if q:
+        agents = [a for a in agents if q in a["name"].lower() or q in a["description"].lower()
+                  or any(q in t for t in a["tags"])]
+    if category:
+        agents = [a for a in agents if a["category"] == category]
+    if use_case:
+        agents = [a for a in agents if a["use_case"] == use_case]
+    if verified == "true":
+        agents = [a for a in agents if a["verified"]]
+    elif verified == "false":
+        agents = [a for a in agents if not a["verified"]]
+
+    total   = len(agents)
+    start   = (page - 1) * per_page
+    agents  = agents[start:start + per_page]
+    return jsonify({"agents": agents, "total": total, "page": page, "per_page": per_page})
+
+
+@app.route("/api/agents/<int:agent_id>")
+def api_agent(agent_id):
+    agent = next((a for a in AGENTS if a["id"] == agent_id), None)
+    if not agent:
+        return jsonify({"error": "agent not found"}), 404
+    return jsonify(agent)
+
+
+@app.route("/api/agents/register", methods=["POST"])
+def api_agents_register():
+    """Register a new agent on-chain via AgentRegistry.registerAgent."""
+    payload = request.get_json(silent=True) or {}
+    required = ["wallet", "name", "endpointURL"]
+    missing = [k for k in required if k not in payload]
+    if missing:
+        return jsonify({"error": f"missing fields: {missing}"}), 400
+
+    oc = _get_onchain()
+    if oc:
+        try:
+            result = oc.register_agent(payload["wallet"], payload["name"], payload["endpointURL"])
+            return jsonify(result), 201
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+    return jsonify({
+        "agentId": None,
+        "status": "mock_registered",
+        "note": "No FACILITATOR_PRIVATE_KEY — registration not sent on-chain.",
+    }), 201
+
+
+# ── On-chain agent reads ────────────────────────────────────────────────────────
+
+@app.route("/api/agents/<int:agent_id>/reputation")
+def api_agent_reputation(agent_id):
+    oc = _get_onchain()
+    if oc:
+        try:
+            return jsonify(oc.get_credit_profile(agent_id))
+        except Exception as e:
+            return jsonify({"error": str(e)}), 502
+    return jsonify({"error": "no on-chain backend configured"}), 503
+
+
+@app.route("/api/agents/<int:agent_id>/stake")
+def api_agent_stake(agent_id):
+    oc = _get_onchain()
+    if oc:
+        try:
+            return jsonify(oc.get_stake(agent_id))
+        except Exception as e:
+            return jsonify({"error": str(e)}), 502
+    return jsonify({"error": "no on-chain backend configured"}), 503
+
+
+# ── Escrow session management ───────────────────────────────────────────────────
+
+@app.route("/api/session/<session_id>/cancel", methods=["POST"])
+def api_session_cancel(session_id):
+    try:
+        sid = int(session_id)
+    except ValueError:
+        return jsonify({"error": "session id must be numeric"}), 400
+
+    oc = _get_onchain()
+    if oc:
+        try:
+            return jsonify(oc.cancel_session(sid))
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+    if FACILITATOR_URL:
+        try:
+            import requests as _req
+            r = _req.post(f"{FACILITATOR_URL}/session/{session_id}/cancel", timeout=15)
+            return (r.text, r.status_code, r.headers.items())
+        except Exception as e:
+            return jsonify({"error": str(e)}), 502
+    return jsonify({"error": "no on-chain backend configured"}), 503
+
+
+# ── Auction market ──────────────────────────────────────────────────────────────
+
+# In-memory auction bid store (mirrors what's on-chain when keys are set).
+_AUCTION_BIDS: list = []
+
+
+@app.route("/api/auctions")
+def api_auctions():
+    """Return open (not settled, not cancelled, not expired) bids."""
+    now = int(__import__("time").time())
+    open_bids = [
+        b for b in _AUCTION_BIDS
+        if not b.get("settled") and not b.get("cancelled") and b.get("expiresAt", 0) > now
+    ]
+    return jsonify({"bids": open_bids, "total": len(open_bids)})
+
+
+@app.route("/api/auctions/<bid_id>")
+def api_auction_bid(bid_id):
+    # Try on-chain first
+    oc = _get_onchain()
+    if oc:
+        try:
+            return jsonify(oc.get_bid(int(bid_id)))
+        except Exception as e:
+            return jsonify({"error": str(e)}), 502
+    # Fall back to in-memory store
+    bid = next((b for b in _AUCTION_BIDS if str(b.get("bidId")) == str(bid_id)), None)
+    if not bid:
+        return jsonify({"error": "bid not found"}), 404
+    return jsonify(bid)
+
+
+@app.route("/api/auctions/bid", methods=["POST"])
+def api_auction_post_bid():
+    payload = request.get_json(silent=True) or {}
+    required = ["depositAmount", "tokenBudget", "maxPricePerToken", "categoryId", "minTier", "expiresAt"]
+    missing = [k for k in required if k not in payload]
+    if missing:
+        return jsonify({"error": f"missing fields: {missing}"}), 400
+
+    oc = _get_onchain()
+    if oc and oc.facilitator:
+        try:
+            result = oc.post_bid(
+                int(payload["depositAmount"]),
+                int(payload["tokenBudget"]),
+                int(payload["maxPricePerToken"]),
+                int(payload["categoryId"]),
+                int(payload["minTier"]),
+                int(payload["expiresAt"]),
+            )
+            # Mirror into in-memory store
+            bid_record = {**payload, "bidId": result.get("bidId"), "settled": False, "cancelled": False}
+            _AUCTION_BIDS.append(bid_record)
+            return jsonify(result), 201
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+
+    # Mock path
+    bid_id = str(len(_AUCTION_BIDS) + 1)
+    bid_record = {**payload, "bidId": bid_id, "settled": False, "cancelled": False,
+                  "note": "mock — FACILITATOR_PRIVATE_KEY not set"}
+    _AUCTION_BIDS.append(bid_record)
+    return jsonify({"bidId": bid_id, "status": "mock_posted", **bid_record}), 201
+
+
+@app.route("/api/auctions/<bid_id>/cancel", methods=["POST"])
+def api_auction_cancel_bid(bid_id):
+    oc = _get_onchain()
+    if oc and oc.facilitator:
+        try:
+            result = oc.cancel_bid(int(bid_id))
+            # Update in-memory store
+            for b in _AUCTION_BIDS:
+                if str(b.get("bidId")) == str(bid_id):
+                    b["cancelled"] = True
+            return jsonify(result)
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+
+    for b in _AUCTION_BIDS:
+        if str(b.get("bidId")) == str(bid_id):
+            b["cancelled"] = True
+            return jsonify({"bidId": bid_id, "status": "mock_cancelled"})
+    return jsonify({"error": "bid not found"}), 404
+
+
+# ── Admin action endpoints ──────────────────────────────────────────────────────
+
+@app.route("/admin/verification-queue/<vrf_id>/approve", methods=["POST"])
+def admin_approve_verification(vrf_id):
+    entry = next((v for v in VERIFICATION_QUEUE if v["id"] == vrf_id), None)
+    if not entry:
+        return jsonify({"error": "not found"}), 404
+    entry["status"] = "approved"
+    # Mark the agent as verified
+    if entry.get("agent_id"):
+        agent = next((a for a in AGENTS if a["id"] == entry["agent_id"]), None)
+        if agent:
+            agent["verified"] = True
+            agent["verification_tier"] = entry.get("tier", "basic")
+    return jsonify({"id": vrf_id, "status": "approved"})
+
+
+@app.route("/admin/verification-queue/<vrf_id>/reject", methods=["POST"])
+def admin_reject_verification(vrf_id):
+    entry = next((v for v in VERIFICATION_QUEUE if v["id"] == vrf_id), None)
+    if not entry:
+        return jsonify({"error": "not found"}), 404
+    entry["status"] = "rejected"
+    return jsonify({"id": vrf_id, "status": "rejected"})
+
+
+@app.route("/admin/payouts/<pay_id>/release", methods=["POST"])
+def admin_release_payout(pay_id):
+    # payouts are local to the route; rebuild from ORDERS for simplicity
+    return jsonify({"id": pay_id, "status": "released"})
+
+
+@app.route("/admin/moderation/<rpt_id>/resolve", methods=["POST"])
+def admin_resolve_report(rpt_id):
+    return jsonify({"id": rpt_id, "status": "resolved"})
+
+
+# ── Search API ──────────────────────────────────────────────────────────────────
+
+@app.route("/api/search")
+def api_search():
+    q = request.args.get("q", "").lower().strip()
+    if not q:
+        return jsonify({"results": []})
+    results = [
+        {"id": a["id"], "name": a["name"], "category": a["category"],
+         "description": a["description"], "rating": a["rating"],
+         "verified": a["verified"], "billing": a["billing"],
+         "current_price": a["current_price"]}
+        for a in AGENTS
+        if q in a["name"].lower() or q in a["description"].lower()
+        or any(q in t for t in a["tags"])
+    ]
+    return jsonify({"results": results, "total": len(results), "query": q})
+
+
+# ── Error handlers ──────────────────────────────────────────────────────────────
+
+@app.errorhandler(404)
+def not_found(e):
+    if request.path.startswith("/api/"):
+        return jsonify({"error": "not found"}), 404
+    return render_template("404.html"), 404
+
+
+@app.errorhandler(500)
+def server_error(e):
+    if request.path.startswith("/api/"):
+        return jsonify({"error": "internal server error"}), 500
+    return render_template("500.html"), 500
 
 
 if __name__ == "__main__":

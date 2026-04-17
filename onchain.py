@@ -94,11 +94,50 @@ ABI = {
              {"name":"name","type":"string"},{"name":"endpointURL","type":"string"},
              {"name":"registeredAt","type":"uint256"},{"name":"active","type":"bool"},
              {"name":"banned","type":"bool"}],"type":"tuple"}]},
+        {"type":"function","name":"getListing","stateMutability":"view",
+         "inputs":[{"name":"id","type":"uint256"}],
+         "outputs":[{"components":[
+             {"name":"minPricePerToken","type":"uint256"},{"name":"maxTokensPerSession","type":"uint256"},
+             {"name":"acceptingWork","type":"bool"},{"name":"nonce","type":"uint256"}],"type":"tuple"}]},
+        {"type":"function","name":"registerAgent","stateMutability":"nonpayable",
+         "inputs":[{"name":"wallet","type":"address"},{"name":"name","type":"string"},
+                   {"name":"endpointURL","type":"string"}],
+         "outputs":[{"type":"uint256"}]},
     ],
     "StakingSlashing": [
         {"type":"function","name":"getStake","stateMutability":"view",
          "inputs":[{"name":"id","type":"uint256"}],
          "outputs":[{"type":"uint256"},{"type":"uint256"},{"type":"bool"}]},
+        {"type":"function","name":"getUnstakeRequest","stateMutability":"view",
+         "inputs":[{"name":"id","type":"uint256"}],
+         "outputs":[{"name":"amount","type":"uint256"},{"name":"availableAt","type":"uint256"}]},
+        {"type":"function","name":"stake","stateMutability":"nonpayable",
+         "inputs":[{"name":"agentId","type":"uint256"},{"name":"amount","type":"uint256"}],
+         "outputs":[]},
+        {"type":"function","name":"requestUnstake","stateMutability":"nonpayable",
+         "inputs":[{"name":"agentId","type":"uint256"},{"name":"amount","type":"uint256"}],
+         "outputs":[]},
+        {"type":"function","name":"completeUnstake","stateMutability":"nonpayable",
+         "inputs":[{"name":"agentId","type":"uint256"},{"name":"recipient","type":"address"}],
+         "outputs":[]},
+    ],
+    "AuctionMarket": [
+        {"type":"function","name":"postBid","stateMutability":"nonpayable",
+         "inputs":[{"name":"depositAmount","type":"uint256"},{"name":"tokenBudget","type":"uint256"},
+                   {"name":"maxPricePerToken","type":"uint256"},{"name":"categoryId","type":"uint256"},
+                   {"name":"minTier","type":"uint8"},{"name":"expiresAt","type":"uint64"}],
+         "outputs":[{"type":"uint256"}]},
+        {"type":"function","name":"getBid","stateMutability":"view",
+         "inputs":[{"name":"bidId","type":"uint256"}],
+         "outputs":[{"components":[
+             {"name":"user","type":"address"},{"name":"depositAmount","type":"uint256"},
+             {"name":"tokenBudget","type":"uint256"},{"name":"maxPricePerToken","type":"uint256"},
+             {"name":"categoryId","type":"uint256"},{"name":"minTier","type":"uint8"},
+             {"name":"expiresAt","type":"uint64"},{"name":"claimedByAgentId","type":"uint256"},
+             {"name":"settled","type":"bool"},{"name":"cancelled","type":"bool"}],"type":"tuple"}]},
+        {"type":"function","name":"cancelBid","stateMutability":"nonpayable",
+         "inputs":[{"name":"bidId","type":"uint256"}],
+         "outputs":[]},
     ],
 }
 
@@ -147,6 +186,119 @@ class OnChain:
             "score": p[0], "tier": p[1], "tasksCompleted": p[2],
             "incidentCount": p[3], "lastDecayTs": p[4], "projectedScore": p[5],
         }
+
+    def get_stake(self, agent_id: int) -> dict:
+        s = self._contracts["StakingSlashing"].functions.getStake(int(agent_id)).call()
+        ur = self._contracts["StakingSlashing"].functions.getUnstakeRequest(int(agent_id)).call()
+        return {
+            "stakedUSDC": str(s[0]),
+            "incidentCount": int(s[1]),
+            "banned": s[2],
+            "unstakeRequest": {
+                "amount": str(ur[0]),
+                "availableAt": int(ur[1]),
+            },
+        }
+
+    def get_listing(self, agent_id: int) -> dict:
+        l = self._contracts["AgentRegistry"].functions.getListing(int(agent_id)).call()
+        return {
+            "minPricePerToken": str(l[0]),
+            "maxTokensPerSession": str(l[1]),
+            "acceptingWork": l[2],
+            "nonce": int(l[3]),
+        }
+
+    def register_agent(self, wallet: str, name: str, endpoint_url: str) -> dict:
+        """Register a new agent on-chain. Facilitator pays gas."""
+        if not self.facilitator:
+            raise RuntimeError("FACILITATOR_PRIVATE_KEY not set")
+        reg = self._contracts["AgentRegistry"]
+        tx = reg.functions.registerAgent(
+            Web3.to_checksum_address(wallet), name, endpoint_url
+        ).build_transaction(self._tx_params())
+        h = self._sign_send(tx, self.facilitator)
+        receipt = self.w3.eth.wait_for_transaction_receipt(h)
+        # Parse agentId from return value via logs (first topic[1] on AgentRegistry)
+        agent_id = None
+        for log in receipt["logs"]:
+            if log["address"].lower() == ADDRESSES["AgentRegistry"].lower():
+                if len(log["topics"]) >= 2:
+                    agent_id = int(log["topics"][1].hex(), 16)
+                    break
+        return {
+            "agentId": str(agent_id) if agent_id is not None else None,
+            "txHash": h.hex(),
+            "snowtrace": f"https://testnet.snowtrace.io/tx/{h.hex()}",
+        }
+
+    def cancel_session(self, session_id: int) -> dict:
+        """Cancel an open escrow session. Facilitator pays gas."""
+        if not self.facilitator:
+            raise RuntimeError("FACILITATOR_PRIVATE_KEY not set")
+        escrow = self._contracts["EscrowPayment"]
+        tx = escrow.functions.cancelSession(int(session_id)).build_transaction(self._tx_params())
+        h = self._sign_send(tx, self.facilitator)
+        self.w3.eth.wait_for_transaction_receipt(h)
+        return {"sessionId": str(session_id), "status": "cancelled", "txHash": h.hex()}
+
+    def get_bid(self, bid_id: int) -> dict:
+        b = self._contracts["AuctionMarket"].functions.getBid(int(bid_id)).call()
+        return {
+            "bidId": str(bid_id),
+            "user": b[0],
+            "depositAmount": str(b[1]),
+            "tokenBudget": str(b[2]),
+            "maxPricePerToken": str(b[3]),
+            "categoryId": str(b[4]),
+            "minTier": int(b[5]),
+            "expiresAt": int(b[6]),
+            "claimedByAgentId": str(b[7]),
+            "settled": b[8],
+            "cancelled": b[9],
+        }
+
+    def post_bid(
+        self,
+        deposit_amount: int,
+        token_budget: int,
+        max_price_per_token: int,
+        category_id: int,
+        min_tier: int,
+        expires_at: int,
+    ) -> dict:
+        """Post an open auction bid. Facilitator pays gas."""
+        if not self.facilitator:
+            raise RuntimeError("FACILITATOR_PRIVATE_KEY not set")
+        auc = self._contracts["AuctionMarket"]
+        tx = auc.functions.postBid(
+            int(deposit_amount), int(token_budget), int(max_price_per_token),
+            int(category_id), int(min_tier), int(expires_at)
+        ).build_transaction(self._tx_params())
+        h = self._sign_send(tx, self.facilitator)
+        receipt = self.w3.eth.wait_for_transaction_receipt(h)
+        bid_id = None
+        for log in receipt["logs"]:
+            if log["address"].lower() == ADDRESSES["AuctionMarket"].lower():
+                if len(log["topics"]) >= 2:
+                    bid_id = int(log["topics"][1].hex(), 16)
+                    break
+        return {
+            "bidId": str(bid_id) if bid_id is not None else None,
+            "status": "posted",
+            "txHash": h.hex(),
+            "snowtrace": f"https://testnet.snowtrace.io/tx/{h.hex()}",
+        }
+
+    def cancel_bid(self, bid_id: int) -> dict:
+        """Cancel an open auction bid. Facilitator pays gas."""
+        if not self.facilitator:
+            raise RuntimeError("FACILITATOR_PRIVATE_KEY not set")
+        auc = self._contracts["AuctionMarket"]
+        tx = auc.functions.cancelBid(int(bid_id)).build_transaction(self._tx_params())
+        h = self._sign_send(tx, self.facilitator)
+        self.w3.eth.wait_for_transaction_receipt(h)
+        return {"bidId": str(bid_id), "status": "cancelled", "txHash": h.hex()}
 
     # ── x402 execute: EIP-3009 permit → approve → depositFunds ───────────────
     def x402_execute(self, p: dict) -> dict:
