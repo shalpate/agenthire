@@ -247,7 +247,7 @@
     <button class="btn btn-ghost" id="step-prev" style="display:none;">← Back</button>
     <div style="margin-left:auto; display:flex; gap:12px;">
       <button class="btn btn-primary" id="step-next">Continue →</button>
-      <button class="btn btn-gradient" id="step-submit" style="display:none;" onclick="showToast('Listing submitted for verification! Redirecting…', 'success'); setTimeout(() => window.location='/seller/verification', 2000);">Submit & Pay Verification Fee</button>
+      <button class="btn btn-gradient" id="step-submit" style="display:none;">Submit & Pay Verification Fee</button>
     </div>
   </div>
 </div>
@@ -257,6 +257,61 @@
 <script>
   goToStep(1);
   initSubagentEditor();
+
+  // ── Submit handler ──────────────────────────────────────────────────────────
+  document.getElementById('step-submit').addEventListener('click', async () => {
+    const btn = document.getElementById('step-submit');
+    btn.disabled = true;
+    btn.textContent = 'Submitting…';
+
+    // Collect all step data
+    const step1 = document.getElementById('step-1');
+    const step2 = document.getElementById('step-2');
+    const step3 = document.getElementById('step-3');
+
+    const inputs = (step) => step ? [...step.querySelectorAll('input,textarea,select')] : [];
+    const val = (step, idx) => { const els = inputs(step); return els[idx] ? els[idx].value.trim() : ''; };
+
+    const billingEl = step2 ? step2.querySelector('[data-tier].selected') : null;
+    const tierEl = step3 ? step3.querySelector('[data-tier].selected') : null;
+    const priceInputs = step2 ? step2.querySelectorAll('input[type="number"]') : [];
+
+    const payload = {
+      name:              val(step1, 0),
+      description:       val(step1, 1),
+      long_description:  val(step1, 2),
+      category:          val(step1, 3),
+      use_case:          val(step1, 4),
+      tags:              val(step1, 5),
+      capabilities:      val(step1, 7),
+      billing:           billingEl ? billingEl.dataset.tier : 'per_token',
+      min_price:         priceInputs[0] ? priceInputs[0].value : '0.002',
+      max_price:         priceInputs[1] ? priceInputs[1].value : '0.010',
+      verification_tier: tierEl ? tierEl.dataset.tier : 'basic',
+      seller:            window.AgentHire && window.AgentHire.address ? window.AgentHire.address : 'Unknown Seller',
+    };
+
+    if (!payload.name || !payload.description || !payload.category) {
+      showToast('Please fill in required fields (name, description, category).', 'error');
+      btn.disabled = false;
+      btn.textContent = 'Submit & Pay Verification Fee';
+      return;
+    }
+
+    try {
+      const res = await AgentHireAPI.post('/seller/create', payload);
+      if (res.agentId || res.status === 'submitted') {
+        showToast('Listing submitted for verification!', 'success');
+        setTimeout(() => window.location = '/seller/verification', 1800);
+      } else {
+        throw new Error(res.error || 'Unexpected response');
+      }
+    } catch (e) {
+      showToast('Submission failed: ' + e.message, 'error');
+      btn.disabled = false;
+      btn.textContent = 'Submit & Pay Verification Fee';
+    }
+  });
 
   function selectBilling(type) {
     document.querySelectorAll('[data-tier="per_token"], [data-tier="per_minute"]').forEach(c => c.classList.remove('selected'));

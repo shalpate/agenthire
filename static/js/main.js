@@ -1,5 +1,36 @@
 /* ── AgentHire — Main JS ────────────────────────────────────────────────────── */
 
+// ── AgentHireAPI — shared fetch utility ──────────────────────────────────────
+// Usage:
+//   AgentHireAPI.get('/api/agents')           → Promise<Object>
+//   AgentHireAPI.post('/api/x402/pay', body)  → Promise<Object>
+// Errors are thrown with a readable message so callers can showToast on catch.
+const AgentHireAPI = (() => {
+  async function request(method, url, body) {
+    const opts = {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+    };
+    if (body !== undefined) opts.body = JSON.stringify(body);
+    const res = await fetch(url, opts);
+    let data;
+    try { data = await res.json(); } catch (_) { data = {}; }
+    if (!res.ok) {
+      const msg = data.error || data.message || `HTTP ${res.status}`;
+      throw new Error(msg);
+    }
+    return data;
+  }
+  return {
+    get:  (url)        => request('GET',  url),
+    post: (url, body)  => request('POST', url, body),
+    put:  (url, body)  => request('PUT',  url, body),
+    del:  (url)        => request('DELETE', url),
+  };
+})();
+// Expose globally so inline <script> blocks can use it.
+window.AgentHireAPI = AgentHireAPI;
+
 // ── Toasts ───────────────────────────────────────────────────────────────────
 function showToast(message, type = 'info', duration = 3500) {
   const icons = { success: '✓', error: '✕', info: 'ℹ', warning: '⚠' };
@@ -72,40 +103,74 @@ document.querySelectorAll('.role-btn').forEach(btn => {
   });
 });
 
-// ── Wallet Connect Mock ───────────────────────────────────────────────────────
-const walletBtn = document.getElementById('wallet-btn');
-if (walletBtn) {
-  walletBtn.addEventListener('click', () => {
-    const connected = walletBtn.dataset.connected === 'true';
-    if (!connected) {
-      walletBtn.innerHTML = `<span class="dot"></span> 0x3f8a...c12d`;
-      walletBtn.dataset.connected = 'true';
-      showToast('Wallet connected: 0x3f8a...c12d', 'success');
-    } else {
-      walletBtn.innerHTML = `<span>Connect Wallet</span>`;
-      walletBtn.dataset.connected = 'false';
-      showToast('Wallet disconnected', 'info');
-    }
-  });
-}
+// ── Wallet Connect (delegates to web3.js AgentHire object) ───────────────────
+// web3.js already handles the wallet-btn click via its own DOMContentLoaded
+// listener. This block syncs the nav button state when the wallet connects
+// through OTHER means (e.g. checkout page, auto-reconnect).
+window.addEventListener('agenthire:connected', (e) => {
+  const btn = document.getElementById('wallet-btn');
+  if (btn && e.detail && e.detail.address) {
+    const short = e.detail.address.slice(0, 6) + '\u2026' + e.detail.address.slice(-4);
+    btn.innerHTML = `<span style="font-family:var(--font-mono)">${short}</span>`;
+    btn.setAttribute('data-connected', 'true');
+  }
+});
 
-// ── Live Price Ticker ─────────────────────────────────────────────────────────
+// ── Live Price Ticker (agent detail page) ────────────────────────────────────
 function startLivePriceTicker(agentId) {
   const priceEl = document.getElementById('live-price');
   if (!priceEl) return;
 
-  setInterval(async () => {
+  async function tick() {
     try {
-      const res  = await fetch(`/api/price/${agentId}`);
-      const data = await res.json();
+      const data = await AgentHireAPI.get(`/api/price/${agentId}`);
       const formatted = data.price < 1 ? data.price.toFixed(5) : data.price.toFixed(4);
       priceEl.textContent = `$${formatted}`;
-      // flash effect
-      priceEl.style.color = 'var(--success)';
+      priceEl.style.color = 'var(--green)';
       setTimeout(() => { priceEl.style.color = ''; }, 600);
     } catch (_) {}
-  }, 4000);
+  }
+  tick();
+  setInterval(tick, 4000);
 }
+
+// ── Live Ticker Strip (base nav) ──────────────────────────────────────────────
+// Polls /api/price/<id> for each agent in the top ticker strip and updates
+// their price span. IDs are inlined as data-agent-id on each ticker-item.
+(function initTickerStripPolling() {
+  const TICKER_AGENT_IDS = [1, 4, 2, 7, 3, 9, 11, 6];
+  const POLL_MS = 15000;
+
+  async function pollTicker() {
+    for (const id of TICKER_AGENT_IDS) {
+      try {
+        const data = await AgentHireAPI.get(`/api/price/${id}`);
+        // Update all .ticker-price spans inside items whose name matches the id
+        document.querySelectorAll(`.ticker-item[data-agent-id="${id}"] .ticker-price`).forEach(el => {
+          el.textContent = '$' + (data.price < 1 ? data.price.toFixed(5) : data.price.toFixed(4));
+        });
+        // Update hero market panel if present
+        const panelPrice = document.getElementById(`panel-price-${id}`);
+        if (panelPrice) panelPrice.textContent = '$' + (data.price < 1 ? data.price.toFixed(5) : data.price.toFixed(4));
+      } catch (_) {}
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    // Add data-agent-id to ticker items so the poller can target them.
+    // The ticker renders 2 sets (duplicate for seamless scroll); map by position.
+    const items = document.querySelectorAll('.ticker-item');
+    if (items.length) {
+      TICKER_AGENT_IDS.forEach((id, i) => {
+        if (items[i]) items[i].setAttribute('data-agent-id', id);
+        // duplicate set
+        if (items[i + TICKER_AGENT_IDS.length]) items[i + TICKER_AGENT_IDS.length].setAttribute('data-agent-id', id);
+      });
+      pollTicker();
+      setInterval(pollTicker, POLL_MS);
+    }
+  });
+})();
 
 // ── Tier Selection ────────────────────────────────────────────────────────────
 document.querySelectorAll('.tier-card').forEach(card => {

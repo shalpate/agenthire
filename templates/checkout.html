@@ -287,14 +287,29 @@
   const cwBtn  = document.getElementById('checkout-wallet-btn');
   const badge  = document.getElementById('wallet-status-badge');
   if (cwBtn) {
-    cwBtn.addEventListener('click', () => {
-      cwBtn.textContent = '0x3f8a...c12d ✓';
-      cwBtn.classList.replace('btn-secondary', 'btn-success');
-      badge.className = 'badge badge-approved';
-      badge.textContent = 'Connected';
-      showToast('Wallet connected', 'success');
+    cwBtn.addEventListener('click', async () => {
+      try {
+        const addr = await window.AgentHire.connectWallet();
+        if (addr) {
+          cwBtn.textContent = window.AgentHire.short(addr) + ' ✓';
+          cwBtn.classList.replace('btn-secondary', 'btn-success');
+          badge.className = 'badge badge-approved';
+          badge.textContent = 'Connected';
+        }
+      } catch (e) {
+        showToast('Wallet connect failed: ' + e.message, 'error');
+      }
     });
   }
+
+  // Restore connected state if wallet already active
+  window.addEventListener('agenthire:connected', (e) => {
+    if (cwBtn && e.detail && e.detail.address) {
+      cwBtn.textContent = window.AgentHire.short(e.detail.address) + ' ✓';
+      cwBtn.classList.replace('btn-secondary', 'btn-success');
+      if (badge) { badge.className = 'badge badge-approved'; badge.textContent = 'Connected'; }
+    }
+  });
 
   function updateMaxSpend(val) {
     const el = document.getElementById('max-spend-display');

@@ -1,8 +1,43 @@
 from flask import Flask, render_template, request, jsonify, redirect, url_for
+import logging
+import os
 import random
+import time
 
+from config import config as _config_map
+from extensions import db, cors, limiter
+from auth import require_api_key
+
+# ── Logging setup ──────────────────────────────────────────────────────────────
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s — %(message)s",
+    datefmt="%Y-%m-%dT%H:%M:%S",
+)
+log = logging.getLogger("agenthire")
+
+# ── App factory ────────────────────────────────────────────────────────────────
 app = Flask(__name__)
+
+_env = os.environ.get("FLASK_ENV", "development")
+app.config.from_object(_config_map.get(_env, _config_map["default"]))
+
+# Init extensions
+db.init_app(app)
+cors.init_app(app, resources={r"/api/*": {"origins": app.config.get("CORS_ORIGINS", "*")}})
+limiter.init_app(app)
+
 app.jinja_env.globals['enumerate'] = enumerate
+
+# Request logging
+@app.before_request
+def _log_request():
+    log.info("%s %s", request.method, request.path)
+
+@app.after_request
+def _log_response(response):
+    log.info("%s %s → %s", request.method, request.path, response.status_code)
+    return response
 
 # ── Mock Data ──────────────────────────────────────────────────────────────────
 
@@ -831,6 +866,7 @@ def admin_payouts():
 # ── API (mock) ─────────────────────────────────────────────────────────────────
 
 @app.route("/api/price/<int:agent_id>")
+@limiter.limit("60/minute")
 def api_price(agent_id):
     agent = next((a for a in AGENTS if a["id"] == agent_id), None)
     if not agent:
@@ -866,6 +902,7 @@ def _get_onchain():
     return _onchain or None
 
 @app.route("/api/x402/pay", methods=["POST"])
+@limiter.limit("30/minute")
 def api_x402_pay():
     payload = request.get_json(silent=True) or {}
     required = ["from", "to", "value", "validBefore", "nonce", "v", "r", "s", "agentId"]
@@ -1127,6 +1164,7 @@ def api_auction_bid(bid_id):
 
 @app.route("/api/auctions/bid", methods=["POST"])
 def api_auction_post_bid():
+    from models import AuctionBid
     payload = request.get_json(silent=True) or {}
     required = ["depositAmount", "tokenBudget", "maxPricePerToken", "categoryId", "minTier", "expiresAt"]
     missing = [k for k in required if k not in payload]
@@ -1144,19 +1182,35 @@ def api_auction_post_bid():
                 int(payload["minTier"]),
                 int(payload["expiresAt"]),
             )
-            # Mirror into in-memory store
-            bid_record = {**payload, "bidId": result.get("bidId"), "settled": False, "cancelled": False}
-            _AUCTION_BIDS.append(bid_record)
+            bid = AuctionBid(
+                on_chain_bid_id=result.get("bidId"),
+                deposit_amount=int(payload["depositAmount"]),
+                token_budget=int(payload["tokenBudget"]),
+                max_price_per_token=int(payload["maxPricePerToken"]),
+                category_id=int(payload["categoryId"]),
+                min_tier=int(payload["minTier"]),
+                expires_at=int(payload["expiresAt"]),
+                tx_hash=result.get("txHash"),
+            )
+            db.session.add(bid)
+            db.session.commit()
             return jsonify(result), 201
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 
-    # Mock path
-    bid_id = str(len(_AUCTION_BIDS) + 1)
-    bid_record = {**payload, "bidId": bid_id, "settled": False, "cancelled": False,
-                  "note": "mock — FACILITATOR_PRIVATE_KEY not set"}
-    _AUCTION_BIDS.append(bid_record)
-    return jsonify({"bidId": bid_id, "status": "mock_posted", **bid_record}), 201
+    # Mock path — persist to DB so bids survive restarts
+    bid = AuctionBid(
+        deposit_amount=int(payload["depositAmount"]),
+        token_budget=int(payload["tokenBudget"]),
+        max_price_per_token=int(payload["maxPricePerToken"]),
+        category_id=int(payload["categoryId"]),
+        min_tier=int(payload["minTier"]),
+        expires_at=int(payload["expiresAt"]),
+    )
+    db.session.add(bid)
+    db.session.commit()
+    return jsonify({**bid.to_dict(), "status": "mock_posted",
+                    "note": "mock — FACILITATOR_PRIVATE_KEY not set"}), 201
 
 
 @app.route("/api/auctions/<bid_id>/cancel", methods=["POST"])
@@ -1183,37 +1237,61 @@ def api_auction_cancel_bid(bid_id):
 # ── Admin action endpoints ──────────────────────────────────────────────────────
 
 @app.route("/admin/verification-queue/<vrf_id>/approve", methods=["POST"])
+@require_api_key
 def admin_approve_verification(vrf_id):
-    entry = next((v for v in VERIFICATION_QUEUE if v["id"] == vrf_id), None)
+    from models import VerificationEntry, Agent as AgentModel
+    entry = VerificationEntry.query.get(vrf_id)
     if not entry:
-        return jsonify({"error": "not found"}), 404
-    entry["status"] = "approved"
-    # Mark the agent as verified
-    if entry.get("agent_id"):
-        agent = next((a for a in AGENTS if a["id"] == entry["agent_id"]), None)
-        if agent:
-            agent["verified"] = True
-            agent["verification_tier"] = entry.get("tier", "basic")
+        # fallback: in-memory
+        entry_mem = next((v for v in VERIFICATION_QUEUE if v["id"] == vrf_id), None)
+        if not entry_mem:
+            return jsonify({"error": "not found"}), 404
+        entry_mem["status"] = "approved"
+        if entry_mem.get("agent_id"):
+            a = next((a for a in AGENTS if a["id"] == entry_mem["agent_id"]), None)
+            if a:
+                a["verified"] = True
+                a["verification_tier"] = entry_mem.get("tier", "basic")
+        return jsonify({"id": vrf_id, "status": "approved"})
+    entry.status = "approved"
+    if entry.agent_id:
+        ag = AgentModel.query.get(entry.agent_id)
+        if ag:
+            ag.verified = True
+            ag.verification_tier = entry.tier
+    db.session.commit()
+    log.info("Verification approved: %s", vrf_id)
     return jsonify({"id": vrf_id, "status": "approved"})
 
 
 @app.route("/admin/verification-queue/<vrf_id>/reject", methods=["POST"])
+@require_api_key
 def admin_reject_verification(vrf_id):
-    entry = next((v for v in VERIFICATION_QUEUE if v["id"] == vrf_id), None)
+    from models import VerificationEntry
+    entry = VerificationEntry.query.get(vrf_id)
     if not entry:
-        return jsonify({"error": "not found"}), 404
-    entry["status"] = "rejected"
+        entry_mem = next((v for v in VERIFICATION_QUEUE if v["id"] == vrf_id), None)
+        if not entry_mem:
+            return jsonify({"error": "not found"}), 404
+        entry_mem["status"] = "rejected"
+        return jsonify({"id": vrf_id, "status": "rejected"})
+    entry.status = "rejected"
+    db.session.commit()
+    log.info("Verification rejected: %s", vrf_id)
     return jsonify({"id": vrf_id, "status": "rejected"})
 
 
 @app.route("/admin/payouts/<pay_id>/release", methods=["POST"])
+@require_api_key
 def admin_release_payout(pay_id):
-    # payouts are local to the route; rebuild from ORDERS for simplicity
+    log.info("Payout released: %s", pay_id)
     return jsonify({"id": pay_id, "status": "released"})
 
 
 @app.route("/admin/moderation/<rpt_id>/resolve", methods=["POST"])
+@require_api_key
 def admin_resolve_report(rpt_id):
+    log.info("Moderation report resolved: %s", rpt_id)
     return jsonify({"id": rpt_id, "status": "resolved"})
 
 
@@ -1236,6 +1314,25 @@ def api_search():
     return jsonify({"results": results, "total": len(results), "query": q})
 
 
+# ── Health / readiness ──────────────────────────────────────────────────────────
+
+@app.route("/api/health")
+def api_health():
+    """Liveness probe — always returns 200 if the process is alive."""
+    return jsonify({"status": "ok", "service": "agenthire", "ts": int(time.time())})
+
+
+@app.route("/api/ready")
+def api_ready():
+    """Readiness probe — checks DB connectivity."""
+    try:
+        db.session.execute(db.text("SELECT 1"))
+        return jsonify({"status": "ready", "db": "ok", "ts": int(time.time())})
+    except Exception as e:
+        log.error("Readiness check failed: %s", e)
+        return jsonify({"status": "unavailable", "db": str(e)}), 503
+
+
 # ── Error handlers ──────────────────────────────────────────────────────────────
 
 @app.errorhandler(404)
@@ -1250,6 +1347,17 @@ def server_error(e):
     if request.path.startswith("/api/"):
         return jsonify({"error": "internal server error"}), 500
     return render_template("500.html"), 500
+
+
+# ── DB init + seed ─────────────────────────────────────────────────────────────────
+
+with app.app_context():
+    try:
+        from models import seed_db
+        seed_db(app)
+        log.info("Database ready.")
+    except Exception as _seed_err:
+        log.warning("DB seed skipped: %s", _seed_err)
 
 
 if __name__ == "__main__":
