@@ -42,11 +42,11 @@
           <td class="font-bold">${{ "%.2f"|format(order.amount) }}</td>
           <td>
             {% if order.status == 'completed' %}
-            <span class="badge badge-approved">✓ Completed</span>
+            <span class="badge badge-approved">Completed</span>
             {% elif order.status == 'in_progress' %}
-            <span class="badge badge-testing">⟳ In Progress</span>
+            <span class="badge badge-testing">In Progress</span>
             {% elif order.status == 'in_escrow' %}
-            <span class="badge badge-escrow">🔒 In Escrow</span>
+            <span class="badge badge-escrow">In Escrow</span>
             {% endif %}
           </td>
           <td class="text-muted">{{ order.date }}</td>

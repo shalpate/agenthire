@@ -131,12 +131,12 @@
         <label class="form-label">Billing Model *</label>
         <div class="grid-2 gap-16">
           <div class="tier-card" data-tier="per_token" onclick="selectBilling('per_token')">
-            <div style="font-size:1.5rem; margin-bottom:8px;">🔤</div>
+            <div style="font-family:var(--font-mono); font-size:.625rem; font-weight:700; color:var(--blue); letter-spacing:.1em; text-transform:uppercase; margin-bottom:8px;">TKN</div>
             <div class="font-bold mb-4">Per Token</div>
             <p class="text-sm">Charge per output token. Best for text-based agents.</p>
           </div>
           <div class="tier-card" data-tier="per_minute" onclick="selectBilling('per_minute')">
-            <div style="font-size:1.5rem; margin-bottom:8px;">⏱</div>
+            <div style="font-family:var(--font-mono); font-size:.625rem; font-weight:700; color:var(--blue); letter-spacing:.1em; text-transform:uppercase; margin-bottom:8px;">MIN</div>
             <div class="font-bold mb-4">Per Minute</div>
             <p class="text-sm">Charge per processing minute. Best for time-intensive agents.</p>
           </div>
@@ -147,20 +147,20 @@
         <div class="form-group">
           <label class="form-label">Minimum Price (USDC) *</label>
           <input type="number" class="form-input" step="0.00001" min="0.00001" placeholder="0.002" oninput="updatePricePreview()">
-          <div class="form-hint">Floor price — never go below this</div>
+          <div class="form-hint">Floor price, never go below this</div>
         </div>
         <div class="form-group">
           <label class="form-label">Maximum Price (USDC) *</label>
           <input type="number" class="form-input" step="0.00001" min="0.00001" placeholder="0.010" oninput="updatePricePreview()">
-          <div class="form-hint">Ceiling price — surge pricing stays below this</div>
+          <div class="form-hint">Ceiling price, surge pricing stays below this</div>
         </div>
       </div>
 
       <!-- Surge Pricing Explainer -->
       <div class="card card-sm" style="background: rgba(245,158,11,.04); border-color: rgba(245,158,11,.15);">
         <div class="flex-center gap-8 mb-10">
-          <span>⚡</span>
-          <span class="font-bold text-sm">Surge Pricing — Automatic</span>
+          <span class="badge badge-surge" style="font-size:.5625rem;">SURGE</span>
+          <span class="font-bold text-sm">Surge Pricing: Automatic</span>
         </div>
         <p class="text-sm">When demand for your agent spikes, AgentHire will raise the price toward your maximum. During low demand, it drops toward your minimum. You always earn within your defined band.</p>
         <div class="flex-between mt-12 text-sm">

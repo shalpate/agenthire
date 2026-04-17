@@ -12,11 +12,11 @@
       <h1 style="font-size:1.5rem; margin-bottom:8px;">{{ order.task }}</h1>
       <div class="flex-center gap-12">
         {% if order.status == 'completed' %}
-          <span class="badge badge-approved">✓ Completed</span>
+          <span class="badge badge-approved">Completed</span>
         {% elif order.status == 'in_progress' %}
-          <span class="badge badge-testing">⟳ In Progress</span>
+          <span class="badge badge-testing">In Progress</span>
         {% elif order.status == 'in_escrow' %}
-          <span class="badge badge-escrow">🔒 In Escrow</span>
+          <span class="badge badge-escrow">In Escrow</span>
         {% endif %}
         <span style="font-family:var(--font-mono); font-size:.75rem; color:var(--text-3);">{{ order.date }}</span>
       </div>
@@ -214,8 +214,8 @@
           <div style="margin-top:12px;">Report: <span style="color:var(--blue);">report_20260415.pdf</span></div>
         </div>
         <div style="display:flex; gap:10px; margin-top:14px;">
-          <button class="btn btn-secondary btn-sm" onclick="showToast('Downloading…', 'info')">⬇ Download Report</button>
-          <button class="btn btn-ghost btn-sm" onclick="showToast('Copied to clipboard', 'success')">📋 Copy Output</button>
+          <button class="btn btn-secondary btn-sm" onclick="showToast('Downloading…', 'info')">Download Report</button>
+          <button class="btn btn-ghost btn-sm" onclick="showToast('Copied to clipboard', 'success')">Copy Output</button>
         </div>
         {% elif order.status == 'in_progress' %}
         <div class="flex-col gap-10">
@@ -228,7 +228,7 @@
         <div style="font-family:var(--font-mono); font-size:.6875rem; color:var(--text-3); margin-top:8px;">62% complete · Est. 2 min remaining</div>
         {% else %}
         <div class="empty-state" style="padding:32px;">
-          <div class="icon" style="font-size:1.5rem;">⏳</div>
+          <div style="font-family:var(--font-mono);font-size:1.25rem;color:var(--border-2);font-weight:700;margin-bottom:14px;">[ ]</div>
           <h3>Waiting to start</h3>
           <p>Output appears once execution begins.</p>
         </div>
@@ -334,7 +334,9 @@
 
       {% if order.status == 'completed' %}
       <div class="card" style="text-align:center; border-color:var(--green-border);">
-        <div style="font-size:1.25rem; margin-bottom:8px;">⭐</div>
+        <div class="stars" style="font-size:1.25rem; margin-bottom:8px; justify-content:center; display:flex; gap:2px;">
+          <span class="star-empty">&#9733;</span><span class="star-empty">&#9733;</span><span class="star-empty">&#9733;</span><span class="star-empty">&#9733;</span><span class="star-empty">&#9733;</span>
+        </div>
         <div class="font-bold mb-8">Rate this agent</div>
         <p class="text-sm mb-14">Your rating builds their on-chain reputation</p>
         <button class="btn btn-secondary btn-sm w-full" onclick="openModal('rating-modal')">Leave a Review</button>
@@ -392,12 +394,12 @@
 <div class="modal-overlay" id="budget-modal">
   <div class="modal">
     <div class="modal-header">
-      <h3 style="color:var(--amber);">⚠ Additional Budget Required</h3>
+      <h3 style="color:var(--amber);">Additional Budget Required</h3>
       <button class="modal-close">✕</button>
     </div>
     <div class="modal-body">
       <div class="budget-alert">
-        <span class="budget-alert-icon">⚡</span>
+        <span class="budget-alert-icon" style="font-family:var(--font-mono);font-size:.75rem;font-weight:700;color:var(--amber);">!</span>
         <p>The agent needs additional budget to complete the task. Sub-agent <strong>SecureAudit AI</strong> encountered more vulnerabilities than estimated and requires an extra <strong>$0.03 USDC</strong>.</p>
       </div>
       <div class="cost-breakdown">

@@ -19,23 +19,28 @@
       <!-- Agent Header -->
       <div class="card mb-24">
         <div class="flex-center gap-16 mb-16">
-          {% set colors = ['#1E3A5F','#2D1B4E','#1A3A2E','#3A1F1F'] %}
-          {% set emojis = ['🤖','⚡','🧠','📊','🔍','🛡','✍️','🎯'] %}
-          <div class="agent-avatar" style="width:64px; height:64px; border-radius:16px; font-size:1.75rem; background: {{ colors[agent.id % 4] }};">{{ emojis[agent.id % 8] }}</div>
+          {% set cat_codes  = {'Development':'DEV','Data & Analytics':'DAT','Content':'CON','Finance':'FIN','Research':'RES','Security':'SEC','Automation':'AUT'} %}
+          {% set cat_colors = {'Development':'#1a2212','Data & Analytics':'#12121a','Content':'#1a121a','Finance':'#121a1a','Research':'#1a1a12','Security':'#1a1212','Automation':'#12121a'} %}
+          <div class="agent-avatar" style="width:64px; height:64px; border-radius:12px; font-size:1rem; font-weight:700; letter-spacing:.04em; background:{{ cat_colors.get(agent.category,'#1a1a2a') }}; color:var(--{{ 'green' if agent.verified else 'amber' }});">{{ cat_codes.get(agent.category,'AGT') }}</div>
           <div style="flex:1;">
             <div class="flex-center gap-12 mb-8">
               <h1 style="font-size:1.5rem;">{{ agent.name }}</h1>
               {% if agent.verified %}
-              <span class="badge badge-verified">✓ Verified</span>
+              <span class="badge badge-verified">Verified</span>
               {% else %}
               <span class="badge badge-unverified">Unverified</span>
               {% endif %}
-              {% if agent.featured %}<span class="badge badge-featured">★ Featured</span>{% endif %}
-              {% if agent.surge_active %}<span class="badge badge-surge">⚡ Surge</span>{% endif %}
+              {% if agent.featured %}<span class="badge badge-featured">Featured</span>{% endif %}
+              {% if agent.surge_active %}<span class="badge badge-surge">Surge</span>{% endif %}
             </div>
             <div class="flex-center gap-16">
               <div class="rating">
-                <span class="stars">★★★★★</span>
+                <span class="stars">
+                  {% set r = agent.rating | int %}
+                  {% for i in range(5) %}
+                  <span class="{{ 'star-filled' if i < r else 'star-empty' }}">&#9733;</span>
+                  {% endfor %}
+                </span>
                 <span class="rating-value">{{ agent.rating }}</span>
                 <span class="rating-count">({{ agent.reviews }} reviews)</span>
               </div>
@@ -124,9 +129,9 @@
           <div class="flex-center gap-12">
             <h3 style="font-size:.9375rem;">How this agent works</h3>
             {% if a2a.composable %}
-            <span class="exec-type-badge exec-type-composable">⛓ {{ a2a.workflow_label }}</span>
+            <span class="exec-type-badge exec-type-composable">A2A · {{ a2a.workflow_label }}</span>
             {% else %}
-            <span class="exec-type-badge exec-type-standalone">◼ {{ a2a.workflow_label }}</span>
+            <span class="exec-type-badge exec-type-standalone">{{ a2a.workflow_label }}</span>
             {% endif %}
           </div>
           {% if a2a.composable %}
@@ -194,7 +199,12 @@
         <div class="flex-between mb-20">
           <h3>Reviews</h3>
           <div class="rating">
-            <span class="stars">★★★★★</span>
+            <span class="stars">
+              {% set r = agent.rating | int %}
+              {% for i in range(5) %}
+              <span class="{{ 'star-filled' if i < r else 'star-empty' }}">&#9733;</span>
+              {% endfor %}
+            </span>
             <span class="rating-value font-bold">{{ agent.rating }}</span>
             <span class="rating-count">out of 5</span>
           </div>
@@ -209,7 +219,11 @@
               <span class="text-sm font-bold">{{ review.user }}</span>
             </div>
             <div class="flex-center gap-8">
-              <span class="stars">{% for i in range(review.rating) %}★{% endfor %}</span>
+              <span class="stars">
+                {% for i in range(5) %}
+                <span class="{{ 'star-filled' if i < review.rating else 'star-empty' }}">&#9733;</span>
+                {% endfor %}
+              </span>
               <span class="text-xs text-muted">{{ review.date }}</span>
             </div>
           </div>
@@ -236,10 +250,9 @@
 
         {% if agent.surge_active %}
         <div class="surge-banner mb-16">
-          <span>⚡</span>
           <div>
             <div style="font-weight:700; margin-bottom:2px;">Surge Pricing Active</div>
-            <div style="font-size:.75rem; opacity:.8;">Price adjusted due to peak demand · {{ agent.surge_multiplier }}× multiplier</div>
+            <div style="font-size:.75rem; opacity:.8;">Price adjusted due to peak demand · {{ agent.surge_multiplier }}x multiplier</div>
           </div>
         </div>
         {% endif %}
@@ -258,7 +271,7 @@
         </div>
 
         <div class="escrow-notice mb-16">
-          <span class="icon">🔒</span>
+          <span class="icon" style="font-size:.75rem; font-family:var(--font-mono); color:var(--blue); font-weight:700;">ESC</span>
           <p>Funds held in escrow on Avalanche. Released only after task completion.</p>
         </div>
 
@@ -275,7 +288,12 @@
         <div class="flex-between mb-8">
           <span class="text-sm font-bold">{{ agent.seller }}</span>
           <div class="rating">
-            <span class="stars">★</span>
+            <span class="stars">
+              {% set sr = agent.seller_rating | int %}
+              {% for i in range(5) %}
+              <span class="{{ 'star-filled' if i < sr else 'star-empty' }}">&#9733;</span>
+              {% endfor %}
+            </span>
             <span class="rating-value text-sm">{{ agent.seller_rating }}</span>
           </div>
         </div>
@@ -297,7 +315,7 @@
       <button class="modal-close">✕</button>
     </div>
     <div class="modal-body">
-      <p class="text-sm mb-20">This agent follows a deterministic workflow. Sub-agents are called only when specific conditions are met — never randomly.</p>
+      <p class="text-sm mb-20">This agent follows a deterministic workflow. Sub-agents are called only when specific conditions are met, never randomly.</p>
       <div style="overflow-x:auto; padding-bottom:8px;">
         <div class="workflow-diagram" style="min-width:max-content;">
           {% for step in a2a.steps %}
@@ -361,7 +379,7 @@
       </div>
       {% endfor %}
       <div class="escrow-notice mt-16">
-        <span class="icon">ℹ</span>
+        <span class="icon" style="font-size:.75rem; font-family:var(--font-mono); color:var(--blue); font-weight:700;">INF</span>
         <p>All sub-agent costs are paid within your approved budget. You set a hard spending cap at checkout.</p>
       </div>
     </div>
@@ -400,7 +418,7 @@
         </div>
       </div>
       <div class="escrow-notice">
-        <span class="icon">🔒</span>
+        <span class="icon" style="font-size:.75rem; font-family:var(--font-mono); color:var(--blue); font-weight:700;">ESC</span>
         <p>You set a hard <strong style="color:var(--text);">Max Spend Limit</strong> at checkout. The agent cannot exceed it under any circumstances.</p>
       </div>
     </div>
