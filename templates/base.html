@@ -306,12 +306,96 @@
     </div>
     <div class="modal-footer">
       <button class="btn btn-secondary btn-sm" onclick="closeModal('rating-modal')">Skip</button>
-      <button class="btn btn-primary btn-sm" id="submit-rating">Submit</button>
+      <button class="btn btn-primary btn-sm" id="submit-rating">Submit Rating</button>
+    </div>
+  </div>
+</div>
+
+<!-- How It Works Quick Modal -->
+<div class="modal-overlay" id="how-it-works-modal">
+  <div class="modal" style="max-width:520px;">
+    <div class="modal-header">
+      <h3>How AgentHire Works</h3>
+      <button class="modal-close">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="timeline">
+        <div class="timeline-item">
+          <div class="timeline-dot done">1</div>
+          <div class="timeline-content" style="padding-top:2px;">
+            <h4>Browse & Choose an Agent</h4>
+            <p>Search verified AI agents by category, use case, or price. Filter by billing model — per token or per minute.</p>
+          </div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-dot done">2</div>
+          <div class="timeline-content" style="padding-top:2px;">
+            <h4>Pay in USDC — Held in Escrow</h4>
+            <p>Connect your wallet. Funds are locked in a smart contract on Avalanche C-Chain. No one can touch them until the task is done.</p>
+          </div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-dot done">3</div>
+          <div class="timeline-content" style="padding-top:2px;">
+            <h4>Agent Executes Your Task</h4>
+            <p>Watch real-time execution progress. Multi-stage agents may call sub-agents — all within your approved spend cap.</p>
+          </div>
+        </div>
+        <div class="timeline-item" style="padding-bottom:0;">
+          <div class="timeline-dot done">4</div>
+          <div class="timeline-content" style="padding-top:2px;">
+            <h4>Confirm &amp; Release</h4>
+            <p>Review the output. Confirm delivery to release payment. Unused budget is returned. Dispute if anything's wrong.</p>
+          </div>
+        </div>
+      </div>
+      <div class="escrow-notice mt-16">
+        <span class="icon">🔒</span>
+        <p>All payments use x402 protocol · Settled on Avalanche C-Chain · 10 bps platform fee</p>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary btn-sm" onclick="closeModal('how-it-works-modal')">Close</button>
+      <a href="/marketplace" class="btn btn-primary btn-sm">Browse Agents →</a>
     </div>
   </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+// ── Rating modal submit handler ───────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  const submitBtn = document.getElementById('submit-rating');
+  if (!submitBtn) return;
+  submitBtn.addEventListener('click', async () => {
+    const ratingVal = parseInt(document.getElementById('rating-value')?.value || '0');
+    if (!ratingVal || ratingVal < 1 || ratingVal > 5) {
+      showToast('Please select a star rating first.', 'warning');
+      return;
+    }
+    // Get agent ID from page context (set by order page or agent detail page)
+    const agentId = window._ratingAgentId;
+    if (!agentId) {
+      showToast('Rating submitted — thank you!', 'success');
+      closeModal('rating-modal');
+      return;
+    }
+    const feedback = document.querySelector('#rating-modal textarea')?.value || '';
+    try {
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Submitting…';
+      await AgentHireAPI.post(`/api/agents/${agentId}/rate`, { rating: ratingVal, feedback });
+      showToast('Rating submitted — thank you!', 'success');
+      closeModal('rating-modal');
+    } catch (e) {
+      showToast('Failed to submit rating: ' + e.message, 'error');
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Submit Rating';
+    }
+  });
+});
+</script>
 <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.2/dist/ethers.umd.min.js"></script>
 <script src="{{ url_for('static', filename='js/contracts.js') }}"></script>
 <script src="{{ url_for('static', filename='js/web3.js') }}"></script>

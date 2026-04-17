@@ -42,7 +42,7 @@ def _log_response(response):
 # ── Mock Data ──────────────────────────────────────────────────────────────────
 
 CATEGORIES = ["Development", "Data & Analytics", "Content", "Finance", "Research", "Security", "Automation"]
-USE_CASES  = ["Code Review", "Translation", "Summarization", "Trading", "Web Scraping", "Image Generation", "Testing"]
+USE_CASES  = ["Code Review", "Translation", "Summarization", "Trading", "Web Scraping", "Image Generation", "Testing", "Resume & Career"]
 
 # ── A2A Workflow definitions ────────────────────────────────────────────────────
 A2A_WORKFLOWS = {
@@ -594,6 +594,31 @@ AGENTS = [
         "avg_completion_time": "10 min",
     },
     {
+        "id": 13,
+        "name": "ResumeBot AI",
+        "description": "AI-powered resume reviewer and career coach. Rewrites bullet points, scores ATS compatibility, and tailors your resume to any job description.",
+        "long_description": "ResumeBot AI analyzes your resume against job descriptions using NLP and ATS compatibility scoring. It rewrites weak bullet points using the STAR framework, suggests skills to add, flags formatting issues, and generates a tailored cover letter. Used by 10,000+ job seekers with an 87% interview rate improvement.",
+        "category": "Content",
+        "use_case": "Resume & Career",
+        "verified": True,
+        "verification_tier": "thorough",
+        "featured": True,
+        "rating": 4.7,
+        "reviews": 312,
+        "billing": "per_token",
+        "min_price": 0.001,
+        "max_price": 0.006,
+        "current_price": 0.003,
+        "surge_active": False,
+        "surge_multiplier": 1.0,
+        "seller": "CareerAI Labs",
+        "seller_rating": 4.8,
+        "tasks_completed": 10420,
+        "tags": ["resume", "career", "job search", "ATS", "cover letter", "interview"],
+        "capabilities": ["ATS scoring", "Bullet point rewriting", "Job description matching", "Cover letter generation", "Skills gap analysis"],
+        "avg_completion_time": "3 min",
+    },
+    {
         "id": 12,
         "name": "AutoDoc AI",
         "description": "Automatic documentation agent. Generates API docs, inline comments, and README files from any codebase.",
@@ -833,6 +858,36 @@ def seller_orders():
 def seller_earnings():
     return render_template("seller/earnings.html", earnings=EARNINGS_DATA)
 
+
+@app.route("/seller/agents/<int:agent_id>", methods=["GET", "POST"])
+def seller_manage_agent(agent_id):
+    agent = next((a for a in AGENTS if a["id"] == agent_id), None)
+    if not agent:
+        return redirect(url_for("seller_dashboard"))
+    if request.method == "POST":
+        data = request.get_json(silent=True) or request.form.to_dict()
+        action = data.get("action", "")
+        if action == "pause":
+            agent["surge_active"] = False
+            agent["verification_tier"] = agent.get("verification_tier", "none") + "_paused" if not agent.get("verification_tier", "").endswith("_paused") else agent["verification_tier"]
+            log.info("Agent %s paused by seller", agent_id)
+            return jsonify({"agentId": agent_id, "status": "paused"})
+        elif action == "reactivate":
+            log.info("Agent %s reactivated by seller", agent_id)
+            return jsonify({"agentId": agent_id, "status": "active"})
+        elif action == "update":
+            for field in ["name", "description", "min_price", "max_price", "tags"]:
+                if field in data:
+                    if field in ("min_price", "max_price"):
+                        agent[field] = float(data[field])
+                    elif field == "tags":
+                        agent[field] = [t.strip() for t in data[field].split(",") if t.strip()]
+                    else:
+                        agent[field] = data[field]
+            log.info("Agent %s updated by seller", agent_id)
+            return jsonify({"agentId": agent_id, "status": "updated"})
+    return render_template("seller/manage.html", agent=agent, categories=CATEGORIES)
+
 # ── Admin ──────────────────────────────────────────────────────────────────────
 
 @app.route("/admin/dashboard")
@@ -842,6 +897,72 @@ def admin_dashboard():
 @app.route("/admin/verification-queue")
 def admin_verification_queue():
     return render_template("admin/verification_queue.html", queue=VERIFICATION_QUEUE)
+
+
+@app.route("/admin/sandbox")
+def admin_sandbox():
+    """Sandbox / security gate testing results for agent submissions."""
+    # Each entry corresponds to a verification queue item that has been tested
+    sandbox_results = [
+        {
+            "vrf_id": "VRF-001", "agent": "ContentForge", "seller": "CreateAI", "tier": "basic",
+            "submitted": "2026-04-14", "completed": "2026-04-14",
+            "gates": {
+                "static_scan":    {"status": "pass", "score": 91, "notes": "No hidden instructions. 3 low-severity dependency warnings."},
+                "sandbox":        {"status": "pass", "score": 85, "notes": "Ran 200 prompts. No canary token leaks. Max execution: 12s."},
+                "gatekeeper_ai":  {"status": "pass", "score": 88, "notes": "Adversarial session: no jailbreaks. Policy compliance confirmed."},
+                "model_fingerprint": {"status": "pass", "score": 100, "notes": "Model identity verified. Not a resubmission."},
+            },
+            "overall": "pass", "verdict": "Safe to list at Basic tier.",
+        },
+        {
+            "vrf_id": "VRF-002", "agent": "WebCrawler X", "seller": "CrawlTech", "tier": "basic",
+            "submitted": "2026-04-13", "completed": "2026-04-13",
+            "gates": {
+                "static_scan":    {"status": "pass",    "score": 88, "notes": "Permissions audit clean. No hidden network calls."},
+                "sandbox":        {"status": "warning", "score": 72, "notes": "Rate limit violations detected under load. Flagged for human review."},
+                "gatekeeper_ai":  {"status": "pass",    "score": 82, "notes": "No adversarial escapes."},
+                "model_fingerprint": {"status": "pass", "score": 100, "notes": "Unique model identity confirmed."},
+            },
+            "overall": "warning", "verdict": "Sandbox concerns — escalated to human review.",
+        },
+        {
+            "vrf_id": "VRF-005", "agent": "NLP Extractor", "seller": "TextLabs", "tier": "thorough",
+            "submitted": "2026-04-14", "completed": "2026-04-14",
+            "gates": {
+                "static_scan":    {"status": "pass", "score": 95, "notes": "All clear. Minimal dependency surface."},
+                "sandbox":        {"status": "pass", "score": 91, "notes": "500 prompts. Sub-100ms response. No leaks."},
+                "gatekeeper_ai":  {"status": "pass", "score": 94, "notes": "Two adversarial models used. Zero policy violations."},
+                "model_fingerprint": {"status": "pass", "score": 100, "notes": "Novel model. First submission."},
+            },
+            "overall": "pass", "verdict": "Excellent scores. Recommended for Thorough Audit badge.",
+        },
+    ]
+    return render_template("admin/sandbox.html", results=sandbox_results)
+
+
+@app.route("/admin/review/<vrf_id>", methods=["GET", "POST"])
+def admin_human_review(vrf_id):
+    """Human review panel for Thorough Audit tier agents."""
+    entry = next((v for v in VERIFICATION_QUEUE if v["id"] == vrf_id), None)
+    if not entry:
+        return redirect(url_for("admin_verification_queue"))
+    agent = next((a for a in AGENTS if a["id"] == entry.get("agent_id")), None)
+    if request.method == "POST":
+        data = request.get_json(silent=True) or request.form.to_dict()
+        action = data.get("action")
+        if action == "approve":
+            entry["status"] = "approved"
+            if agent:
+                agent["verified"] = True
+                agent["verification_tier"] = entry.get("tier", "basic")
+            log.info("Human review approved: %s", vrf_id)
+            return jsonify({"id": vrf_id, "status": "approved"})
+        elif action == "reject":
+            entry["status"] = "rejected"
+            log.info("Human review rejected: %s notes=%s", vrf_id, data.get("notes", ""))
+            return jsonify({"id": vrf_id, "status": "rejected"})
+    return render_template("admin/review.html", entry=entry, agent=agent)
 
 @app.route("/admin/moderation")
 def admin_moderation():
@@ -1293,6 +1414,27 @@ def admin_release_payout(pay_id):
 def admin_resolve_report(rpt_id):
     log.info("Moderation report resolved: %s", rpt_id)
     return jsonify({"id": rpt_id, "status": "resolved"})
+
+
+# ── Rating API ─────────────────────────────────────────────────────────────────
+
+@app.route("/api/agents/<int:agent_id>/rate", methods=["POST"])
+def api_rate_agent(agent_id):
+    payload = request.get_json(silent=True) or {}
+    rating = payload.get("rating")
+    if not rating or not (1 <= int(rating) <= 5):
+        return jsonify({"error": "rating must be 1–5"}), 400
+    agent = next((a for a in AGENTS if a["id"] == agent_id), None)
+    if not agent:
+        return jsonify({"error": "agent not found"}), 404
+    # Weighted average: blend new rating in
+    new_rating = round(
+        (agent["rating"] * agent["reviews"] + int(rating)) / (agent["reviews"] + 1), 1
+    )
+    agent["rating"] = new_rating
+    agent["reviews"] += 1
+    log.info("Agent %s rated %s (new avg %.1f, %d reviews)", agent_id, rating, new_rating, agent["reviews"])
+    return jsonify({"agentId": agent_id, "rating": new_rating, "reviews": agent["reviews"]})
 
 
 # ── Search API ──────────────────────────────────────────────────────────────────
