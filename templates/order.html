@@ -22,7 +22,7 @@
       </div>
     </div>
     {% if order.status in ['in_progress', 'in_escrow'] %}
-    <button class="btn btn-success" id="mark-complete">Mark Complete & Release</button>
+    <button class="btn btn-success" id="mark-complete" data-order-id="{{ order.id }}">Mark Complete &amp; Release</button>
     {% endif %}
   </div>
 
@@ -471,7 +471,30 @@
 
 {% block scripts %}
 <script>
-// ── ExecutionProgress driver ───────────────────────────────────────────────────
+// ── Mark Complete & Release ─────────────────────────────────────────────────
+(function() {
+  const markBtn = document.getElementById('mark-complete');
+  if (!markBtn) return;
+  markBtn.addEventListener('click', async () => {
+    const orderId = markBtn.dataset.orderId;
+    if (!orderId) return;
+    if (!confirm('Confirm delivery and release escrow? This cannot be undone.')) return;
+    markBtn.disabled = true;
+    markBtn.textContent = 'Releasing…';
+    try {
+      const res = await AgentHireAPI.post('/api/orders/' + orderId + '/complete', {});
+      showToast('Escrow released — seller has been paid.', 'success');
+      // Reload after short delay to show completed state
+      setTimeout(() => window.location.reload(), 1400);
+    } catch (e) {
+      showToast('Failed: ' + e.message, 'error');
+      markBtn.disabled = false;
+      markBtn.textContent = 'Mark Complete & Release';
+    }
+  });
+})();
+
+// ── ExecutionProgress driver ─────────────────────────────────────────────────────────
 (function() {
   const panel = document.getElementById('exec-progress-panel');
   if (!panel) return;

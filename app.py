@@ -1416,6 +1416,28 @@ def admin_resolve_report(rpt_id):
     return jsonify({"id": rpt_id, "status": "resolved"})
 
 
+# ── Order management ─────────────────────────────────────────────────────────
+
+@app.route("/api/orders/<order_id>/complete", methods=["POST"])
+def api_order_complete(order_id):
+    """Mark an order complete and release escrow. Updates status in DB and in-memory."""
+    from models import Order as OrderModel
+    order_mem = next((o for o in ORDERS if o["id"] == order_id), None)
+    if not order_mem:
+        return jsonify({"error": "order not found"}), 404
+    if order_mem["status"] not in ("in_escrow", "in_progress"):
+        return jsonify({"error": f"order is already {order_mem['status']}"}), 400
+    order_mem["status"] = "completed"
+    # Persist to DB if present
+    db_order = OrderModel.query.get(order_id)
+    if db_order:
+        db_order.status = "completed"
+        db.session.commit()
+    log.info("Order %s marked complete", order_id)
+    return jsonify({"orderId": order_id, "status": "completed",
+                    "message": "Escrow released. Seller has been paid."})
+
+
 # ── Rating API ─────────────────────────────────────────────────────────────────
 
 @app.route("/api/agents/<int:agent_id>/rate", methods=["POST"])

@@ -45,12 +45,33 @@
     }
   }
 
+  // ── DEMO MODE (no wallet detected) ────────────────────────────────────────
+  // Activates a read-only demo session with a mock address so the UI
+  // renders connected state without requiring an actual wallet extension.
+  function activateDemoMode() {
+    const DEMO_ADDRESS = '0xDemo...1234';
+    window.AgentHire.address = DEMO_ADDRESS;
+    window.AgentHire.connected = true; // visual only — no signing capability
+    window.AgentHire._demoMode = true;
+    const btn = document.getElementById('wallet-btn');
+    if (btn) {
+      btn.innerHTML = `<span style="font-family:var(--font-mono); color:var(--amber);">Demo Mode</span>`;
+      btn.setAttribute('data-connected', 'true');
+      btn.title = 'Demo mode — no real wallet connected. Payments will use mock responses.';
+    }
+    if (window.showToast) showToast('Demo mode active — no wallet required', 'info');
+    window.dispatchEvent(new CustomEvent('agenthire:connected', { detail: { address: DEMO_ADDRESS, demo: true } }));
+  }
+
   // ── CONNECT ──────────────────────────────────────────────────────────────
   async function connectWallet() {
     if (!window.ethereum) {
-      if (window.showToast) showToast('Install MetaMask or Rabby to connect', 'error');
-      else alert('Install MetaMask or Rabby to connect');
-      return null;
+      // No wallet extension detected — offer demo mode
+      if (window.showToast) {
+        showToast('No wallet detected — switching to Demo Mode', 'warning');
+      }
+      activateDemoMode();
+      return window.AgentHire.address;
     }
     await window.ethereum.request({ method: 'eth_requestAccounts' });
     await ensureFuji();
@@ -245,6 +266,7 @@
 
   // Expose API
   window.AgentHire.connectWallet = connectWallet;
+  window.AgentHire.activateDemoMode = activateDemoMode;
   window.AgentHire.getUsdcBalance = getUsdcBalance;
   window.AgentHire.getAgentProfile = getAgentProfile;
   window.AgentHire.mintUSDC = mintUSDC;

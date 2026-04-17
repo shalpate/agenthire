@@ -243,20 +243,7 @@ if (nextBtn) nextBtn.addEventListener('click', () => {
 });
 if (prevBtn) prevBtn.addEventListener('click', () => goToStep(currentStep - 1));
 
-// ── Fake Checkout Flow ─────────────────────────────────────────────────────────
-const confirmPayBtn = document.getElementById('confirm-pay');
-if (confirmPayBtn) {
-  confirmPayBtn.addEventListener('click', () => {
-    confirmPayBtn.disabled = true;
-    confirmPayBtn.innerHTML = '<span>Processing...</span>';
-    setTimeout(() => {
-      showToast('Payment confirmed. Funds in escrow.', 'success');
-      setTimeout(() => {
-        window.location.href = '/order/ORD-004';
-      }, 1200);
-    }, 1800);
-  });
-}
+// Note: #confirm-pay click is handled by the real x402 handler in checkout.html.
 
 // ── Admin: Approve / Reject ────────────────────────────────────────────────────
 document.addEventListener('click', (e) => {
