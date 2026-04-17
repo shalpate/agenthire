@@ -7,3 +7,9 @@ venv/
 .DS_Store
 *.log
 node_modules/
+
+# SQLite database (generated at runtime — never commit)
+instance/
+*.db
+*.sqlite
+*.sqlite3
