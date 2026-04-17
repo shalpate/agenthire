@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Checkout — {{ agent.name }}{% endblock %}
+{% block title %}Checkout: {{ agent.name }}{% endblock %}
 
 {% block content %}
 <div class="container" style="padding-top:40px; padding-bottom:64px;">
@@ -41,7 +41,7 @@
         <div class="form-group">
           <label class="form-label">Attach Files (optional)</label>
           <div style="border:2px dashed var(--border-2); border-radius:var(--radius-sm); padding:20px; text-align:center; cursor:pointer;" onclick="document.getElementById('file-upload').click();">
-            <div style="font-size:1.25rem; margin-bottom:6px; opacity:.5;">📎</div>
+            <div style="font-family:var(--font-mono); font-size:.625rem; font-weight:700; color:var(--border-2); letter-spacing:.1em; margin-bottom:6px; text-transform:uppercase;">UPLOAD</div>
             <div class="text-sm text-muted">Click to upload or drag & drop</div>
             <div class="text-xs text-muted mt-4" style="font-family:var(--font-mono);">Max 50MB · PDF, TXT, CSV, ZIP</div>
           </div>
@@ -53,7 +53,7 @@
       <!-- ── A2A Budget Controls ────────────────────────────────────────── -->
       <div class="card" style="border-color:rgba(79,116,255,.2);">
         <div class="flex-center gap-10 mb-18">
-          <span class="exec-type-badge exec-type-composable">⛓ Composable Agent</span>
+          <span class="exec-type-badge exec-type-composable">A2A Composable</span>
           <span class="text-xs text-muted">Sub-agent costs apply</span>
         </div>
 
@@ -102,7 +102,7 @@
             <div class="flex-center gap-8">
               <div style="width:6px; height:6px; border-radius:50%; background:var(--green);"></div>
               <span class="text-sm">{{ sa.name }}</span>
-              <span class="text-xs text-muted">— {{ sa.role }}</span>
+              <span class="text-xs text-muted">· {{ sa.role }}</span>
             </div>
             <span style="font-family:var(--font-mono); font-size:.75rem; color:var(--amber);">${{ "%.3f"|format(sa.est_cost_low) }}–${{ "%.3f"|format(sa.est_cost_high) }}</span>
           </div>
@@ -113,7 +113,7 @@
 
       <!-- Escrow Explanation -->
       <div class="card" style="background:rgba(79,116,255,.03); border-color:rgba(79,116,255,.12);">
-        <h4 style="margin-bottom:14px; color:var(--blue);">🔒 How Escrow Works</h4>
+        <h4 style="margin-bottom:14px; color:var(--blue);">How Escrow Works</h4>
         <div class="timeline">
           <div class="timeline-item">
             <div class="timeline-dot done">1</div>
@@ -161,7 +161,7 @@
           <div>
             <div class="font-bold">{{ agent.name }}</div>
             <div class="text-xs text-muted">by {{ agent.seller }}</div>
-            {% if agent.verified %}<span class="badge badge-verified mt-4" style="display:inline-flex;">✓ Verified</span>{% endif %}
+            {% if agent.verified %}<span class="badge badge-verified mt-4" style="display:inline-flex;">Verified</span>{% endif %}
           </div>
         </div>
 
@@ -185,7 +185,7 @@
           {% endif %}
           {% if agent.surge_active %}
           <div class="cost-row" style="background:var(--amber-dim);">
-            <span class="cost-label" style="color:var(--amber);">⚡ Surge (×{{ agent.surge_multiplier }})</span>
+            <span class="cost-label" style="color:var(--amber);">Surge x{{ agent.surge_multiplier }}</span>
             <span class="cost-value" style="color:var(--amber);">Active</span>
           </div>
           {% endif %}
@@ -214,7 +214,7 @@
         {% endif %}
 
         <div class="escrow-notice mb-16">
-          <span class="icon">🔒</span>
+          <span class="icon" style="font-size:.75rem;font-family:var(--font-mono);color:var(--blue);font-weight:700;">ESC</span>
           <p>{% if a2a.composable %}Funds held in escrow up to your max spend cap. Unused balance returned on completion.{% else %}Full amount held in escrow — released after task confirmation.{% endif %}</p>
         </div>
 

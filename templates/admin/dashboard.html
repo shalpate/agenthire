@@ -7,14 +7,14 @@
   <aside class="admin-sidebar">
     <div class="sidebar-section">
       <div class="sidebar-label">Protocol</div>
-      <a href="/admin/dashboard" class="sidebar-link active"><span class="sidebar-icon">📊</span> Dashboard</a>
-      <a href="/admin/verification-queue" class="sidebar-link"><span class="sidebar-icon">🛡</span> Verification Queue</a>
-      <a href="/admin/moderation" class="sidebar-link"><span class="sidebar-icon">🚩</span> Moderation</a>
-      <a href="/admin/payouts" class="sidebar-link"><span class="sidebar-icon">💰</span> Payouts</a>
+      <a href="/admin/dashboard" class="sidebar-link active"><span class="sidebar-icon" style="font-family:var(--font-mono);font-size:.5625rem;font-weight:700;">DB</span> Dashboard</a>
+      <a href="/admin/verification-queue" class="sidebar-link"><span class="sidebar-icon" style="font-family:var(--font-mono);font-size:.5625rem;font-weight:700;">VRF</span> Verification Queue</a>
+      <a href="/admin/moderation" class="sidebar-link"><span class="sidebar-icon" style="font-family:var(--font-mono);font-size:.5625rem;font-weight:700;">MOD</span> Moderation</a>
+      <a href="/admin/payouts" class="sidebar-link"><span class="sidebar-icon" style="font-family:var(--font-mono);font-size:.5625rem;font-weight:700;">PAY</span> Payouts</a>
     </div>
     <div class="sidebar-section">
       <div class="sidebar-label">Marketplace</div>
-      <a href="/marketplace" class="sidebar-link"><span class="sidebar-icon">🏪</span> Browse Agents</a>
+      <a href="/marketplace" class="sidebar-link"><span class="sidebar-icon" style="font-family:var(--font-mono);font-size:.5625rem;font-weight:700;">MKT</span> Browse Agents</a>
     </div>
     <div class="sidebar-section" style="margin-top:auto; padding-top:24px; border-top:1px solid var(--border);">
       <div class="text-xs text-muted" style="padding:0 12px; margin-bottom:8px;">Network</div>
@@ -147,16 +147,21 @@
               </td>
               <td>
                 <div class="rating">
-                  <span class="stars">★</span>
+                  <span class="stars">
+                    {% set r = agent.rating | int %}
+                    {% for i in range(5) %}
+                    <span class="{{ 'star-filled' if i < r else 'star-empty' }}">&#9733;</span>
+                    {% endfor %}
+                  </span>
                   <span class="rating-value">{{ agent.rating }}</span>
                 </div>
               </td>
               <td>{{ "{:,}".format(agent.tasks_completed) }}</td>
               <td>
                 {% if agent.surge_active %}
-                <span class="badge badge-surge">⚡ {{ agent.surge_multiplier }}×</span>
+                <span class="badge badge-surge">SURGE x{{ agent.surge_multiplier }}</span>
                 {% else %}
-                <span class="text-muted text-xs">—</span>
+                <span class="text-muted text-xs">--</span>
                 {% endif %}
               </td>
             </tr>

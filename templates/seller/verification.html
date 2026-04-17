@@ -13,32 +13,32 @@
 
   <div class="flex-col gap-20">
     {% set status_meta = {
-      'pending':      ('badge-pending',  '⏳', 'Pending', 'Your agent is queued for review.'),
-      'testing':      ('badge-testing',  '🔬', 'Testing', 'Automated tests are running.'),
-      'human_review': ('badge-review',   '👁', 'Human Review', 'Our team is reviewing your agent.'),
-      'approved':     ('badge-approved', '✓',  'Approved', 'Your agent passed verification.'),
-      'rejected':     ('badge-rejected', '✕',  'Rejected', 'Your agent did not pass verification.'),
+      'pending':      ('badge-pending',  'PEND', 'Pending', 'Your agent is queued for review.'),
+      'testing':      ('badge-testing',  'TEST', 'Testing', 'Automated tests are running.'),
+      'human_review': ('badge-review',   'REV',  'Human Review', 'Our team is reviewing your agent.'),
+      'approved':     ('badge-approved', 'PASS', 'Approved', 'Your agent passed verification.'),
+      'rejected':     ('badge-rejected', 'FAIL', 'Rejected', 'Your agent did not pass verification.'),
     } %}
     {% for item in queue %}
     {% set meta = status_meta[item.status] %}
     <div class="card">
       <div class="flex-between mb-20">
         <div class="flex-center gap-16">
-          <div style="width:48px; height:48px; border-radius:12px; background:var(--card-2); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:1.25rem;">🤖</div>
+          <div class="agent-avatar" style="width:48px; height:48px; border-radius:10px; font-size:.75rem; background:var(--card-2); color:var(--text-2);">AGT</div>
           <div>
             <div class="font-bold" style="font-size:1.0625rem; margin-bottom:4px;">{{ item.agent }}</div>
             <div class="text-sm text-muted">{{ item.id }} · Submitted {{ item.submitted }} · {{ item.tier.title() }} Audit</div>
           </div>
         </div>
         <div class="flex-center gap-12">
-          <span class="badge {{ meta[0] }}" style="font-size:.8125rem; padding:5px 12px;">{{ meta[1] }} {{ meta[2] }}</span>
+          <span class="badge {{ meta[0] }}" style="font-size:.8125rem; padding:5px 12px;">{{ meta[2] }}</span>
           <div class="text-xs text-muted">{{ '$10' if item.tier == 'basic' else '$50' }} USDC</div>
         </div>
       </div>
 
       <!-- Status Message -->
       <div class="escrow-notice mb-20" style="background: rgba(255,255,255,.03);">
-        <span class="icon">{{ meta[1] }}</span>
+        <span class="icon" style="font-family:var(--font-mono); font-size:.625rem; font-weight:700; color:var(--blue);">{{ meta[1] }}</span>
         <p>{{ meta[3] }}
           {% if item.status == 'testing' %} Automated safety, performance, and reliability tests are running. Results will be available shortly.
           {% elif item.status == 'human_review' %} A member of our protocol team is conducting a hands-on review. This typically takes 1–3 business days.
@@ -84,7 +84,7 @@
             </div>
             {% if item.tier == 'thorough' %}
             <div class="timeline-item">
-              <div class="timeline-dot {{ 'active' if item.status == 'human_review' else ('done' if item.status == 'approved' else '') }}">{{ '✓' if item.status == 'approved' else ('👁' if item.status == 'human_review' else '3') }}</div>
+              <div class="timeline-dot {{ 'active' if item.status == 'human_review' else ('done' if item.status == 'approved' else '') }}">{{ '✓' if item.status == 'approved' else ('3' if item.status == 'human_review' else '3') }}</div>
               <div class="timeline-content" style="padding-top:2px;"><h4 style="font-size:.875rem;">Human Review</h4><p style="font-size:.75rem;">{{ 'In Progress' if item.status == 'human_review' else ('Complete' if item.status == 'approved' else 'Pending') }}</p></div>
             </div>
             {% endif %}
@@ -121,9 +121,9 @@
             Subagent Workflow — Buyer View
           </div>
           {% if mock_stages|selectattr(2)|list|length > 0 %}
-          <span class="exec-type-badge exec-type-composable">⛓ {{ mock_stages|length }} stages</span>
+          <span class="exec-type-badge exec-type-composable">{{ mock_stages|length }} stages</span>
           {% else %}
-          <span class="exec-type-badge exec-type-standalone">◼ Standalone</span>
+          <span class="exec-type-badge exec-type-standalone">Standalone</span>
           {% endif %}
         </div>
         <div class="workflow-preview">

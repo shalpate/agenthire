@@ -1,27 +1,398 @@
 {% extends "base.html" %}
-{% block title %}AgentHire — AI Agent Exchange{% endblock %}
+{% block title %}AgentHire | AI Agent Marketplace{% endblock %}
+
+{% block head %}
+<style>
+/* ══════════════════════════════════════════════════════════════════════
+   Hero Visual — 3D orbital cube system
+   ══════════════════════════════════════════════════════════════════════ */
+
+.hero-visual {
+  position: relative;
+  width: 420px;
+  height: 380px;
+  flex-shrink: 0;
+  align-self: center;
+}
+@media (max-width: 1100px) { .hero-visual { display: none; } }
+
+.cube-scene {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.cube-ambient {
+  position: absolute;
+  width: 300px; height: 300px;
+  left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(ellipse at 50% 50%, rgba(232,65,66,.09) 0%, transparent 65%);
+  z-index: 0;
+  pointer-events: none;
+}
+.cube-svg {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* Connection lines — dashoffset animates; opacity controlled by JS */
+.conn-line {
+  stroke: rgba(232,65,66,.90);
+  stroke-width: 1;
+  stroke-dasharray: 5 5;
+  fill: none;
+  opacity: 0.17;
+  animation: dash-flow 3s linear infinite;
+}
+.conn-line.cl-2 { animation-delay: -0.5s; }
+.conn-line.cl-3 { animation-delay: -1.0s; }
+.conn-line.cl-4 { animation-delay: -1.5s; }
+.conn-line.cl-5 { animation-delay: -2.0s; }
+.conn-line.cl-6 { animation-delay: -2.5s; }
+@keyframes dash-flow { to { stroke-dashoffset: -20; } }
+
+.conn-dot {
+  fill: rgba(232,65,66,.90);
+  opacity: 0.32;
+}
+
+/* ── Cube wrappers ─────────────────────────────────────────────────── */
+.cube-pos { position: absolute; z-index: 2; }
+
+/* Main cube lean — JS applies cursor-tilt rotateX/Y */
+#main-cube-lean { transform-style: preserve-3d; }
+
+/* Float animation for main cube only */
+.float-main {
+  animation: float-main 7s ease-in-out infinite;
+  transform-style: preserve-3d;
+}
+@keyframes float-main {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-11px); }
+}
+
+.cube-perspective { perspective: 640px; }
+
+.cube {
+  position: relative;
+  transform-style: preserve-3d;
+}
+
+/* Cube spin animations — varied speeds / directions */
+.cube-90  { width: 90px; height: 90px; animation: spin-main  30s linear infinite; }
+.cube-50  { width: 50px; height: 50px; animation: spin-sat-a 22s linear infinite reverse; }
+.cube-44  { width: 44px; height: 44px; animation: spin-sat-b 18s linear infinite; }
+.cube-46  { width: 46px; height: 46px; animation: spin-sat-a 25s linear infinite reverse; }
+.cube-36  { width: 36px; height: 36px; animation: spin-sat-b 28s linear infinite; }
+.cube-32  { width: 32px; height: 32px; animation: spin-sat-a 16s linear infinite; }
+.cube-28  { width: 28px; height: 28px; animation: spin-sat-b 20s linear infinite reverse; }
+
+@keyframes spin-main  { from { transform: rotateX(-18deg) rotateY(0deg); }   to { transform: rotateX(-18deg) rotateY(360deg); } }
+@keyframes spin-sat-a { from { transform: rotateX(-12deg) rotateY(0deg); }   to { transform: rotateX(-12deg) rotateY(360deg); } }
+@keyframes spin-sat-b { from { transform: rotateX(-8deg)  rotateY(0deg); }   to { transform: rotateX(-8deg)  rotateY(360deg); } }
+
+/* Cube faces */
+.face {
+  position: absolute;
+  background: rgba(16,16,16,.92);
+  border: 1px solid rgba(232,65,66,.13);
+}
+.cube .top { background: rgba(232,65,66,.05); border-color: rgba(232,65,66,.22); }
+.cube-90 .front { box-shadow: inset 0 0 20px rgba(232,65,66,.04); }
+
+/* Face positions — 90px (half=45) */
+.cube-90 .face   { width: 90px; height: 90px; }
+.cube-90 .front  { transform: translateZ(45px); }
+.cube-90 .back   { transform: rotateY(180deg) translateZ(45px); }
+.cube-90 .left   { transform: rotateY(-90deg) translateZ(45px); }
+.cube-90 .right  { transform: rotateY(90deg)  translateZ(45px); }
+.cube-90 .top    { transform: rotateX(90deg)  translateZ(45px); }
+.cube-90 .bottom { transform: rotateX(-90deg) translateZ(45px); }
+
+/* 50px (half=25) */
+.cube-50 .face   { width: 50px; height: 50px; }
+.cube-50 .front  { transform: translateZ(25px); }
+.cube-50 .back   { transform: rotateY(180deg) translateZ(25px); }
+.cube-50 .left   { transform: rotateY(-90deg) translateZ(25px); }
+.cube-50 .right  { transform: rotateY(90deg)  translateZ(25px); }
+.cube-50 .top    { transform: rotateX(90deg)  translateZ(25px); }
+.cube-50 .bottom { transform: rotateX(-90deg) translateZ(25px); }
+
+/* 44px (half=22) */
+.cube-44 .face   { width: 44px; height: 44px; }
+.cube-44 .front  { transform: translateZ(22px); }
+.cube-44 .back   { transform: rotateY(180deg) translateZ(22px); }
+.cube-44 .left   { transform: rotateY(-90deg) translateZ(22px); }
+.cube-44 .right  { transform: rotateY(90deg)  translateZ(22px); }
+.cube-44 .top    { transform: rotateX(90deg)  translateZ(22px); }
+.cube-44 .bottom { transform: rotateX(-90deg) translateZ(22px); }
+
+/* 46px (half=23) */
+.cube-46 .face   { width: 46px; height: 46px; }
+.cube-46 .front  { transform: translateZ(23px); }
+.cube-46 .back   { transform: rotateY(180deg) translateZ(23px); }
+.cube-46 .left   { transform: rotateY(-90deg) translateZ(23px); }
+.cube-46 .right  { transform: rotateY(90deg)  translateZ(23px); }
+.cube-46 .top    { transform: rotateX(90deg)  translateZ(23px); }
+.cube-46 .bottom { transform: rotateX(-90deg) translateZ(23px); }
+
+/* 36px (half=18) */
+.cube-36 .face   { width: 36px; height: 36px; }
+.cube-36 .front  { transform: translateZ(18px); }
+.cube-36 .back   { transform: rotateY(180deg) translateZ(18px); }
+.cube-36 .left   { transform: rotateY(-90deg) translateZ(18px); }
+.cube-36 .right  { transform: rotateY(90deg)  translateZ(18px); }
+.cube-36 .top    { transform: rotateX(90deg)  translateZ(18px); }
+.cube-36 .bottom { transform: rotateX(-90deg) translateZ(18px); }
+
+/* 32px (half=16) */
+.cube-32 .face   { width: 32px; height: 32px; }
+.cube-32 .front  { transform: translateZ(16px); }
+.cube-32 .back   { transform: rotateY(180deg) translateZ(16px); }
+.cube-32 .left   { transform: rotateY(-90deg) translateZ(16px); }
+.cube-32 .right  { transform: rotateY(90deg)  translateZ(16px); }
+.cube-32 .top    { transform: rotateX(90deg)  translateZ(16px); }
+.cube-32 .bottom { transform: rotateX(-90deg) translateZ(16px); }
+
+/* 28px (half=14) */
+.cube-28 .face   { width: 28px; height: 28px; }
+.cube-28 .front  { transform: translateZ(14px); }
+.cube-28 .back   { transform: rotateY(180deg) translateZ(14px); }
+.cube-28 .left   { transform: rotateY(-90deg) translateZ(14px); }
+.cube-28 .right  { transform: rotateY(90deg)  translateZ(14px); }
+.cube-28 .top    { transform: rotateX(90deg)  translateZ(14px); }
+.cube-28 .bottom { transform: rotateX(-90deg) translateZ(14px); }
+
+
+/* ══════════════════════════════════════════════════════════════════════
+   Featured Agents — star rating cleanup
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* Ensure no bar-based rating markup inherits visible styles */
+.agent-card .rating { display: flex; align-items: center; gap: 6px; }
+.agent-card .stars  { display: inline-flex; gap: 1px; line-height: 1; }
+.agent-card .star-filled { color: var(--amber); font-size: .8125rem; }
+.agent-card .star-empty  { color: var(--border-2); font-size: .8125rem; }
+.agent-card .rating-value {
+  font-family: var(--font-mono);
+  font-size: .8125rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+
+/* ══════════════════════════════════════════════════════════════════════
+   How It Works — sticky sidebar + step list
+   ══════════════════════════════════════════════════════════════════════ */
+
+.hiw-layout {
+  display: grid;
+  grid-template-columns: 256px 1fr;
+  gap: 72px;
+  align-items: start;
+}
+@media (max-width: 880px) {
+  .hiw-layout { grid-template-columns: 1fr; gap: 32px; }
+  .hiw-sidebar { position: static !important; }
+}
+
+.hiw-sidebar { position: sticky; top: 88px; }
+
+.hiw-headline {
+  font-size: 1.875rem;
+  font-weight: 700;
+  letter-spacing: -.025em;
+  line-height: 1.15;
+  color: var(--text);
+  margin: 10px 0 16px;
+}
+.hiw-sidebar-body {
+  font-size: .875rem;
+  color: var(--text-2);
+  line-height: 1.65;
+  margin-bottom: 24px;
+}
+
+/* Step list */
+.hiw-list { border-top: 1px solid var(--border); }
+
+.hiw-step {
+  padding: 36px 0 36px 20px;
+  border-bottom: 1px solid var(--border);
+  position: relative;
+}
+.hiw-step::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 36px; bottom: 36px;
+  width: 2px;
+  background: var(--red);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  border-radius: 1px;
+}
+.hiw-step:hover::before { opacity: 0.45; }
+
+.hiw-step-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.hiw-step-num {
+  font-family: var(--font-mono);
+  font-size: .5rem;
+  font-weight: 700;
+  color: var(--text-4);
+  letter-spacing: .12em;
+}
+.hiw-step-tag {
+  font-family: var(--font-mono);
+  font-size: .5rem;
+  font-weight: 700;
+  color: var(--red);
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+.hiw-title {
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 10px;
+  line-height: 1.3;
+}
+.hiw-body {
+  font-size: .875rem;
+  color: var(--text-2);
+  line-height: 1.72;
+  max-width: 520px;
+  margin-bottom: 18px;
+}
+.hiw-body strong { color: var(--text); font-weight: 600; }
+
+/* Per-step detail chips */
+.hiw-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.hiw-chip {
+  font-family: var(--font-mono);
+  font-size: .5rem;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 3px 9px;
+  transition: border-color var(--transition), color var(--transition);
+}
+.hiw-step:hover .hiw-chip { border-color: var(--border-2); color: var(--text-2); }
+
+@media (max-width: 600px) {
+  .hiw-step { padding-left: 0; }
+  .hiw-step::before { display: none; }
+}
+
+
+/* ══════════════════════════════════════════════════════════════════════
+   Why AgentHire
+   ══════════════════════════════════════════════════════════════════════ */
+
+.why-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+@media (max-width: 900px) { .why-grid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 540px) { .why-grid { grid-template-columns: 1fr; } }
+
+.why-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 22px 20px;
+  transition: border-color var(--transition);
+}
+.why-card:hover { border-color: var(--red-border); }
+.why-card-tag {
+  font-family: var(--font-mono);
+  font-size: .5rem;
+  font-weight: 700;
+  color: var(--red);
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+.why-card-title { font-size: .9375rem; font-weight: 700; margin-bottom: 6px; color: var(--text); }
+.why-card-body  { font-size: .8125rem; color: var(--text-2); line-height: 1.6; }
+
+
+/* ══════════════════════════════════════════════════════════════════════
+   Execution Pipeline
+   ══════════════════════════════════════════════════════════════════════ */
+
+.pipeline-flow {
+  display: flex;
+  align-items: center;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: none;
+}
+.pipeline-flow::-webkit-scrollbar { display: none; }
+.pipe-node {
+  flex-shrink: 0;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 16px;
+  text-align: center;
+}
+.pipe-node.pipe-in  { border-color: var(--blue-border);  background: var(--blue-dim); }
+.pipe-node.pipe-out { border-color: var(--green-border); background: var(--green-dim); }
+.pipe-label {
+  font-family: var(--font-mono);
+  font-size: .5625rem;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--text-2);
+}
+.pipe-node.pipe-in  .pipe-label { color: var(--blue); }
+.pipe-node.pipe-out .pipe-label { color: var(--green); }
+.pipe-sep {
+  flex-shrink: 0;
+  padding: 0 10px;
+  font-family: var(--font-mono);
+  font-size: .625rem;
+  color: var(--text-4);
+}
+</style>
+{% endblock %}
 
 {% block content %}
 
-<!-- ── Hero ─────────────────────────────────────────────────────────────────── -->
-<div class="hero">
-  <div class="container">
+<!-- ══════════════════════════════════════════════════════════════════════
+     Hero
+     ══════════════════════════════════════════════════════════════════════ -->
+<div class="hero" style="overflow:hidden;">
+  <div class="hero-accent-line"></div>
+  <div class="container" style="position:relative; z-index:1;">
     <div class="hero-split">
 
-      <!-- Left: Editorial headline -->
+      <!-- Left -->
       <div class="hero-left">
         <div class="hero-eyebrow">
           <div class="live-dot"></div>
           x402 · Avalanche C-Chain · ERC-8004
         </div>
 
-        <h1>The Exchange<br>for AI Agents.</h1>
+        <h1>Hire agents that<br><span class="gradient">actually execute.</span></h1>
 
-        <p>Hire autonomous agents by the token or minute. Every price is live, every agent is verified on-chain, every payment settles in two seconds.</p>
+        <p>Structured workflows. Verified agents. Transparent results.</p>
 
         <div class="hero-actions">
           <a href="/marketplace" class="btn btn-gradient btn-lg">Browse Agents</a>
-          <button class="btn btn-ghost btn-lg" onclick="openModal('how-it-works-modal')">How It Works</button>
           <a href="/list-your-agent" class="btn btn-ghost btn-lg">List Your Agent</a>
         </div>
 
@@ -45,54 +416,112 @@
         </div>
       </div>
 
-      <!-- Right: Live Market Panel (replaces orb entirely) -->
-      <div class="market-panel" id="hero-market-panel">
-        <div class="market-panel-header">
-          <span class="market-panel-title">Live Market</span>
-          <span class="market-panel-live">
-            <span class="market-live-dot"></span>
-            Real-time
-          </span>
-        </div>
+      <!-- Right: Orbital Cube System (6 satellites) -->
+      <div class="hero-visual" id="cube-scene-root">
+        <div class="cube-scene">
 
-        <!-- Column headers -->
-        <div class="market-col-header">
-          <span class="market-col-label">Agent</span>
-          <span class="market-col-label right">Price</span>
-          <span class="market-col-label right">24h</span>
-        </div>
+          <div class="cube-ambient" id="cube-ambient"></div>
 
-        <!-- Rows — live prices update via JS -->
-        {% set panel_agents = [
-          (1, "CodeReview Pro",      "DEV · per token",   "0.00600", "+8.4%",  "up",   True),
-          (4, "AlphaTrader AI",      "FIN · per min",     "0.45000", "SURGE",  "surge",True),
-          (2, "TranslateFlow",       "CON · per token",   "0.00150", "—",      "flat", True),
-          (7, "SecureAudit AI",      "SEC · per token",   "0.01500", "+2.1%",  "up",   True),
-          (3, "DataSift Analytics",  "DAT · per min",     "0.18000", "SURGE",  "surge",True),
-          (9, "ImageGen Studio",     "CON · per token",   "0.00800", "SURGE",  "surge",True),
-        ] %}
+          <!-- SVG connection lines + endpoint dots — updated by JS -->
+          <svg class="cube-svg" width="420" height="380" viewBox="0 0 420 380"
+               xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <!-- Initial coords: x = CX + r*cos(ph), y = CY + r*sin(ph)*fy; x2=210, y2=190 -->
+            <line id="conn-1" x1="338.0" y1="190.0" x2="210" y2="190" class="conn-line cl-1"/>
+            <line id="conn-2" x1="162.3" y1="236.0" x2="210" y2="190" class="conn-line cl-2"/>
+            <line id="conn-3" x1="137.1" y1="121.1" x2="210" y2="190" class="conn-line cl-3"/>
+            <line id="conn-4" x1="244.8" y1="229.5" x2="210" y2="190" class="conn-line cl-4"/>
+            <line id="conn-5" x1=" 57.2" y1="170.6" x2="210" y2="190" class="conn-line cl-5"/>
+            <line id="conn-6" x1="265.3" y1="151.5" x2="210" y2="190" class="conn-line cl-6"/>
+            <circle id="dot-1" cx="338.0" cy="190.0" r="2" class="conn-dot"/>
+            <circle id="dot-2" cx="162.3" cy="236.0" r="2" class="conn-dot"/>
+            <circle id="dot-3" cx="137.1" cy="121.1" r="2" class="conn-dot"/>
+            <circle id="dot-4" cx="244.8" cy="229.5" r="2" class="conn-dot"/>
+            <circle id="dot-5" cx=" 57.2" cy="170.6" r="2" class="conn-dot"/>
+            <circle id="dot-6" cx="265.3" cy="151.5" r="2" class="conn-dot"/>
+          </svg>
 
-        {% for agent_id, name, sub, price, change, change_type, is_verified in panel_agents %}
-        <div class="market-row {{ 'verified' if is_verified else 'unverified' }}"
-             data-agent-id="{{ agent_id }}"
-             data-base-price="{{ price }}">
-          <div>
-            <div class="market-row-name">{{ name }}</div>
-            <div class="market-row-sub">{{ sub }}</div>
+          <!-- ── Satellites (JS drives top/left each frame) ─────────────── -->
+          <!-- Sat 1: 50px outer, r=128, ph=0 -->
+          <div class="cube-pos" id="sat-orbit-1" style="top:165px; left:313px;">
+            <div class="cube-perspective">
+              <div class="cube cube-50">
+                <div class="face front"></div><div class="face back"></div>
+                <div class="face left"></div><div class="face right"></div>
+                <div class="face top"></div><div class="face bottom"></div>
+              </div>
+            </div>
           </div>
-          <div class="market-row-price" id="panel-price-{{ agent_id }}">
-            ${{ price }}
-          </div>
-          <div class="market-row-change {{ change_type }}" id="panel-change-{{ agent_id }}">
-            {% if change_type == 'surge' %}⚡ {{ change }}{% else %}{{ change }}{% endif %}
-          </div>
-        </div>
-        {% endfor %}
 
-        <div class="market-panel-footer">
-          <span class="market-panel-stat">24h vol <span>${{ "{:,}".format(stats.usdc_settled) }} USDC</span></span>
-          <span class="market-panel-stat">agents <span>{{ stats.total_agents }}</span></span>
-          <span class="market-panel-stat">fee <span>10 bps</span></span>
+          <!-- Sat 2: 44px inner, r=96, ph=2.09 -->
+          <div class="cube-pos" id="sat-orbit-2" style="top:214px; left:140px;">
+            <div class="cube-perspective">
+              <div class="cube cube-44">
+                <div class="face front"></div><div class="face back"></div>
+                <div class="face left"></div><div class="face right"></div>
+                <div class="face top"></div><div class="face bottom"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Sat 3: 46px outer, r=145, ph=4.19 -->
+          <div class="cube-pos" id="sat-orbit-3" style="top: 98px; left:114px;">
+            <div class="cube-perspective">
+              <div class="cube cube-46">
+                <div class="face front"></div><div class="face back"></div>
+                <div class="face left"></div><div class="face right"></div>
+                <div class="face top"></div><div class="face bottom"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Sat 4: 32px fast inner, r=70, ph=1.05 -->
+          <div class="cube-pos" id="sat-orbit-4" style="top:214px; left:229px;">
+            <div class="cube-perspective">
+              <div class="cube cube-32">
+                <div class="face front"></div><div class="face back"></div>
+                <div class="face left"></div><div class="face right"></div>
+                <div class="face top"></div><div class="face bottom"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Sat 5: 36px slow outer, r=158, ph=3.40 -->
+          <div class="cube-pos" id="sat-orbit-5" style="top:153px; left: 39px;">
+            <div class="cube-perspective">
+              <div class="cube cube-36">
+                <div class="face front"></div><div class="face back"></div>
+                <div class="face left"></div><div class="face right"></div>
+                <div class="face top"></div><div class="face bottom"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Sat 6: 28px inner, r=78, ph=5.50 -->
+          <div class="cube-pos" id="sat-orbit-6" style="top:138px; left:251px;">
+            <div class="cube-perspective">
+              <div class="cube cube-28">
+                <div class="face front"></div><div class="face back"></div>
+                <div class="face left"></div><div class="face right"></div>
+                <div class="face top"></div><div class="face bottom"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Main cube: 90px centered at (210, 190) — always on top -->
+          <div class="cube-pos" style="top:145px; left:165px; z-index:3;">
+            <div id="main-cube-lean">
+              <div class="float-main">
+                <div class="cube-perspective">
+                  <div class="cube cube-90">
+                    <div class="face front"></div><div class="face back"></div>
+                    <div class="face left"></div><div class="face right"></div>
+                    <div class="face top"></div><div class="face bottom"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
         </div>
       </div>
 
@@ -100,45 +529,33 @@
   </div>
 </div>
 
-<!-- ── Live On-chain Activity ───────────────────────────────────────────── -->
-<section class="section-sm" style="border-top:1px solid var(--border); padding-top:32px; padding-bottom:0;">
-  <div class="container">
-    <div class="flex-between mb-16">
-      <div>
-        <h2 style="font-size:1.125rem; font-family:var(--font-mono); letter-spacing:.04em;">
-          <span style="color:var(--green);">●</span> LIVE ON-CHAIN ACTIVITY
-        </h2>
-        <p class="mt-8" style="font-size:.8125rem; color:var(--text-3);">Real transactions on Avalanche Fuji · auto-refreshes every 12s</p>
-      </div>
-      <a id="contract-link" href="https://testnet.snowtrace.io/address/0xD19990C7CB8C386fa865135Ce9706A5A37A3f2f2" target="_blank" style="font-family:var(--font-mono); font-size:.6875rem; color:var(--text-3);">view EscrowPayment on Snowtrace ↗</a>
-    </div>
-    <div id="live-tx-feed" style="background:var(--surface-1); border:1px solid var(--border-2); border-radius:var(--radius-md); min-height:60px; max-height:360px; overflow-y:auto;">
-      <div style="padding:14px; color:var(--text-3); font-family:var(--font-mono); font-size:.75rem;">Loading on-chain events...</div>
-    </div>
-  </div>
-</section>
 
-<!-- ── Featured Agents ────────────────────────────────────────────────────── -->
+<!-- ══════════════════════════════════════════════════════════════════════
+     Featured Agents
+     ══════════════════════════════════════════════════════════════════════ -->
 <section class="section-sm" style="border-top:1px solid var(--border);">
   <div class="container">
     <div class="flex-between mb-24">
       <div>
         <h2 style="font-size:1.375rem;">Featured Agents</h2>
-        <p class="mt-8" style="font-size:.875rem;">Top-performing verified agents, updated in real-time</p>
+        <p class="mt-8" style="font-size:.875rem; color:var(--text-2);">Top-verified agents with live pricing</p>
       </div>
-      <a href="/marketplace" class="btn btn-ghost btn-sm">View All →</a>
+      <a href="/marketplace" class="btn btn-ghost btn-sm">View All</a>
     </div>
 
-    <!-- Exchange-style agent grid -->
-    <div class="grid-agents" style="background:var(--border); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden;">
-      {% set cat_codes = {'Development':'DEV','Data & Analytics':'DAT','Content':'CON','Finance':'FIN','Research':'RES','Security':'SEC','Automation':'AUT'} %}
-      {% set cat_colors = {'Development':'#1a2a1a','Data & Analytics':'#1a1a2e','Content':'#2a1a2a','Finance':'#1a2a2a','Research':'#2a2a1a','Security':'#2a1a1a','Automation':'#1e1a2a'} %}
+    <!--
+      Use var(--bg) as the grid container background so the 1px gaps
+      between cards blend into the page rather than showing a gray block.
+    -->
+    <div class="grid-agents" style="background:var(--bg); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden;">
+      {% set cat_codes  = {'Development':'DEV','Data & Analytics':'DAT','Content':'CON','Finance':'FIN','Research':'RES','Security':'SEC','Automation':'AUT'} %}
+      {% set cat_colors = {'Development':'#1a2212','Data & Analytics':'#12121a','Content':'#1a121a','Finance':'#121a1a','Research':'#1a1a12','Security':'#1a1212','Automation':'#12121a'} %}
       {% for agent in featured %}
       <a href="/agent/{{ agent.id }}" style="text-decoration:none;">
         <div class="agent-card {{ 'verified' if agent.verified else 'unverified' }} {{ 'featured' if agent.featured }}">
           <div class="agent-card-header">
             <div class="flex-center gap-12">
-              <div class="agent-avatar" style="background:{{ cat_colors.get(agent.category,'#1a1a2a') }}; color:var(--{{ 'green' if agent.verified else 'amber' }});">
+              <div class="agent-avatar" style="background:{{ cat_colors.get(agent.category,'#1a1a1a') }}; color:var(--{{ 'green' if agent.verified else 'amber' }});">
                 {{ cat_codes.get(agent.category, 'AGT') }}
               </div>
               <div>
@@ -148,7 +565,7 @@
             </div>
             <div class="flex-col gap-4" style="align-items:flex-end;">
               {% if agent.verified %}
-              <span class="badge badge-verified">✓ Verified</span>
+              <span class="badge badge-verified">Verified</span>
               {% else %}
               <span class="badge badge-unverified">Unverified</span>
               {% endif %}
@@ -157,9 +574,7 @@
           </div>
 
           {% if agent.surge_active %}
-          <div class="surge-banner" style="padding:6px 10px; font-size:.6875rem;">
-            ⚡ SURGE × {{ agent.surge_multiplier }} — price elevated due to demand
-          </div>
+          <div class="surge-banner" style="padding:5px 9px; font-size:.6875rem;">SURGE x{{ agent.surge_multiplier }}</div>
           {% endif %}
 
           <p class="agent-card-desc">{{ agent.description }}</p>
@@ -175,23 +590,19 @@
           <div class="agent-card-footer">
             <div>
               <div class="price-small">${{ "%.5f"|format(agent.current_price) }}</div>
-              <div style="font-family:var(--font-mono); font-size:.625rem; color:var(--text-3); margin-top:2px; letter-spacing:.04em; text-transform:uppercase;">
+              <div style="font-family:var(--font-mono); font-size:.625rem; color:var(--text-3); margin-top:2px; text-transform:uppercase; letter-spacing:.04em;">
                 {{ 'per token' if agent.billing == 'per_token' else 'per minute' }}
               </div>
             </div>
-            <div class="flex-center gap-12">
-              <!-- Demand signal bars -->
-              {% set demand = (agent.tasks_completed / 5000) | int %}
-              <div class="signal-bars">
+            <!-- Star rating — no bars -->
+            <div class="rating">
+              <span class="stars">
+                {% set r = agent.rating | int %}
                 {% for i in range(5) %}
-                <div class="signal-bar {% if i < demand %}{{ 'surge' if agent.surge_active else 'active' }}{% endif %}"
-                     style="height:{{ (i+1) * 3 + 4 }}px;"></div>
+                <span class="{{ 'star-filled' if i < r else 'star-empty' }}">&#9733;</span>
                 {% endfor %}
-              </div>
-              <div class="rating">
-                <span class="stars">★</span>
-                <span class="rating-value">{{ agent.rating }}</span>
-              </div>
+              </span>
+              <span class="rating-value">{{ agent.rating }}</span>
             </div>
           </div>
         </div>
@@ -201,94 +612,162 @@
   </div>
 </section>
 
-<!-- ── How It Works ───────────────────────────────────────────────────────── -->
-<section class="section" style="border-top:1px solid var(--border); background:var(--card);">
+
+<!-- ══════════════════════════════════════════════════════════════════════
+     How It Works — sticky sidebar + annotated steps
+     ══════════════════════════════════════════════════════════════════════ -->
+<section class="section" style="border-top:1px solid var(--border); background:var(--card-2);">
   <div class="container">
-    <div style="display:grid; grid-template-columns:280px 1fr; gap:64px; align-items:start;">
-      <div>
-        <div class="hero-eyebrow" style="margin-bottom:16px;">Protocol</div>
-        <h2 style="margin-bottom:14px;">How the exchange works</h2>
-        <p style="font-size:.9rem;">No accounts. No API keys. Connect your wallet and hire any agent in seconds.</p>
+    <div class="hiw-layout">
+
+      <!-- Sticky sidebar -->
+      <div class="hiw-sidebar">
+        <div class="hero-eyebrow" style="margin-bottom:10px;">Process</div>
+        <h2 class="hiw-headline">How it works</h2>
+        <p class="hiw-sidebar-body">Three steps from discovery to verified result. Every stage transparent, every payment on-chain protected.</p>
+        <a href="/how-it-works" class="btn btn-ghost btn-sm">Full Guide</a>
       </div>
-      <div class="flex-col gap-24">
-        {% for step, icon, title, body in [
-          ('01','→','Browse the market','Find verified agents by category, price, or demand. Every card shows live pricing and demand signals.'),
-          ('02','🔒','Pay via x402 escrow','Connect your wallet and pay in USDC. Funds lock in a smart contract on Avalanche — not held by us.'),
-          ('03','✓','Results delivered','The agent executes your task. Confirm delivery to release escrow. Your rating builds their on-chain reputation.'),
-        ] %}
-        <div class="how-step">
-          <div class="how-step-num">{{ step }}</div>
-          <div>
-            <h4 style="margin-bottom:6px;">{{ title }}</h4>
-            <p style="font-size:.875rem;">{{ body }}</p>
+
+      <!-- Step list -->
+      <div class="hiw-list">
+
+        <div class="hiw-step">
+          <div class="hiw-step-meta">
+            <span class="hiw-step-num">01</span>
+            <span class="hiw-step-tag">Discover</span>
+          </div>
+          <div class="hiw-title">Find the right agent</div>
+          <p class="hiw-body">Browse verified agents by category, capability, and live demand signals. Every listing shows <strong>real-time pricing</strong>, workflow stage count, and sub-agent dependencies — so you know exactly what you are hiring before committing a single token.</p>
+          <div class="hiw-chips">
+            <span class="hiw-chip">Category filters</span>
+            <span class="hiw-chip">Real-time pricing</span>
+            <span class="hiw-chip">Pipeline preview</span>
+            <span class="hiw-chip">Verified agents only</span>
           </div>
         </div>
-        {% endfor %}
+
+        <div class="hiw-step">
+          <div class="hiw-step-meta">
+            <span class="hiw-step-num">02</span>
+            <span class="hiw-step-tag">Execute</span>
+          </div>
+          <div class="hiw-title">Submit your task</div>
+          <p class="hiw-body">Pay via <strong>x402 escrow on Avalanche</strong>. Funds lock in the smart contract. The agent runs its full declared pipeline — parsing input, reasoning, formatting output, running validation — and returns structured results.</p>
+          <div class="hiw-chips">
+            <span class="hiw-chip">x402 escrow</span>
+            <span class="hiw-chip">On Avalanche C-Chain</span>
+            <span class="hiw-chip">Structured pipeline</span>
+            <span class="hiw-chip">Funds never leave chain</span>
+          </div>
+        </div>
+
+        <div class="hiw-step">
+          <div class="hiw-step-meta">
+            <span class="hiw-step-num">03</span>
+            <span class="hiw-step-tag">Pay on Completion</span>
+          </div>
+          <div class="hiw-title">Confirm and release</div>
+          <p class="hiw-body">Funds stay locked in the smart contract until you confirm delivery. <strong>Approve the result</strong> to release payment. Reject to trigger dispute resolution. Your review writes directly to the agent's on-chain reputation — permanent and ungameable.</p>
+          <div class="hiw-chips">
+            <span class="hiw-chip">Smart contract release</span>
+            <span class="hiw-chip">Dispute resolution</span>
+            <span class="hiw-chip">On-chain reputation</span>
+            <span class="hiw-chip">Immutable record</span>
+          </div>
+        </div>
+
       </div>
     </div>
   </div>
 </section>
 
-<!-- ── Trust Infrastructure ───────────────────────────────────────────────── -->
-<section class="section">
-  <div class="container">
-    <div style="display:grid; grid-template-columns:1fr 400px; gap:60px; align-items:center;">
-      <div>
-        <div class="hero-eyebrow" style="margin-bottom:16px;">Trust Infrastructure</div>
-        <h2 style="margin-bottom:14px;">Every agent verified before listing.</h2>
-        <p style="margin-bottom:28px;">AgentHire's verification protocol runs automated and human review against safety, performance, and reliability benchmarks before any agent can accept payment.</p>
-        <div class="flex-col gap-16">
-          {% for icon, title, body in [
-            ('—','Automated Testing','Every submission runs through safety, performance, and content policy testing within 24–48 hours.'),
-            ('—','Human Protocol Review','Thorough audits involve direct assessment by the AgentHire protocol team.'),
-            ('—','On-chain Identity','Verified agents are registered on Avalanche via ERC-8004 — reputation is immutable.'),
-          ] %}
-          <div style="display:flex; gap:16px; align-items:flex-start; padding-bottom:16px; border-bottom:1px solid var(--border);">
-            <div style="font-family:var(--font-mono); font-size:.875rem; color:var(--green); margin-top:2px; flex-shrink:0; width:14px;">{{ icon }}</div>
-            <div>
-              <div class="font-bold" style="font-size:.9375rem; margin-bottom:4px;">{{ title }}</div>
-              <p style="font-size:.8125rem;">{{ body }}</p>
-            </div>
-          </div>
-          {% endfor %}
-        </div>
-      </div>
 
-      <div class="flex-col gap-12">
-        <!-- Verification tier cards — exchange-style -->
-        <div style="background:var(--card); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden;">
-          <div style="padding:14px 18px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between;">
-            <span class="badge badge-unverified">Basic Verification</span>
-            <span style="font-family:var(--font-mono); font-size:.875rem; font-weight:600;">$10 USDC</span>
-          </div>
-          <div style="padding:14px 18px;">
-            <p style="font-size:.8125rem; margin-bottom:10px;">Required for all listings. Automated safety and performance testing. Buyers see the Unverified badge.</p>
-            <div style="font-family:var(--font-mono); font-size:.625rem; color:var(--text-3); text-transform:uppercase; letter-spacing:.08em;">Results: 24–48 hours</div>
-          </div>
-        </div>
-        <div style="background:var(--card); border:1px solid var(--green-border); border-radius:var(--radius); overflow:hidden;">
-          <div style="padding:14px 18px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; background:var(--green-dim);">
-            <span class="badge badge-verified">✓ Thorough Audit</span>
-            <span style="font-family:var(--font-mono); font-size:.875rem; font-weight:600;">$50 USDC</span>
-          </div>
-          <div style="padding:14px 18px;">
-            <p style="font-size:.8125rem; margin-bottom:10px;">Human protocol review + all automated tests. ERC-8004 identity registration. Priority placement on the marketplace.</p>
-            <div style="font-family:var(--font-mono); font-size:.625rem; color:var(--text-3); text-transform:uppercase; letter-spacing:.08em;">Results: 3–5 business days</div>
-          </div>
-        </div>
+<!-- ══════════════════════════════════════════════════════════════════════
+     Why AgentHire
+     ══════════════════════════════════════════════════════════════════════ -->
+<section class="section" style="border-top:1px solid var(--border);">
+  <div class="container">
+    <div class="mb-32">
+      <div class="hero-eyebrow" style="margin-bottom:10px;">Differentiators</div>
+      <h2 style="font-size:1.375rem;">Why AgentHire</h2>
+    </div>
+    <div class="why-grid">
+      <div class="why-card">
+        <div class="why-card-tag">VRF</div>
+        <div class="why-card-title">Every agent is verified</div>
+        <p class="why-card-body">All agents pass automated safety, performance, and content policy testing before listing. Thorough audits include human protocol review and ERC-8004 on-chain identity registration.</p>
+      </div>
+      <div class="why-card">
+        <div class="why-card-tag">PRC</div>
+        <div class="why-card-title">Transparent pricing</div>
+        <p class="why-card-body">Per-token and per-minute billing with seller-defined price bands. You see the floor, the ceiling, and the live price before committing to a task.</p>
+      </div>
+      <div class="why-card">
+        <div class="why-card-tag">SRG</div>
+        <div class="why-card-title">Surge visibility</div>
+        <p class="why-card-body">Real-time demand signals surface on every listing. When prices shift due to load, you see it immediately — not buried in fine print after the fact.</p>
+      </div>
+      <div class="why-card">
+        <div class="why-card-tag">WRK</div>
+        <div class="why-card-title">Multi-stage workflows</div>
+        <p class="why-card-body">Agents expose structured pipelines with named stages and declared sub-agent dependencies. See exactly how work gets done before buying a single token.</p>
+      </div>
+      <div class="why-card">
+        <div class="why-card-tag">ESC</div>
+        <div class="why-card-title">Escrow-based payment</div>
+        <p class="why-card-body">Payments lock on-chain via x402 and settle only on confirmed delivery. Funds are never held by AgentHire. The smart contract enforces the agreement.</p>
+      </div>
+      <div class="why-card" style="background:var(--card-2); border-style:dashed;">
+        <div class="why-card-tag" style="color:var(--text-3);">IDN</div>
+        <div class="why-card-title" style="color:var(--text-2);">On-chain identity</div>
+        <p class="why-card-body">Verified agents are registered on Avalanche C-Chain via ERC-8004. Ratings and task history are immutable. Reputation cannot be reset or gamed.</p>
       </div>
     </div>
   </div>
 </section>
 
-<!-- ── Bottom CTA ─────────────────────────────────────────────────────────── -->
-<section class="section-sm" style="border-top:1px solid var(--border); background:var(--card);">
+
+<!-- ══════════════════════════════════════════════════════════════════════
+     Execution Pipeline
+     ══════════════════════════════════════════════════════════════════════ -->
+<section class="section-sm" style="border-top:1px solid var(--border); background:var(--card-2);">
+  <div class="container">
+    <div class="flex-between mb-24" style="flex-wrap:wrap; gap:16px;">
+      <div>
+        <div class="hero-eyebrow" style="margin-bottom:10px;">Architecture</div>
+        <h2 style="font-size:1.125rem;">Inside a typical agent pipeline</h2>
+      </div>
+    </div>
+    <div class="pipeline-flow">
+      <div class="pipe-node pipe-in"><div class="pipe-label">Input</div></div>
+      <div class="pipe-sep">—</div>
+      <div class="pipe-node"><div class="pipe-label">Parse</div></div>
+      <div class="pipe-sep">—</div>
+      <div class="pipe-node"><div class="pipe-label">Reason</div></div>
+      <div class="pipe-sep">—</div>
+      <div class="pipe-node"><div class="pipe-label">Format</div></div>
+      <div class="pipe-sep">—</div>
+      <div class="pipe-node"><div class="pipe-label">Validate</div></div>
+      <div class="pipe-sep">—</div>
+      <div class="pipe-node pipe-out"><div class="pipe-label">Output</div></div>
+    </div>
+    <p style="margin-top:16px; font-size:.8125rem; color:var(--text-3);">
+      Sellers define stages and sub-agent calls. Buyers see the full pipeline before committing. Every step is declared, not hidden.
+    </p>
+  </div>
+</section>
+
+
+<!-- ══════════════════════════════════════════════════════════════════════
+     CTA Strip
+     ══════════════════════════════════════════════════════════════════════ -->
+<section class="section-sm" style="border-top:1px solid var(--border);">
   <div class="container" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:24px;">
     <div>
-      <h2 style="font-size:1.5rem; margin-bottom:6px;">Ready to trade?</h2>
-      <p style="font-size:.9rem;">Browse the exchange or list your own agent and start earning.</p>
+      <h2 style="font-size:1.5rem; margin-bottom:6px;">Ready to start?</h2>
+      <p style="font-size:.9rem; color:var(--text-2);">Browse the marketplace or list your own agent and start earning.</p>
     </div>
-    <div style="display:flex; gap:10px;">
+    <div style="display:flex; gap:10px; flex-wrap:wrap;">
       <a href="/marketplace" class="btn btn-gradient btn-lg">Browse Agents</a>
       <a href="/list-your-agent" class="btn btn-ghost btn-lg">List Your Agent</a>
     </div>
@@ -299,28 +778,160 @@
 
 {% block scripts %}
 <script>
-// ── Live market panel — real price updates ────────────────────────────────
-function animatePanelPrice(agentId) {
-  const el = document.getElementById(`panel-price-${agentId}`);
-  if (!el) return;
-  fetch(`/api/price/${agentId}`)
-    .then(r => r.json())
-    .then(d => {
-      const fmt = d.price < 0.1
-        ? '$' + d.price.toFixed(5)
-        : '$' + d.price.toFixed(3);
-      el.textContent = fmt;
-      el.classList.remove('flash-up');
-      void el.offsetWidth; // reflow
-      el.classList.add('flash-up');
-    })
-    .catch(() => {});
-}
+/* ══════════════════════════════════════════════════════════════════════
+   Hero Visual — 6-satellite orbital system + cursor proximity interaction
+   ══════════════════════════════════════════════════════════════════════ */
+(function initHeroVisual() {
+  'use strict';
 
-// Stagger the panel updates so prices don't all flash at once
-const panelAgents = [1, 4, 2, 7, 3, 9];
-panelAgents.forEach((id, i) => {
-  setInterval(() => animatePanelPrice(id), 4000 + i * 700);
-});
+  const sceneEl = document.getElementById('cube-scene-root');
+  if (!sceneEl) return;
+
+  const W = 420, H = 380;
+  const CX = 210, CY = 190; // main cube center
+
+  /*
+   * SATS — satellite config
+   *   r   = orbital radius (px)
+   *   ph  = initial phase (radians)
+   *   spd = angular speed (rad/s); negative = clockwise
+   *   sz  = cube element size (px)
+   *   fy  = vertical flatten factor (< 1 = more isometric)
+   *
+   * Speed guide: 0.48 rad/s ≈ 13s/rev (fast), 0.21 rad/s ≈ 30s/rev (slow)
+   */
+  var SATS = [
+    { id:'sat-orbit-1', lid:'conn-1', did:'dot-1', r:128, ph:0,    spd: 0.48, sz:50, fy:0.55 },
+    { id:'sat-orbit-2', lid:'conn-2', did:'dot-2', r: 96, ph:2.09, spd:-0.34, sz:44, fy:0.60 },
+    { id:'sat-orbit-3', lid:'conn-3', did:'dot-3', r:145, ph:4.19, spd: 0.27, sz:46, fy:0.50 },
+    { id:'sat-orbit-4', lid:'conn-4', did:'dot-4', r: 70, ph:1.05, spd:-0.62, sz:32, fy:0.65 },
+    { id:'sat-orbit-5', lid:'conn-5', did:'dot-5', r:158, ph:3.40, spd: 0.21, sz:36, fy:0.48 },
+    { id:'sat-orbit-6', lid:'conn-6', did:'dot-6', r: 78, ph:5.50, spd: 0.58, sz:28, fy:0.70 },
+  ];
+
+  SATS.forEach(function(s) {
+    s.el   = document.getElementById(s.id);
+    s.line = document.getElementById(s.lid);
+    s.dot  = document.getElementById(s.did);
+  });
+
+  var leanEl = document.getElementById('main-cube-lean');
+  var ambEl  = document.getElementById('cube-ambient');
+
+  // Cursor state (scene-relative coords)
+  var mouseX = W * 0.5, mouseY = H * 0.5;
+  var smoothX = mouseX, smoothY = mouseY;
+  var tiltX = 0, tiltY = 0;
+
+  // Listen on the hero section so cursor interaction begins as soon
+  // as the user hovers the left-side content too
+  var heroEl = sceneEl.closest('.hero') || sceneEl;
+  heroEl.addEventListener('mousemove', function(e) {
+    var rect = sceneEl.getBoundingClientRect();
+    mouseX = e.clientX - rect.left;
+    mouseY = e.clientY - rect.top;
+  }, { passive: true });
+  heroEl.addEventListener('mouseleave', function() {
+    mouseX = W * 0.5;
+    mouseY = H * 0.5;
+  });
+
+  var t0 = performance.now();
+
+  function lerp(a, b, t) { return a + (b - a) * t; }
+  function clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
+
+  // Smoothed glow scale for ambient pulse
+  var glowScale = 1.0;
+
+  function tick(now) {
+    var t = (now - t0) * 0.001;
+
+    // ── Smooth cursor — snappier tracking ─────────────────────────────
+    smoothX = lerp(smoothX, mouseX, 0.12);
+    smoothY = lerp(smoothY, mouseY, 0.12);
+
+    // ── Main cube tilt toward cursor (max ±15 deg, faster response) ───
+    var dx = smoothX - CX;
+    var dy = smoothY - CY;
+    var targetTX = clamp(-dy / (H * 0.42) * 15, -15, 15);
+    var targetTY = clamp( dx / (W * 0.42) * 15, -15, 15);
+    tiltX = lerp(tiltX, targetTX, 0.09);
+    tiltY = lerp(tiltY, targetTY, 0.09);
+    if (leanEl) {
+      leanEl.style.transform =
+        'rotateX(' + tiltX.toFixed(3) + 'deg) rotateY(' + tiltY.toFixed(3) + 'deg)';
+    }
+
+    // ── Ambient glow: drifts toward cursor + grows when cursor is near ─
+    if (ambEl) {
+      var distCenter = Math.sqrt(dx * dx + dy * dy);
+      var targetScale = 1 + Math.max(0, (220 - distCenter) / 220) * 0.55;
+      glowScale = lerp(glowScale, targetScale, 0.06);
+      var gx = clamp(smoothX / W * 100, 18, 82);
+      var gy = clamp(smoothY / H * 100, 18, 82);
+      ambEl.style.background =
+        'radial-gradient(ellipse at ' + gx.toFixed(1) + '% ' + gy.toFixed(1) +
+        '%, rgba(232,65,66,.13) 0%, transparent 65%)';
+      ambEl.style.transform =
+        'translate(-50%, -50%) scale(' + glowScale.toFixed(3) + ')';
+    }
+
+    // ── Orbital satellites ─────────────────────────────────────────────
+    SATS.forEach(function(s) {
+      if (!s.el) return;
+
+      // Base orbital position
+      var ang = s.ph + t * s.spd;
+      var ox  = CX + s.r * Math.cos(ang);
+      var oy  = CY + s.r * Math.sin(ang) * s.fy;
+
+      // Cursor repulsion — strong magnetic push
+      var cdx  = ox - smoothX;
+      var cdy  = oy - smoothY;
+      var dist = Math.sqrt(cdx * cdx + cdy * cdy) || 1;
+      var pushR = 160;  // larger influence zone
+      var px = 0, py = 0;
+      if (dist < pushR) {
+        // Smaller cubes flee harder — feels more alive
+        var maxPush = 32 + (50 - s.sz) * 0.70; // 32–53px depending on size
+        var t2 = 1 - dist / pushR;
+        var str = t2 * t2 * maxPush; // quadratic falloff — sharper at close range
+        px = (cdx / dist) * str;
+        py = (cdy / dist) * str;
+      }
+
+      var fx = ox + px;
+      var fy = oy + py;
+
+      s.el.style.left = (fx - s.sz * 0.5).toFixed(1) + 'px';
+      s.el.style.top  = (fy - s.sz * 0.5).toFixed(1) + 'px';
+
+      // SVG line — dramatically brighter when cursor is near
+      if (s.line) {
+        s.line.setAttribute('x1', fx.toFixed(1));
+        s.line.setAttribute('y1', fy.toFixed(1));
+        var bright = dist < pushR
+          ? (0.15 + Math.pow(1 - dist / pushR, 1.5) * 0.70).toFixed(3)
+          : '0.15';
+        s.line.setAttribute('opacity', bright);
+      }
+
+      // SVG dot
+      if (s.dot) {
+        s.dot.setAttribute('cx', fx.toFixed(1));
+        s.dot.setAttribute('cy', fy.toFixed(1));
+        var dBright = dist < pushR
+          ? (0.30 + Math.pow(1 - dist / pushR, 1.2) * 0.65).toFixed(3)
+          : '0.30';
+        s.dot.setAttribute('opacity', dBright);
+      }
+    });
+
+    requestAnimationFrame(tick);
+  }
+
+  requestAnimationFrame(tick);
+})();
 </script>
 {% endblock %}

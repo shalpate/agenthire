@@ -30,7 +30,11 @@
     </div>
     <div class="stat-card">
       <div class="text-xs text-muted mb-8" style="text-transform:uppercase; letter-spacing:.06em;">Avg Rating</div>
-      <div class="stat-value" style="display:flex; align-items:center; gap:8px;">4.7 <span style="color:var(--warning); font-size:1.25rem;">★</span></div>
+      <div class="stat-value" style="display:flex; align-items:center; gap:8px;">4.7
+        <span class="stars" style="font-size:1rem;">
+          {% for i in range(5) %}<span class="{{ 'star-filled' if i < 5 else 'star-empty' }}">&#9733;</span>{% endfor %}
+        </span>
+      </div>
       <div class="stat-change up mt-8">↑ 0.1 vs last month</div>
     </div>
   </div>
@@ -156,9 +160,9 @@
       {% for agent in agents %}
       <div class="flex-between py-12" style="border-bottom: 1px solid {{ 'var(--border)' if not loop.last else 'transparent' }};">
         <div class="flex-center gap-10">
-          {% set colors = ['#1E3A5F','#2D1B4E','#1A3A2E'] %}
-          {% set emojis = ['🤖','⚡','🧠'] %}
-          <div class="agent-avatar" style="width:36px; height:36px; border-radius:8px; font-size:.9rem; background:{{ colors[loop.index0 % 3] }};">{{ emojis[loop.index0 % 3] }}</div>
+          {% set cat_codes  = {'Development':'DEV','Data & Analytics':'DAT','Content':'CON','Finance':'FIN','Research':'RES','Security':'SEC','Automation':'AUT'} %}
+          {% set cat_colors = {'Development':'#1a2212','Data & Analytics':'#12121a','Content':'#1a121a','Finance':'#121a1a','Research':'#1a1a12','Security':'#1a1212','Automation':'#12121a'} %}
+          <div class="agent-avatar" style="background:{{ cat_colors.get(agent.category,'#1a1a2a') }}; color:var(--{{ 'green' if agent.verified else 'amber' }});">{{ cat_codes.get(agent.category,'AGT') }}</div>
           <div>
             <div class="font-bold text-sm">{{ agent.name }}</div>
             <div class="text-xs text-muted">{{ "{:,}".format(agent.tasks_completed) }} tasks</div>
@@ -166,12 +170,12 @@
         </div>
         <div style="text-align:right;">
           {% if agent.verified %}
-          <span class="badge badge-verified">✓ Verified</span>
+          <span class="badge badge-verified">Verified</span>
           {% else %}
           <span class="badge badge-unverified">Unverified</span>
           {% endif %}
           {% if agent.surge_active %}
-          <span class="badge badge-surge">⚡ Surge</span>
+          <span class="badge badge-surge">Surge</span>
           {% endif %}
         </div>
       </div>

@@ -1,22 +1,22 @@
 <svg width="100%" viewBox="0 0 680 290" role="img" xmlns="http://www.w3.org/2000/svg" aria-label="AgentHire">
   <!-- Outer hex -->
-  <polygon points="148,62 192,88 192,140 148,166 104,140 104,88" fill="none" stroke="#0fba8a" stroke-width="3" stroke-linejoin="round"/>
+  <polygon points="148,62 192,88 192,140 148,166 104,140 104,88" fill="none" stroke="#E84142" stroke-width="3" stroke-linejoin="round"/>
   <!-- Inner hex -->
-  <polygon points="148,80 180,98 180,134 148,152 116,134 116,98" fill="#0a2e22"/>
+  <polygon points="148,80 180,98 180,134 148,152 116,134 116,98" fill="#1a0606"/>
   <!-- Pulse ring -->
-  <circle cx="148" cy="116" r="24" fill="none" stroke="#0fba8a" stroke-width="1" opacity="0.4"/>
+  <circle cx="148" cy="116" r="24" fill="none" stroke="#E84142" stroke-width="1" opacity="0.35"/>
   <!-- Center dot -->
-  <circle cx="148" cy="116" r="9" fill="#0fba8a"/>
-  <circle cx="148" cy="116" r="4" fill="#0a2e22"/>
+  <circle cx="148" cy="116" r="9" fill="#E84142"/>
+  <circle cx="148" cy="116" r="4" fill="#1a0606"/>
   <!-- Circuit arms -->
-  <line x1="104" y1="88"  x2="72"  y2="70"  stroke="#0fba8a" stroke-width="2" stroke-linecap="round"/>
-  <circle cx="72"  cy="70"  r="4" fill="#0fba8a" opacity="0.7"/>
-  <line x1="192" y1="88"  x2="224" y2="70"  stroke="#0fba8a" stroke-width="2" stroke-linecap="round"/>
-  <circle cx="224" cy="70"  r="4" fill="#0fba8a" opacity="0.7"/>
-  <line x1="104" y1="140" x2="72"  y2="158" stroke="#0fba8a" stroke-width="2" stroke-linecap="round"/>
-  <circle cx="72"  cy="158" r="4" fill="#0fba8a" opacity="0.5"/>
-  <line x1="192" y1="140" x2="224" y2="158" stroke="#0fba8a" stroke-width="2" stroke-linecap="round"/>
-  <circle cx="224" cy="158" r="4" fill="#0fba8a" opacity="0.5"/>
-  <!-- Wordmark — "Agent" white, "Hire" teal -->
-  <text x="264" y="148" font-family="'Helvetica Neue', Arial, sans-serif" font-size="64" font-weight="700" fill="#F0F0F2">Agent <tspan fill="#0fba8a">Hire</tspan></text>
+  <line x1="104" y1="88"  x2="72"  y2="70"  stroke="#E84142" stroke-width="2" stroke-linecap="round"/>
+  <circle cx="72"  cy="70"  r="4" fill="#E84142" opacity="0.6"/>
+  <line x1="192" y1="88"  x2="224" y2="70"  stroke="#E84142" stroke-width="2" stroke-linecap="round"/>
+  <circle cx="224" cy="70"  r="4" fill="#E84142" opacity="0.6"/>
+  <line x1="104" y1="140" x2="72"  y2="158" stroke="#E84142" stroke-width="2" stroke-linecap="round"/>
+  <circle cx="72"  cy="158" r="4" fill="#E84142" opacity="0.45"/>
+  <line x1="192" y1="140" x2="224" y2="158" stroke="#E84142" stroke-width="2" stroke-linecap="round"/>
+  <circle cx="224" cy="158" r="4" fill="#E84142" opacity="0.45"/>
+  <!-- Wordmark -->
+  <text x="264" y="148" font-family="'Helvetica Neue', Arial, sans-serif" font-size="64" font-weight="700" fill="#FFFFFF">Agent<tspan fill="#E84142">Hire</tspan></text>
 </svg>

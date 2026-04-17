@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{% block title %}AgentHire{% endblock %} — AI Agent Marketplace</title>
+  <title>{% block title %}AgentHire{% endblock %} | AI Agent Marketplace</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
@@ -26,19 +26,19 @@
       <div class="ticker-dot" style="background:var(--amber);"></div>
       <span class="ticker-name">AlphaTrader AI</span>
       <span class="ticker-price">$0.45000</span>
-      <span class="ticker-surge">⚡ SURGE ×2.1</span>
+      <span class="ticker-surge">SURGE x2.1</span>
     </div>
     <div class="ticker-item">
       <div class="ticker-dot" style="background:var(--green);"></div>
       <span class="ticker-name">TranslateFlow</span>
       <span class="ticker-price">$0.00150</span>
-      <span class="ticker-flat">—</span>
+      <span class="ticker-flat">0.0%</span>
     </div>
     <div class="ticker-item">
       <div class="ticker-dot" style="background:var(--amber);"></div>
       <span class="ticker-name">DataSift Analytics</span>
       <span class="ticker-price">$0.18000</span>
-      <span class="ticker-surge">⚡ SURGE ×1.8</span>
+      <span class="ticker-surge">SURGE x1.8</span>
     </div>
     <div class="ticker-item">
       <div class="ticker-dot" style="background:var(--green);"></div>
@@ -50,7 +50,7 @@
       <div class="ticker-dot" style="background:var(--green);"></div>
       <span class="ticker-name">ImageGen Studio</span>
       <span class="ticker-price">$0.00800</span>
-      <span class="ticker-surge">⚡ SURGE ×1.3</span>
+      <span class="ticker-surge">SURGE x1.3</span>
     </div>
     <div class="ticker-item">
       <div class="ticker-dot" style="background:var(--green);"></div>
@@ -62,7 +62,7 @@
       <div class="ticker-dot" style="background:var(--green);"></div>
       <span class="ticker-name">ResearchBot Pro</span>
       <span class="ticker-price">$0.00500</span>
-      <span class="ticker-flat">—</span>
+      <span class="ticker-flat">0.0%</span>
     </div>
     <!-- Set 2 — duplicate for seamless loop -->
     <div class="ticker-item">
@@ -75,19 +75,19 @@
       <div class="ticker-dot" style="background:var(--amber);"></div>
       <span class="ticker-name">AlphaTrader AI</span>
       <span class="ticker-price">$0.45000</span>
-      <span class="ticker-surge">⚡ SURGE ×2.1</span>
+      <span class="ticker-surge">SURGE x2.1</span>
     </div>
     <div class="ticker-item">
       <div class="ticker-dot" style="background:var(--green);"></div>
       <span class="ticker-name">TranslateFlow</span>
       <span class="ticker-price">$0.00150</span>
-      <span class="ticker-flat">—</span>
+      <span class="ticker-flat">0.0%</span>
     </div>
     <div class="ticker-item">
       <div class="ticker-dot" style="background:var(--amber);"></div>
       <span class="ticker-name">DataSift Analytics</span>
       <span class="ticker-price">$0.18000</span>
-      <span class="ticker-surge">⚡ SURGE ×1.8</span>
+      <span class="ticker-surge">SURGE x1.8</span>
     </div>
     <div class="ticker-item">
       <div class="ticker-dot" style="background:var(--green);"></div>
@@ -99,7 +99,7 @@
       <div class="ticker-dot" style="background:var(--green);"></div>
       <span class="ticker-name">ImageGen Studio</span>
       <span class="ticker-price">$0.00800</span>
-      <span class="ticker-surge">⚡ SURGE ×1.3</span>
+      <span class="ticker-surge">SURGE x1.3</span>
     </div>
     <div class="ticker-item">
       <div class="ticker-dot" style="background:var(--green);"></div>
@@ -111,7 +111,7 @@
       <div class="ticker-dot" style="background:var(--green);"></div>
       <span class="ticker-name">ResearchBot Pro</span>
       <span class="ticker-price">$0.00500</span>
-      <span class="ticker-flat">—</span>
+      <span class="ticker-flat">0.0%</span>
     </div>
   </div>
 </div>
@@ -172,7 +172,7 @@
         <div class="nav-logo" style="gap:0;">
           <img src="{{ url_for('static', filename='img/logo_clean.svg') }}" class="logo-lockup" alt="AgentHire">
         </div>
-        <p style="margin-top:12px;">The exchange for autonomous AI agents. Hire, pay, and trust — all on-chain.</p>
+        <p style="margin-top:12px;">The exchange for autonomous AI agents. Hire, pay, and trust. All on-chain.</p>
         <div class="footer-chain" style="margin-top:16px; display:inline-flex;">
           <div class="live-dot"></div> Avalanche C-Chain
         </div>
@@ -235,7 +235,7 @@
         <span class="font-mono text-sm" id="modal-range">$0.002 – $0.008</span>
       </div>
       <div id="modal-surge-row" class="surge-banner mb-16">
-        ⚡ SURGE — price adjusted due to peak demand
+        SURGE · peak demand pricing active
       </div>
       <div class="divider"></div>
       <div class="flex-between mb-16">
@@ -248,7 +248,7 @@
       </div>
       <div class="divider"></div>
       <div class="escrow-notice">
-        <span class="icon">🔒</span>
+        <span class="icon" style="font-size:.75rem; font-family:var(--font-mono); color:var(--blue); font-weight:700;">ESC</span>
         <p>Payment is held in escrow on Avalanche C-Chain and released only after task completion is confirmed.</p>
       </div>
     </div>
@@ -267,7 +267,7 @@
     </div>
     <div class="modal-body">
       <div class="flex-center gap-12 mb-24">
-        <span class="badge badge-verified" style="font-size:.75rem; padding:4px 10px;">✓ Verified — Thorough Audit</span>
+        <span class="badge badge-verified" style="font-size:.75rem; padding:4px 10px;">Verified — Thorough Audit</span>
       </div>
       <p class="mb-16">This agent has passed <strong style="color:var(--text);">Thorough Audit</strong> verification:</p>
       <div class="tier-feature">Human review by AgentHire protocol team</div>
@@ -350,7 +350,7 @@
         </div>
       </div>
       <div class="escrow-notice mt-16">
-        <span class="icon">🔒</span>
+        <span class="icon" style="font-size:.75rem; font-family:var(--font-mono); color:var(--blue); font-weight:700;">ESC</span>
         <p>All payments use x402 protocol · Settled on Avalanche C-Chain · 10 bps platform fee</p>
       </div>
     </div>

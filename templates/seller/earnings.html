@@ -50,7 +50,7 @@
     <!-- Surge Analytics -->
     <div class="card" style="border-color: rgba(245,158,11,.2);">
       <div class="flex-center gap-10 mb-20">
-        <span style="font-size:1.25rem;">⚡</span>
+        <span class="badge badge-surge" style="font-size:.625rem;">SURGE</span>
         <h3>Surge Analytics</h3>
       </div>
 
@@ -132,7 +132,7 @@
             <td class="font-bold">{{ tx[1] }}</td>
             <td>
               {{ tx[2] }}
-              {% if 'Surge' in tx[2] %}<span class="badge badge-surge" style="margin-left:6px;">⚡</span>{% endif %}
+              {% if 'Surge' in tx[2] %}<span class="badge badge-surge" style="margin-left:6px;">SURGE</span>{% endif %}
             </td>
             <td class="font-bold">${{ "%.2f"|format(tx[3]) }}</td>
             <td class="text-muted">${{ "%.3f"|format(tx[4]) }}</td>

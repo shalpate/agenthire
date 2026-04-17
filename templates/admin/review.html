@@ -1,16 +1,16 @@
 {% extends "base.html" %}
-{% block title %}Human Review — {{ entry.agent }}{% endblock %}
+{% block title %}Human Review: {{ entry.agent }}{% endblock %}
 
 {% block content %}
 <div class="admin-layout">
   <aside class="admin-sidebar">
     <div class="sidebar-section">
       <div class="sidebar-label">Protocol</div>
-      <a href="/admin/dashboard" class="sidebar-link"><span class="sidebar-icon">📊</span> Dashboard</a>
-      <a href="/admin/verification-queue" class="sidebar-link"><span class="sidebar-icon">🛡</span> Verification Queue</a>
-      <a href="/admin/sandbox" class="sidebar-link"><span class="sidebar-icon">🔬</span> Sandbox Results</a>
-      <a href="/admin/moderation" class="sidebar-link"><span class="sidebar-icon">🚩</span> Moderation</a>
-      <a href="/admin/payouts" class="sidebar-link"><span class="sidebar-icon">💰</span> Payouts</a>
+      <a href="/admin/dashboard" class="sidebar-link"><span class="sidebar-icon" style="font-family:var(--font-mono);font-size:.5625rem;font-weight:700;">DB</span> Dashboard</a>
+      <a href="/admin/verification-queue" class="sidebar-link"><span class="sidebar-icon" style="font-family:var(--font-mono);font-size:.5625rem;font-weight:700;">VRF</span> Verification Queue</a>
+      <a href="/admin/sandbox" class="sidebar-link"><span class="sidebar-icon" style="font-family:var(--font-mono);font-size:.5625rem;font-weight:700;">SBX</span> Sandbox Results</a>
+      <a href="/admin/moderation" class="sidebar-link"><span class="sidebar-icon" style="font-family:var(--font-mono);font-size:.5625rem;font-weight:700;">MOD</span> Moderation</a>
+      <a href="/admin/payouts" class="sidebar-link"><span class="sidebar-icon" style="font-family:var(--font-mono);font-size:.5625rem;font-weight:700;">PAY</span> Payouts</a>
     </div>
   </aside>
 
@@ -18,7 +18,7 @@
     <div class="flex-center gap-8 mb-24 text-sm text-muted">
       <a href="/admin/verification-queue" class="text-muted" style="text-decoration:underline;">Verification Queue</a>
       <span>›</span>
-      <span style="color:var(--text);">Human Review — {{ entry.agent }}</span>
+      <span style="color:var(--text);">Human Review: {{ entry.agent }}</span>
     </div>
 
     <div class="flex-between mb-32">
@@ -90,7 +90,7 @@
         <div class="card" style="border-color:rgba(79,116,255,.15);">
           <h3 style="margin-bottom:16px;">Final Decision</h3>
           <div class="escrow-notice mb-20">
-            <span class="icon">⚠</span>
+            <span class="icon" style="font-family:var(--font-mono);font-size:.625rem;font-weight:700;color:var(--amber);">NOTE</span>
             <p>This decision will update the listing status immediately. Approved agents receive the verification badge and become discoverable.</p>
           </div>
           <div class="flex-center gap-12">
@@ -106,7 +106,7 @@
         <div class="card">
           <h4 style="margin-bottom:12px;">Verification Tiers</h4>
           <div style="margin-bottom:12px;">
-            <div class="font-bold text-sm mb-4">Basic — $10 USDC</div>
+            <div class="font-bold text-sm mb-4">Basic ($10 USDC)</div>
             <div class="tier-feature">Automated testing only</div>
             <div class="tier-feature">Safety & content check</div>
             <div class="tier-feature">No human review required</div>
@@ -114,7 +114,7 @@
           </div>
           <div style="padding-top:12px; border-top:1px solid var(--border);">
             <div class="flex-center gap-8 mb-6">
-              <div class="font-bold text-sm">Thorough — $50 USDC</div>
+              <div class="font-bold text-sm">Thorough ($50 USDC)</div>
               <span class="badge badge-verified" style="font-size:.5rem;">Selected</span>
             </div>
             <div class="tier-feature">Everything in Basic</div>

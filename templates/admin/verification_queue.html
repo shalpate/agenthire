@@ -6,10 +6,10 @@
   <aside class="admin-sidebar">
     <div class="sidebar-section">
       <div class="sidebar-label">Protocol</div>
-      <a href="/admin/dashboard" class="sidebar-link"><span class="sidebar-icon">📊</span> Dashboard</a>
-      <a href="/admin/verification-queue" class="sidebar-link active"><span class="sidebar-icon">🛡</span> Verification Queue</a>
-      <a href="/admin/moderation" class="sidebar-link"><span class="sidebar-icon">🚩</span> Moderation</a>
-      <a href="/admin/payouts" class="sidebar-link"><span class="sidebar-icon">💰</span> Payouts</a>
+      <a href="/admin/dashboard" class="sidebar-link"><span class="sidebar-icon" style="font-family:var(--font-mono);font-size:.5625rem;font-weight:700;">DB</span> Dashboard</a>
+      <a href="/admin/verification-queue" class="sidebar-link active"><span class="sidebar-icon" style="font-family:var(--font-mono);font-size:.5625rem;font-weight:700;">VRF</span> Verification Queue</a>
+      <a href="/admin/moderation" class="sidebar-link"><span class="sidebar-icon" style="font-family:var(--font-mono);font-size:.5625rem;font-weight:700;">MOD</span> Moderation</a>
+      <a href="/admin/payouts" class="sidebar-link"><span class="sidebar-icon" style="font-family:var(--font-mono);font-size:.5625rem;font-weight:700;">PAY</span> Payouts</a>
     </div>
   </aside>
 
@@ -26,11 +26,11 @@
 
     <div class="flex-col gap-20">
       {% set status_meta = {
-        'pending':      ('badge-pending',  '⏳', 'Pending'),
-        'testing':      ('badge-testing',  '🔬', 'Testing'),
-        'human_review': ('badge-review',   '👁', 'Human Review'),
-        'approved':     ('badge-approved', '✓',  'Approved'),
-        'rejected':     ('badge-rejected', '✕',  'Rejected'),
+        'pending':      ('badge-pending',  'PEND', 'Pending'),
+        'testing':      ('badge-testing',  'TEST', 'Testing'),
+        'human_review': ('badge-review',   'REV',  'Human Review'),
+        'approved':     ('badge-approved', 'PASS', 'Approved'),
+        'rejected':     ('badge-rejected', 'FAIL', 'Rejected'),
       } %}
       {% for item in queue %}
       {% set meta = status_meta[item.status] %}
@@ -38,16 +38,16 @@
         <!-- Header -->
         <div class="flex-between mb-20">
           <div class="flex-center gap-16">
-            <div style="width:48px; height:48px; border-radius:12px; background:var(--card-2); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:1.25rem;">🤖</div>
+            <div class="agent-avatar" style="width:48px; height:48px; border-radius:10px; font-size:.75rem; background:var(--card-2); color:var(--text-2);">AGT</div>
             <div>
               <div class="flex-center gap-10 mb-4">
                 <span class="font-bold" style="font-size:1.0625rem;">{{ item.agent }}</span>
                 <span class="badge {{ meta[0] }}">{{ meta[1] }} {{ meta[2] }}</span>
                 <span class="badge {{ 'badge-testing' if item.tier == 'thorough' else 'badge-pending' }}">{{ item.tier.title() }} Audit</span>
                 {% if loop.index0 % 2 == 0 %}
-                <span class="exec-type-badge exec-type-composable" style="font-size:.5rem;">⛓ 4 stages · 2 sub-agents</span>
+                <span class="exec-type-badge exec-type-composable" style="font-size:.5rem;">A2A · 4 stages</span>
                 {% else %}
-                <span class="exec-type-badge exec-type-standalone" style="font-size:.5rem;">◼ Standalone</span>
+                <span class="exec-type-badge exec-type-standalone" style="font-size:.5rem;">Standalone</span>
                 {% endif %}
               </div>
               <div class="text-sm text-muted">{{ item.id }} · by <strong style="color:var(--text);">{{ item.seller }}</strong> · Submitted {{ item.submitted }}</div>
