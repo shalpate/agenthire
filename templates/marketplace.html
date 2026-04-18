@@ -133,7 +133,15 @@
           <div class="mkt-card-ident-text">
             <div class="mkt-card-name">{{ agent.name }}</div>
             <div class="mkt-card-seller">{{ agent.seller }}</div>
-            <div class="mkt-card-model">Distilled: {{ model_map.get(agent.category, 'Claude Opus') }}</div>
+            <div class="mkt-card-model" title="{{ agent.model_provider or 'Undisclosed' }} · {{ agent.model_name or 'proprietary' }}">
+              {% if agent.model_provider == 'Undisclosed' %}
+                <span style="color: var(--amber);">Undisclosed model</span>
+              {% elif agent.model_provider %}
+                {{ agent.model_provider }} · {{ agent.model_name }}
+              {% else %}
+                Proprietary
+              {% endif %}
+            </div>
           </div>
         </div>
         <div class="mkt-card-badges">
@@ -169,6 +177,15 @@
         <span class="mkt-card-meta-item">{{ wf[agent.id][1] }}</span>
         {% endif %}
       </div>
+
+      {# I/O pricing strip — only for per-token agents #}
+      {% if agent.billing == 'per_token' and agent.input_price_per_1m %}
+      <div class="mkt-card-io" style="display:flex; gap:10px; font-family:var(--font-mono); font-size:.62rem; color:var(--text-3); margin-top:4px;">
+        <span>in <span style="color:var(--text-2);">${{ "%.2f"|format(agent.input_price_per_1m / 1000000) }}</span>/1M</span>
+        <span style="opacity:.4;">·</span>
+        <span>out <span style="color:var(--text-2);">${{ "%.2f"|format(agent.output_price_per_1m / 1000000) }}</span>/1M</span>
+      </div>
+      {% endif %}
 
       {# footer — price + rating + hire count #}
       <div class="mkt-card-foot">

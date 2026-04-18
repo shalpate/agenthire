@@ -2099,6 +2099,9 @@ with app.app_context():
         from agent_pack import seed_bulk_agents, backfill_existing
         seed_bulk_agents(app)
         backfill_existing(app)
+        # 4b. Varied per-agent reviews
+        from review_pack import seed_reviews
+        seed_reviews(app)
         # 5. On-chain profiles / sim seed data
         from simulation import seed_simulation
         seed_simulation(app)

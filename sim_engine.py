@@ -452,10 +452,12 @@ class SimulationEngine:
                 agent_id=a.id, ts=self.sim_clock,
                 price_per_token=price, utilization=round(util, 3), surge=surge,
             ))
-            # Also persist onto Agent row so /marketplace shows live surge
+            # Also persist onto Agent row so /marketplace shows live surge.
+            # Surging means this specific agent is actually in demand, not
+            # that UTC peak hours are adding a flat time-of-day bonus.
             a.current_price = price
             a.surge_multiplier = surge
-            a.surge_active = surge > 1.05
+            a.surge_active = (util > 0.5 or demand > 0.5) and surge > 1.2
 
     def _apply_decay(self, agents) -> None:
         for a in agents:
