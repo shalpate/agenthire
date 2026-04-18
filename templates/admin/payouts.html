@@ -20,7 +20,7 @@
         <p>Manage escrow releases, holds, and refunds</p>
       </div>
       <div class="flex-center gap-10">
-        <button class="btn btn-primary" onclick="showToast('Bulk release initiated for all eligible payouts', 'success')">Release All Eligible</button>
+        <button class="btn btn-primary" id="release-all-btn">Release All Eligible</button>
       </div>
     </div>
 
@@ -93,13 +93,15 @@
               <td>
                 <div class="flex-center gap-6">
                   {% if payout.status == 'pending' %}
-                  <button class="btn btn-success btn-sm release-btn">Release</button>
-                  <button class="btn btn-ghost btn-sm hold-btn">Hold</button>
+                  <button class="btn btn-success btn-sm release-btn" data-payout-id="{{ payout.id }}">Release</button>
+                  <button class="btn btn-ghost btn-sm hold-btn" data-payout-id="{{ payout.id }}">Hold</button>
                   {% elif payout.status == 'held' %}
-                  <button class="btn btn-success btn-sm release-btn">Release</button>
-                  <button class="btn btn-danger btn-sm refund-btn">Refund</button>
+                  <button class="btn btn-success btn-sm release-btn" data-payout-id="{{ payout.id }}">Release</button>
+                  <button class="btn btn-danger btn-sm refund-btn" data-payout-id="{{ payout.id }}">Refund</button>
                   {% elif payout.status == 'released' %}
                   <span class="text-xs text-muted">Complete</span>
+                  {% elif payout.status == 'refunded' %}
+                  <span class="text-xs text-muted">Refunded</span>
                   {% endif %}
                 </div>
               </td>

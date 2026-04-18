@@ -1,5 +1,5 @@
 """
-auth.py — Authentication scaffolding for AgentHire.
+auth.py - Authentication scaffolding for AgentHire.
 
 require_api_key
 ---------------
@@ -31,14 +31,14 @@ from flask import request, jsonify, current_app
 
 def require_api_key(f):
     """
-    Decorator — enforce X-Api-Key header if API_KEY env var is configured.
+    Decorator - enforce X-Api-Key header if API_KEY env var is configured.
     Falls through (no-op) when API_KEY is not set.
     """
     @functools.wraps(f)
     def decorated(*args, **kwargs):
         api_key = current_app.config.get("API_KEY") or os.environ.get("API_KEY")
         if not api_key:
-            # Auth not configured — allow all requests (local dev mode)
+            # Auth not configured - allow all requests (local dev mode)
             return f(*args, **kwargs)
 
         provided = request.headers.get("X-Api-Key", "").strip()

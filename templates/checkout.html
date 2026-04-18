@@ -36,17 +36,83 @@
         <h3 style="margin-bottom:16px;">Task Details</h3>
         <div class="form-group mb-16">
           <label class="form-label">Task Description</label>
-          <textarea class="form-textarea" placeholder="Describe what you need the agent to do…" style="min-height:100px;"></textarea>
+          <textarea class="form-textarea" placeholder="Describe what you need the agent to do..." style="min-height:100px;"></textarea>
         </div>
         <div class="form-group">
           <label class="form-label">Attach Files (optional)</label>
-          <div style="border:2px dashed var(--border-2); border-radius:var(--radius-sm); padding:20px; text-align:center; cursor:pointer;" onclick="document.getElementById('file-upload').click();">
+          <div id="file-dropzone"
+               style="border:2px dashed var(--border-2); border-radius:var(--radius-sm); padding:20px; text-align:center; cursor:pointer; transition:border-color .15s ease, background .15s ease;"
+               onclick="document.getElementById('file-upload').click();">
             <div style="font-family:var(--font-mono); font-size:.625rem; font-weight:700; color:var(--border-2); letter-spacing:.1em; margin-bottom:6px; text-transform:uppercase;">UPLOAD</div>
-            <div class="text-sm text-muted">Click to upload or drag & drop</div>
+            <div class="text-sm text-muted" id="file-dropzone-msg">Click to upload or drag &amp; drop</div>
             <div class="text-xs text-muted mt-4" style="font-family:var(--font-mono);">Max 50MB · PDF, TXT, CSV, ZIP</div>
           </div>
           <input type="file" id="file-upload" style="display:none;" multiple>
+          <div id="file-list" style="margin-top:10px; display:none; flex-direction:column; gap:6px;"></div>
         </div>
+        <script>
+          (function initFileUpload() {
+            const input    = document.getElementById('file-upload');
+            const dropzone = document.getElementById('file-dropzone');
+            const msgEl    = document.getElementById('file-dropzone-msg');
+            const listEl   = document.getElementById('file-list');
+            if (!input || !dropzone) return;
+
+            function fmt(bytes) {
+              if (bytes < 1024) return bytes + ' B';
+              if (bytes < 1024*1024) return (bytes/1024).toFixed(1) + ' KB';
+              return (bytes/(1024*1024)).toFixed(1) + ' MB';
+            }
+            function render(files) {
+              listEl.innerHTML = '';
+              if (!files || !files.length) {
+                listEl.style.display = 'none';
+                msgEl.textContent = 'Click to upload or drag & drop';
+                dropzone.style.borderColor = '';
+                return;
+              }
+              listEl.style.display = 'flex';
+              msgEl.textContent = files.length + (files.length === 1 ? ' file selected' : ' files selected');
+              dropzone.style.borderColor = 'var(--green)';
+              [...files].forEach((f, i) => {
+                const row = document.createElement('div');
+                row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 12px;background:var(--card-2);border:1px solid var(--border);border-radius:6px;';
+                row.innerHTML = '<div style="display:flex;align-items:center;gap:10px;min-width:0;"><span style="font-family:var(--font-mono);font-size:.625rem;color:var(--green);letter-spacing:.08em;">✓</span><span style="font-size:.8125rem;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + f.name + '</span><span style="font-family:var(--font-mono);font-size:.6875rem;color:var(--text-3);">' + fmt(f.size) + '</span></div>'
+                               + '<button type="button" data-idx="' + i + '" style="background:none;border:none;color:var(--text-3);cursor:pointer;font-size:.875rem;">✕</button>';
+                listEl.appendChild(row);
+              });
+            }
+
+            input.addEventListener('change', () => render(input.files));
+
+            listEl.addEventListener('click', (e) => {
+              const b = e.target.closest('button[data-idx]');
+              if (!b) return;
+              const idx = Number(b.dataset.idx);
+              const dt = new DataTransfer();
+              [...input.files].forEach((f, i) => { if (i !== idx) dt.items.add(f); });
+              input.files = dt.files;
+              render(input.files);
+            });
+
+            // Drag & drop
+            ['dragenter','dragover'].forEach(ev => dropzone.addEventListener(ev, (e) => {
+              e.preventDefault();
+              dropzone.style.borderColor = 'var(--red)';
+              dropzone.style.background = 'var(--red-dim)';
+            }));
+            ['dragleave','drop'].forEach(ev => dropzone.addEventListener(ev, (e) => {
+              e.preventDefault();
+              dropzone.style.background = '';
+              if (ev === 'drop') {
+                input.files = e.dataTransfer.files;
+                render(input.files);
+              } else {
+                dropzone.style.borderColor = input.files.length ? 'var(--green)' : '';
+              }
+            }));
+          })();
+        </script>
       </div>
 
       {% if a2a.composable %}
@@ -85,7 +151,7 @@
         <div class="form-group mb-16">
           <label class="form-label">Sub-Agent Permission</label>
           <select class="permission-select" id="subagent-permission" onchange="updatePermissionHint(this.value)">
-            <option value="auto">Auto — use sub-agents within budget</option>
+            <option value="auto">Auto - use sub-agents within budget</option>
             <option value="ask">Ask before exceeding estimate</option>
             <option value="disable">Disable sub-agents</option>
           </select>
@@ -104,7 +170,7 @@
               <span class="text-sm">{{ sa.name }}</span>
               <span class="text-xs text-muted">· {{ sa.role }}</span>
             </div>
-            <span style="font-family:var(--font-mono); font-size:.75rem; color:var(--amber);">${{ "%.3f"|format(sa.est_cost_low) }}–${{ "%.3f"|format(sa.est_cost_high) }}</span>
+            <span style="font-family:var(--font-mono); font-size:.75rem; color:var(--amber);">${{ "%.3f"|format(sa.est_cost_low) }}-${{ "%.3f"|format(sa.est_cost_high) }}</span>
           </div>
           {% endfor %}
         </div>
@@ -119,7 +185,7 @@
             <div class="timeline-dot done">1</div>
             <div class="timeline-content" style="padding-top:3px;">
               <h4>Payment Locked</h4>
-              <p>Your USDC is held in a smart contract — no one can access it until the task is complete.</p>
+              <p>Your USDC is held in a smart contract - no one can access it until the task is complete.</p>
             </div>
           </div>
           <div class="timeline-item">
@@ -133,7 +199,7 @@
             <div class="timeline-dot">3</div>
             <div class="timeline-content" style="padding-top:3px;">
               <h4>You Confirm Delivery</h4>
-              <p>Review results. Confirm to release — or open a dispute within 48 hours.</p>
+              <p>Review results. Confirm to release - or open a dispute within 48 hours.</p>
             </div>
           </div>
           <div class="timeline-item" style="padding-bottom:0;">
@@ -215,7 +281,7 @@
 
         <div class="escrow-notice mb-16">
           <span class="icon" style="font-size:.75rem;font-family:var(--font-mono);color:var(--blue);font-weight:700;">ESC</span>
-          <p>{% if a2a.composable %}Funds held in escrow up to your max spend cap. Unused balance returned on completion.{% else %}Full amount held in escrow — released after task confirmation.{% endif %}</p>
+          <p>{% if a2a.composable %}Funds held in escrow up to your max spend cap. Unused balance returned on completion.{% else %}Full amount held in escrow - released after task confirmation.{% endif %}</p>
         </div>
 
         <button class="btn btn-gradient btn-full btn-lg" id="confirm-pay"
@@ -248,7 +314,7 @@
               // Ensure balance
               const bal = await window.AgentHire.getUsdcBalance();
               if (bal < BigInt(Math.floor(depositUSDC * 1e6))) {
-                setStatus('Low USDC — minting test USDC...');
+                setStatus('Low USDC - minting test USDC...');
                 await window.AgentHire.mintUSDC(Math.max(1000, depositUSDC));
               }
               setStatus('Signing x402 payment permit...');
@@ -259,7 +325,7 @@
               });
               if (r.status === 'mock_settled') {
                 setStatus('Paid (mock). Session ' + r.sessionId);
-                if (window.showToast) showToast('Payment signed — session ' + r.sessionId, 'success');
+                if (window.showToast) showToast('Payment signed - session ' + r.sessionId, 'success');
               } else {
                 setStatus('Settled on-chain. Session ' + (r.sessionId || ''));
                 if (window.showToast) showToast('Payment settled on-chain', 'success');
@@ -320,7 +386,7 @@
     const hints = {
       auto:    'Sub-agents will run automatically within your max spend limit.',
       ask:     'Execution will pause and ask for your approval before exceeding the estimate.',
-      disable: 'Sub-agents are disabled. Only the base agent runs — some features may be limited.'
+      disable: 'Sub-agents are disabled. Only the base agent runs - some features may be limited.'
     };
     const el = document.getElementById('permission-hint');
     if (el) el.textContent = hints[val] || '';

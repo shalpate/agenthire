@@ -57,12 +57,12 @@
 
       <div class="flex-col gap-16">
         {% for report in reports %}
-        <div style="background:var(--card-2); border:1px solid var(--border); border-radius:10px; padding:18px;">
+        <div data-report-row="{{ report.id }}" style="background:var(--card-2); border:1px solid var(--border); border-radius:10px; padding:18px;">
           <div class="flex-between mb-12">
             <div class="flex-center gap-12">
               <span class="font-bold text-accent">{{ report.id }}</span>
               <span class="font-bold">{{ report.agent }}</span>
-              <span class="badge {{ 'badge-rejected' if report.status == 'open' else ('badge-review' if report.status == 'investigating' else 'badge-approved') }}">
+              <span class="badge report-status-badge {{ 'badge-rejected' if report.status == 'open' else ('badge-review' if report.status == 'investigating' else 'badge-approved') }}">
                 {{ report.status.title() }}
               </span>
             </div>
@@ -74,14 +74,16 @@
           </div>
           <div class="flex-between">
             <div class="text-xs text-muted">Reported by: <code style="color:var(--text);">{{ report.reporter }}</code></div>
-            {% if report.status != 'resolved' %}
-            <div class="flex-center gap-8">
-              <button class="btn btn-ghost btn-sm" onclick="showToast('Report {{ report.id }} marked as investigating', 'info')">Investigate</button>
-              <button class="btn btn-secondary btn-sm" onclick="showToast('Agent {{ report.agent }} suspended pending review', 'warning')">Suspend Agent</button>
-              <button class="btn btn-success btn-sm" onclick="showToast('Report {{ report.id }} resolved', 'success')">Resolve</button>
+            {% if report.status not in ['resolved', 'suspended'] %}
+            <div class="flex-center gap-8 report-actions">
+              <button class="btn btn-ghost btn-sm investigate-btn" data-report-id="{{ report.id }}">Investigate</button>
+              <button class="btn btn-secondary btn-sm suspend-btn" data-report-id="{{ report.id }}">Suspend Agent</button>
+              <button class="btn btn-success btn-sm resolve-btn" data-report-id="{{ report.id }}">Resolve</button>
             </div>
+            {% elif report.status == 'suspended' %}
+            <span class="badge badge-rejected">Agent suspended</span>
             {% else %}
-            <span class="badge badge-approved">✓ Resolved</span>
+            <span class="badge badge-approved">Resolved</span>
             {% endif %}
           </div>
         </div>
@@ -91,3 +93,5 @@
   </main>
 </div>
 {% endblock %}
+
+{% block scripts %}{% endblock %}

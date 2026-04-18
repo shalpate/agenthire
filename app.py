@@ -11,7 +11,7 @@ from auth import require_api_key
 # ── Logging setup ──────────────────────────────────────────────────────────────
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s — %(message)s",
+    format="%(asctime)s [%(levelname)s] %(name)s - %(message)s",
     datefmt="%Y-%m-%dT%H:%M:%S",
 )
 log = logging.getLogger("agenthire")
@@ -60,8 +60,8 @@ A2A_WORKFLOWS = {
             {"id": 10, "name": "TestingMaster",  "role": "Test suite generation",     "billing": "per_token", "est_cost_low": 0.002, "est_cost_high": 0.006, "verified": True},
         ],
         "base_cost_label":      "$0.00600 / token",
-        "subagent_range_label": "$0.003 – $0.018",
-        "total_range_label":    "$0.009 – $0.024",
+        "subagent_range_label": "$0.003 - $0.018",
+        "total_range_label":    "$0.009 - $0.024",
         "steps": [
             {"name": "CodeReview Pro",  "role": "main",      "action": "Parse & analyse source code"},
             {"name": "SecureAudit AI",  "role": "subagent",  "action": "Deep vulnerability scan (if needed)"},
@@ -75,7 +75,7 @@ A2A_WORKFLOWS = {
                 "exec_label": "Parsing your code",
                 "purpose": "Tokenises submitted code, detects language and framework, maps the dependency graph.",
                 "detail": "Supports 20+ languages. Normalises whitespace, strips comments for analysis, extracts AST structure for downstream stages.",
-                "summary": "Parsed your code — detected Python, 14 files, 2,840 tokens.",
+                "summary": "Parsed your code - detected Python, 14 files, 2,840 tokens.",
             },
             {
                 "id": "reason",   "order": 2, "type": "internal",  "conditional": False,
@@ -83,15 +83,15 @@ A2A_WORKFLOWS = {
                 "exec_label": "Analysing code patterns",
                 "purpose": "Applies OWASP rules, static analysis heuristics, and pattern matching against known vulnerability signatures.",
                 "detail": "Checks 300+ rule patterns. Scores each finding by severity (Critical / High / Med / Low). Flags code paths for sub-agent escalation.",
-                "summary": "Found 3 potential issues — escalating 2 for deep scan.",
+                "summary": "Found 3 potential issues - escalating 2 for deep scan.",
             },
             {
                 "id": "secure",   "order": 3, "type": "subagent",  "conditional": True,
                 "name": "SecureAudit AI",
                 "exec_label": "Running deep vulnerability scan",
                 "purpose": "Sub-agent. Runs CVE database matching and smart contract safety checks when security issues are flagged.",
-                "detail": "Called only if Reasoning Engine flags security-severity findings. Adds 15–90s to execution time. Billed separately.",
-                "summary": "Confirmed 2 high-severity vulnerabilities — SQL injection (line 142), unvalidated auth input.",
+                "detail": "Called only if Reasoning Engine flags security-severity findings. Adds 15-90s to execution time. Billed separately.",
+                "summary": "Confirmed 2 high-severity vulnerabilities - SQL injection (line 142), unvalidated auth input.",
             },
             {
                 "id": "format",   "order": 4, "type": "internal",  "conditional": False,
@@ -99,7 +99,7 @@ A2A_WORKFLOWS = {
                 "exec_label": "Compiling your report",
                 "purpose": "Structures findings into a prioritised report with severity ratings, code snippets, and remediation steps.",
                 "detail": "Outputs: executive summary, per-issue breakdown, diff-ready patches, and a machine-readable JSON manifest.",
-                "summary": "Report compiled — 3 issues, 2 high, 1 medium. PDF and JSON available.",
+                "summary": "Report compiled - 3 issues, 2 high, 1 medium. PDF and JSON available.",
             },
         ],
     },
@@ -109,7 +109,7 @@ A2A_WORKFLOWS = {
         "workflow_label": "4-stage signal pipeline",
         "workflow_summary": "Ingests market data → calls ResearchBot Pro for macro context → calls FinanceGPT for portfolio modeling → generates final signal set.",
         "trigger_rules": [
-            {"condition": "Always — macro context required", "calls": "ResearchBot Pro", "trigger": "automatic"},
+            {"condition": "Always - macro context required", "calls": "ResearchBot Pro", "trigger": "automatic"},
             {"condition": "Portfolio analysis requested",    "calls": "FinanceGPT",      "trigger": "automatic"},
         ],
         "sub_agents": [
@@ -117,8 +117,8 @@ A2A_WORKFLOWS = {
             {"id": 11, "name": "FinanceGPT",      "role": "Portfolio & DCF modeling",  "billing": "per_minute","est_cost_low": 0.10, "est_cost_high": 0.25, "verified": True},
         ],
         "base_cost_label":      "$0.45000 / min",
-        "subagent_range_label": "$0.12 – $0.33",
-        "total_range_label":    "$0.57 – $0.78 / min",
+        "subagent_range_label": "$0.12 - $0.33",
+        "total_range_label":    "$0.57 - $0.78 / min",
         "steps": [
             {"name": "AlphaTrader AI",  "role": "main",     "action": "Ingest live market data & price history"},
             {"name": "ResearchBot Pro", "role": "subagent", "action": "Pull macro research & news context"},
@@ -132,13 +132,13 @@ A2A_WORKFLOWS = {
                 "exec_label": "Fetching live market data",
                 "purpose": "Pulls OHLCV data, order book depth, and funding rates from connected exchanges.",
                 "detail": "Aggregates across 12 exchange feeds. Normalises tick data to 1-min candles. Detects data gaps and fills via interpolation.",
-                "summary": "Ingested 90 days of BTC/ETH data — 129,600 candles across 3 exchanges.",
+                "summary": "Ingested 90 days of BTC/ETH data - 129,600 candles across 3 exchanges.",
             },
             {
                 "id": "research", "order": 2, "type": "subagent",  "conditional": False,
                 "name": "ResearchBot Pro",
                 "exec_label": "Gathering macro research",
-                "purpose": "Sub-agent. Always called — provides macro context, news sentiment, and on-chain metrics.",
+                "purpose": "Sub-agent. Always called - provides macro context, news sentiment, and on-chain metrics.",
                 "detail": "Queries 40+ news sources and on-chain analytics. Outputs a sentiment score and key macro flags that feed the signal model.",
                 "summary": "Macro: bearish sentiment (score −0.34). Key flag: Fed rate decision in 3 days.",
             },
@@ -148,7 +148,7 @@ A2A_WORKFLOWS = {
                 "exec_label": "Running portfolio model",
                 "purpose": "Sub-agent. Called when portfolio analysis is requested. Runs DCF and correlation analysis.",
                 "detail": "Builds a correlation matrix across your holdings, runs Monte Carlo simulation (10k paths), outputs VaR at 95% and 99% confidence.",
-                "summary": "Portfolio VaR (95%): $1,240. Correlation risk: BTC/ETH at 0.87 — consider hedging.",
+                "summary": "Portfolio VaR (95%): $1,240. Correlation risk: BTC/ETH at 0.87 - consider hedging.",
             },
             {
                 "id": "signal",   "order": 4, "type": "internal",  "conditional": False,
@@ -156,7 +156,7 @@ A2A_WORKFLOWS = {
                 "exec_label": "Generating trade signals",
                 "purpose": "Combines market data, macro context, and portfolio state to produce final buy/sell signals with confidence scores.",
                 "detail": "Ensemble of LSTM, momentum, and mean-reversion models. Each signal includes entry price, stop-loss, take-profit, and confidence %.",
-                "summary": "Generated 4 signals — 2 long BTC, 1 short ETH, 1 hold. Avg confidence: 73%.",
+                "summary": "Generated 4 signals - 2 long BTC, 1 short ETH, 1 hold. Avg confidence: 73%.",
             },
         ],
     },
@@ -174,8 +174,8 @@ A2A_WORKFLOWS = {
             {"id": 6, "name": "ResearchBot Pro", "role": "Domain knowledge context",  "billing": "per_token", "est_cost_low": 0.01, "est_cost_high": 0.03, "verified": True},
         ],
         "base_cost_label":      "$0.18000 / min",
-        "subagent_range_label": "$0.03 – $0.09",
-        "total_range_label":    "$0.21 – $0.27 / min",
+        "subagent_range_label": "$0.03 - $0.09",
+        "total_range_label":    "$0.21 - $0.27 / min",
         "steps": [
             {"name": "DataSift Analytics", "role": "main",     "action": "Evaluate data source & task scope"},
             {"name": "WebCrawler X",       "role": "subagent", "action": "Acquire external data (if needed)"},
@@ -187,9 +187,9 @@ A2A_WORKFLOWS = {
                 "id": "eval",     "order": 1, "type": "internal",  "conditional": False,
                 "name": "Source Evaluator",
                 "exec_label": "Evaluating your data source",
-                "purpose": "Assesses the data source — CSV, endpoint, or database — and determines if external acquisition is needed.",
+                "purpose": "Assesses the data source - CSV, endpoint, or database - and determines if external acquisition is needed.",
                 "detail": "Validates schema, detects column types, checks for nulls and outliers. Determines if external enrichment is required.",
-                "summary": "Loaded Q1 sales CSV — 48,200 rows, 12 columns, 3.2% null rate detected.",
+                "summary": "Loaded Q1 sales CSV - 48,200 rows, 12 columns, 3.2% null rate detected.",
             },
             {
                 "id": "crawl",    "order": 2, "type": "subagent",  "conditional": True,
@@ -197,7 +197,7 @@ A2A_WORKFLOWS = {
                 "exec_label": "Acquiring external data",
                 "purpose": "Sub-agent. Fetches external data when the source requires web enrichment.",
                 "detail": "Renders JS pages, handles pagination and rate limiting. Outputs structured JSON ready for merge with your dataset.",
-                "summary": "Scraped 240 competitor pricing records — merged with your dataset.",
+                "summary": "Scraped 240 competitor pricing records - merged with your dataset.",
             },
             {
                 "id": "context",  "order": 3, "type": "subagent",  "conditional": True,
@@ -205,7 +205,7 @@ A2A_WORKFLOWS = {
                 "exec_label": "Gathering domain context",
                 "purpose": "Sub-agent. Provides industry benchmarks and domain knowledge to interpret your data accurately.",
                 "detail": "Queries industry reports and publishes domain averages. Outputs a context layer that improves anomaly detection accuracy.",
-                "summary": "Added retail sector benchmarks — identified 14% above-average churn signal.",
+                "summary": "Added retail sector benchmarks - identified 14% above-average churn signal.",
             },
             {
                 "id": "analyse",  "order": 4, "type": "internal",  "conditional": False,
@@ -213,7 +213,7 @@ A2A_WORKFLOWS = {
                 "exec_label": "Running analysis pipeline",
                 "purpose": "Runs statistical modelling, anomaly detection, and chart generation on the combined dataset.",
                 "detail": "Applies EDA, regression, clustering (k-means), and time-series decomposition. Outputs executive summary + downloadable charts.",
-                "summary": "Analysis complete — 6 key insights, 3 anomalies flagged, 8 charts generated.",
+                "summary": "Analysis complete - 6 key insights, 3 anomalies flagged, 8 charts generated.",
             },
         ],
     },
@@ -223,14 +223,14 @@ A2A_WORKFLOWS = {
         "workflow_label": "4-stage security audit",
         "workflow_summary": "Runs static analysis via CodeReview Pro first → performs deep security scan → generates prioritised vulnerability report.",
         "trigger_rules": [
-            {"condition": "Always — static analysis required first", "calls": "CodeReview Pro", "trigger": "automatic"},
+            {"condition": "Always - static analysis required first", "calls": "CodeReview Pro", "trigger": "automatic"},
         ],
         "sub_agents": [
             {"id": 1, "name": "CodeReview Pro", "role": "Initial static analysis pass", "billing": "per_token", "est_cost_low": 0.004, "est_cost_high": 0.010, "verified": True},
         ],
         "base_cost_label":      "$0.01500 / token",
-        "subagent_range_label": "$0.004 – $0.010",
-        "total_range_label":    "$0.019 – $0.025",
+        "subagent_range_label": "$0.004 - $0.010",
+        "total_range_label":    "$0.019 - $0.025",
         "steps": [
             {"name": "SecureAudit AI",  "role": "main",     "action": "Parse contract / infrastructure config"},
             {"name": "CodeReview Pro",  "role": "subagent", "action": "Static analysis & code quality pass"},
@@ -244,15 +244,15 @@ A2A_WORKFLOWS = {
                 "exec_label": "Parsing your contract",
                 "purpose": "Parses Solidity, Vyper, or infrastructure config files and builds an annotated control-flow graph.",
                 "detail": "Detects compiler version, pragma settings, inheritance chains, and external call sites. Flags non-standard patterns for deep scan.",
-                "summary": "Parsed ERC-20 contract — 847 lines, 12 functions, 3 external call sites detected.",
+                "summary": "Parsed ERC-20 contract - 847 lines, 12 functions, 3 external call sites detected.",
             },
             {
                 "id": "static",   "order": 2, "type": "subagent",  "conditional": False,
                 "name": "CodeReview Pro",
                 "exec_label": "Running static analysis",
-                "purpose": "Sub-agent. Always called — provides code quality pass and flags structural issues before deep security scan.",
+                "purpose": "Sub-agent. Always called - provides code quality pass and flags structural issues before deep security scan.",
                 "detail": "Checks code style, gas optimisation opportunities, and basic logic errors. Results are passed to the vulnerability scanner as annotated context.",
-                "summary": "Static analysis complete — 2 gas inefficiencies, 1 logic warning passed to scanner.",
+                "summary": "Static analysis complete - 2 gas inefficiencies, 1 logic warning passed to scanner.",
             },
             {
                 "id": "scan",     "order": 3, "type": "internal",  "conditional": False,
@@ -260,7 +260,7 @@ A2A_WORKFLOWS = {
                 "exec_label": "Scanning for vulnerabilities",
                 "purpose": "Matches the annotated contract against CVE database and known DeFi exploit patterns (reentrancy, flash loan attacks, etc.).",
                 "detail": "Runs 180+ security checks including reentrancy, integer overflow, access control, oracle manipulation, and front-running vectors.",
-                "summary": "Scan complete — 1 critical (reentrancy in withdraw()), 1 high (missing access control).",
+                "summary": "Scan complete - 1 critical (reentrancy in withdraw()), 1 high (missing access control).",
             },
             {
                 "id": "report",   "order": 4, "type": "internal",  "conditional": False,
@@ -268,22 +268,22 @@ A2A_WORKFLOWS = {
                 "exec_label": "Compiling audit report",
                 "purpose": "Generates a prioritised audit report with issue severity, code location, exploit scenario, and recommended fix.",
                 "detail": "Output includes: executive summary, per-finding breakdown with PoC exploit snippets, diff-ready patches, and a machine-readable SARIF file.",
-                "summary": "Audit report compiled — 2 findings, remediation patches generated.",
+                "summary": "Audit report compiled - 2 findings, remediation patches generated.",
             },
         ],
     },
 }
 
-# Standalone agents (no A2A) — simple 3-stage workflow
+# Standalone agents (no A2A) - simple 3-stage workflow
 def _standalone_stages(agent_name):
     return [
         {
             "id": "parse",   "order": 1, "type": "internal", "conditional": False,
             "name": "Input Parser",
             "exec_label": "Parsing your request",
-            "purpose": "Validates and normalises the input — detects task type, format, and required output structure.",
+            "purpose": "Validates and normalises the input - detects task type, format, and required output structure.",
             "detail": "Handles text, files, and structured data. Extracts task intent and maps to internal processing parameters.",
-            "summary": "Input parsed — task type detected, parameters extracted.",
+            "summary": "Input parsed - task type detected, parameters extracted.",
         },
         {
             "id": "process", "order": 2, "type": "internal", "conditional": False,
@@ -299,7 +299,7 @@ def _standalone_stages(agent_name):
             "exec_label": "Formatting results",
             "purpose": "Structures the output to the requested format and runs a final quality check before delivery.",
             "detail": "Supports JSON, Markdown, PDF, and plain text output. Quality gate rejects outputs below confidence threshold.",
-            "summary": "Output formatted and quality-checked — ready for delivery.",
+            "summary": "Output formatted and quality-checked - ready for delivery.",
         },
     ]
 
@@ -310,7 +310,7 @@ STANDALONE = {
     "workflow_summary": "This agent operates independently. It does not call other agents.",
     "trigger_rules": [],
     "sub_agents": [],
-    "base_cost_label": "—",
+    "base_cost_label": " - ",
     "subagent_range_label": "None",
     "total_range_label": "Base price only",
     "steps": [],
@@ -661,6 +661,31 @@ VERIFICATION_QUEUE = [
     {"id": "VRF-005", "agent": "NLP Extractor", "agent_id": None, "seller": "TextLabs", "tier": "thorough", "status": "testing", "submitted": "2026-04-14", "safety_score": 95, "performance_score": 91, "reliability_score": 94},
 ]
 
+PAYOUTS_SEED = [
+    {"id": "PAY-001", "seller": "DevTools Inc",   "agent": "CodeReview Pro",    "amount": 1240.50, "status": "pending",  "date": "2026-04-15", "order_id": "ORD-001"},
+    {"id": "PAY-002", "seller": "QuantEdge Labs", "agent": "AlphaTrader AI",    "amount": 3820.00, "status": "pending",  "date": "2026-04-15", "order_id": "ORD-002"},
+    {"id": "PAY-003", "seller": "LinguaAI",       "agent": "TranslateFlow",     "amount": 540.20,  "status": "released", "date": "2026-04-14", "order_id": "ORD-003"},
+    {"id": "PAY-004", "seller": "AuditShield",    "agent": "SecureAudit AI",    "amount": 2100.00, "status": "released", "date": "2026-04-14", "order_id": "ORD-004"},
+    {"id": "PAY-005", "seller": "CrawlTech",      "agent": "WebCrawler X",      "amount": 180.00,  "status": "held",     "date": "2026-04-13", "order_id": None},
+]
+
+MODERATION_SEED = [
+    {"id": "RPT-001", "agent": "WebCrawler X",  "agent_id": 5, "reporter": "0x1a2b...3c", "reason": "Excessive scraping caused rate limit violations on third-party APIs.",     "status": "open",          "date": "2026-04-14"},
+    {"id": "RPT-002", "agent": "ContentForge",  "agent_id": 8, "reporter": "0x4d5e...6f", "reason": "Output quality fell below the advertised level on two consecutive tasks.", "status": "investigating", "date": "2026-04-13"},
+    {"id": "RPT-003", "agent": "AutoDoc AI",    "agent_id": 12, "reporter": "0x7a8b...9c", "reason": "Generated documentation contained inaccurate API signatures.",             "status": "resolved",      "date": "2026-04-12"},
+]
+
+REVIEWS_SEED = [
+    {"agent_id": 1, "user": "0x3a4b...5c", "rating": 5, "comment": "Fast and accurate. Saved our team hours of manual review.", "date": "2026-04-12"},
+    {"agent_id": 1, "user": "0x7f8e...2a", "rating": 4, "comment": "Strong results overall. Surge pricing was steep during peak hours.", "date": "2026-04-10"},
+    {"agent_id": 1, "user": "0x1d2e...9f", "rating": 5, "comment": "Best code review agent on the marketplace for this use case.", "date": "2026-04-08"},
+    {"agent_id": 2, "user": "0x2b3c...4d", "rating": 5, "comment": "Translated 5 languages cleanly with correct legal phrasing.", "date": "2026-04-13"},
+    {"agent_id": 3, "user": "0x5e6f...7a", "rating": 4, "comment": "Pulled clean CSV outputs with reasonable column typing.", "date": "2026-04-11"},
+    {"agent_id": 4, "user": "0x8b9c...0d", "rating": 5, "comment": "Signal set identified a clear macro setup. Great confidence scores.", "date": "2026-04-09"},
+    {"agent_id": 7, "user": "0xa1b2...c3", "rating": 5, "comment": "Found two high-severity issues our existing static tools missed.", "date": "2026-04-07"},
+    {"agent_id": 13, "user": "0xd4e5...f6", "rating": 5, "comment": "ATS score jumped from 62 to 91 after the rewrite. Landed an interview the same week.", "date": "2026-04-06"},
+]
+
 EARNINGS_DATA = {
     "total_revenue": 8420.50,
     "platform_fees": 84.21,
@@ -684,14 +709,56 @@ ADMIN_STATS = {
 
 # ── Routes ─────────────────────────────────────────────────────────────────────
 
+_CAT_CODES = {
+    "Development": "DEV", "Data & Analytics": "DAT", "Content": "CON",
+    "Finance": "FIN", "Research": "RES", "Security": "SEC", "Automation": "AUT",
+}
+
 @app.route("/")
 def index():
+    """Standalone landing page. First thing visitors see. Click-through to /marketplace."""
     featured = [a for a in AGENTS if a["featured"]]
-    return render_template("index.html", featured=featured, stats={
-        "total_agents": len(AGENTS),
-        "tasks_completed": sum(a["tasks_completed"] for a in AGENTS),
-        "usdc_settled": 142830,
-    })
+
+    # Build the interactive network-visualization dataset.
+    # Nodes: first 12 agents (keeps the canvas readable). Edges: derived
+    # from real A2A workflow sub-agent relationships, so the viz reflects
+    # actual on-chain agent composition, not decoration.
+    _agent_ids = {a["id"] for a in AGENTS[:12]}
+    viz_agents = [
+        {
+            "id":       a["id"],
+            "name":     a["name"],
+            "cat":      _CAT_CODES.get(a["category"], "AGT"),
+            "verified": a["verified"],
+            "featured": a["featured"],
+            "price":    a["current_price"],
+            "unit":     "tok" if a["billing"] == "per_token" else "min",
+        }
+        for a in AGENTS[:12]
+    ]
+    viz_edges = []
+    _seen = set()
+    for parent_id, wf in A2A_WORKFLOWS.items():
+        if parent_id not in _agent_ids:
+            continue
+        for sub in wf.get("sub_agents", []):
+            sub_id = sub.get("id")
+            if sub_id in _agent_ids and (parent_id, sub_id) not in _seen and (sub_id, parent_id) not in _seen:
+                viz_edges.append({"source": parent_id, "target": sub_id})
+                _seen.add((parent_id, sub_id))
+
+    return render_template(
+        "landing.html",
+        featured=featured,
+        viz_agents=viz_agents,
+        viz_edges=viz_edges,
+        stats={
+            "total_agents": len(AGENTS),
+            "tasks_completed": sum(a["tasks_completed"] for a in AGENTS),
+            "usdc_settled": 142830,
+            "verified_agents": len([a for a in AGENTS if a["verified"]]),
+        },
+    )
 
 @app.route("/marketplace")
 def marketplace():
@@ -738,11 +805,16 @@ def agent_detail(agent_id):
     agent = next((a for a in AGENTS if a["id"] == agent_id), None)
     if not agent:
         return redirect(url_for("marketplace"))
-    reviews = [
-        {"user": "0x3a4b...5c", "rating": 5, "comment": "Incredibly fast and accurate. Saved our team hours of manual review.", "date": "Apr 12, 2026"},
-        {"user": "0x7f8e...2a", "rating": 4, "comment": "Great results, surge pricing was a bit steep during peak hours.", "date": "Apr 10, 2026"},
-        {"user": "0x1d2e...9f", "rating": 5, "comment": "Best agent on the marketplace for this use case. Highly recommend.", "date": "Apr 8, 2026"},
-    ]
+    # Load real reviews from DB (buyer ratings persist across sessions).
+    try:
+        from models import Review as ReviewModel
+        rows = (ReviewModel.query
+                .filter_by(agent_id=agent_id)
+                .order_by(ReviewModel.created_at.desc())
+                .limit(10).all())
+        reviews = [r.to_dict() for r in rows]
+    except Exception:
+        reviews = []
     a2a = A2A_WORKFLOWS.get(agent_id, {**STANDALONE, "stages": _standalone_stages(agent["name"])})
     return render_template("agent_detail.html", agent=agent, reviews=reviews, a2a=a2a)
 
@@ -773,8 +845,21 @@ def checkout(agent_id):
 
 @app.route("/order/<order_id>")
 def order_detail(order_id):
-    order = next((o for o in ORDERS if o["id"] == order_id), ORDERS[0])
-    agent = next((a for a in AGENTS if a["id"] == order["agent_id"]), AGENTS[0])
+    order = next((o for o in ORDERS if o["id"] == order_id), None)
+    if not order:
+        # Fall back to DB (x402 payments create Order rows keyed by session id).
+        try:
+            from models import Order as OrderModel
+            db_order = OrderModel.query.get(order_id)
+            if db_order:
+                order = db_order.to_dict()
+        except Exception:
+            order = None
+    if not order:
+        return render_template("404.html", missing=f"order {order_id}"), 404
+    agent = next((a for a in AGENTS if a["id"] == order["agent_id"]), None)
+    if not agent:
+        return render_template("404.html", missing=f"agent for order {order_id}"), 404
     a2a   = A2A_WORKFLOWS.get(agent["id"], {**STANDALONE, "stages": _standalone_stages(agent["name"])})
     return render_template("order.html", order=order, agent=agent, a2a=a2a)
 
@@ -790,8 +875,21 @@ def list_your_agent():
 
 @app.route("/seller/dashboard")
 def seller_dashboard():
-    my_agents = AGENTS[:3]
-    return render_template("seller/dashboard.html", agents=my_agents, orders=ORDERS, earnings=EARNINGS_DATA)
+    seller = request.args.get("seller", "").strip()
+    if seller:
+        my_agents = [a for a in AGENTS if a["seller"].lower() == seller.lower()]
+        my_order_names = {a["name"] for a in my_agents}
+        my_orders = [o for o in ORDERS if o["agent"] in my_order_names]
+    else:
+        # Demo default: first seller's agents, with any orders for those agents.
+        default_seller = AGENTS[0]["seller"] if AGENTS else ""
+        my_agents = [a for a in AGENTS if a["seller"] == default_seller]
+        my_order_names = {a["name"] for a in my_agents}
+        my_orders = [o for o in ORDERS if o["agent"] in my_order_names]
+        seller = default_seller
+    return render_template("seller/dashboard.html",
+                           agents=my_agents, orders=my_orders,
+                           earnings=EARNINGS_DATA, seller=seller)
 
 @app.route("/seller/create", methods=["GET", "POST"])
 def seller_create():
@@ -825,7 +923,7 @@ def seller_create():
             "tasks_completed": 0,
             "tags": [t.strip() for t in data.get("tags", "").split(",") if t.strip()],
             "capabilities": [c.strip() for c in data.get("capabilities", "").split("\n") if c.strip()],
-            "avg_completion_time": data.get("avg_completion_time", "—"),
+            "avg_completion_time": data.get("avg_completion_time", " - "),
         }
         AGENTS.append(new_agent)
         VERIFICATION_QUEUE.append({
@@ -852,7 +950,15 @@ def seller_verification():
 
 @app.route("/seller/orders")
 def seller_orders():
-    return render_template("seller/orders.html", orders=ORDERS)
+    seller = request.args.get("seller", "").strip()
+    if seller:
+        names = {a["name"] for a in AGENTS if a["seller"].lower() == seller.lower()}
+    else:
+        default_seller = AGENTS[0]["seller"] if AGENTS else ""
+        names = {a["name"] for a in AGENTS if a["seller"] == default_seller}
+        seller = default_seller
+    orders = [o for o in ORDERS if o["agent"] in names]
+    return render_template("seller/orders.html", orders=orders, seller=seller)
 
 @app.route("/seller/earnings")
 def seller_earnings():
@@ -924,7 +1030,7 @@ def admin_sandbox():
                 "gatekeeper_ai":  {"status": "pass",    "score": 82, "notes": "No adversarial escapes."},
                 "model_fingerprint": {"status": "pass", "score": 100, "notes": "Unique model identity confirmed."},
             },
-            "overall": "warning", "verdict": "Sandbox concerns — escalated to human review.",
+            "overall": "warning", "verdict": "Sandbox concerns - escalated to human review.",
         },
         {
             "vrf_id": "VRF-005", "agent": "NLP Extractor", "seller": "TextLabs", "tier": "thorough",
@@ -966,22 +1072,17 @@ def admin_human_review(vrf_id):
 
 @app.route("/admin/moderation")
 def admin_moderation():
-    reports = [
-        {"id": "RPT-001", "agent": "WebCrawler X", "reporter": "0x1a2b...3c", "reason": "Excessive scraping causing rate limits", "date": "Apr 14, 2026", "status": "open"},
-        {"id": "RPT-002", "agent": "ContentForge", "reporter": "0x4d5e...6f", "reason": "Output quality below advertised level", "date": "Apr 13, 2026", "status": "investigating"},
-        {"id": "RPT-003", "agent": "AutoDoc AI", "reporter": "0x7g8h...9i", "reason": "Incorrect documentation generated", "date": "Apr 12, 2026", "status": "resolved"},
-    ]
+    from models import ModerationReport
+    reports = [r.to_dict() for r in
+               ModerationReport.query.order_by(ModerationReport.created_at.desc()).all()]
     return render_template("admin/moderation.html", reports=reports)
+
 
 @app.route("/admin/payouts")
 def admin_payouts():
-    payouts = [
-        {"id": "PAY-001", "seller": "DevTools Inc", "agent": "CodeReview Pro", "amount": 1240.50, "status": "pending", "date": "Apr 15, 2026"},
-        {"id": "PAY-002", "seller": "QuantEdge Labs", "agent": "AlphaTrader AI", "amount": 3820.00, "status": "pending", "date": "Apr 15, 2026"},
-        {"id": "PAY-003", "seller": "LinguaAI", "agent": "TranslateFlow", "amount": 540.20, "status": "released", "date": "Apr 14, 2026"},
-        {"id": "PAY-004", "seller": "AuditShield", "agent": "SecureAudit AI", "amount": 2100.00, "status": "released", "date": "Apr 14, 2026"},
-        {"id": "PAY-005", "seller": "CrawlTech", "agent": "WebCrawler X", "amount": 180.00, "status": "held", "date": "Apr 13, 2026"},
-    ]
+    from models import Payout
+    payouts = [p.to_dict() for p in
+               Payout.query.order_by(Payout.created_at.desc()).all()]
     return render_template("admin/payouts.html", payouts=payouts, stats=ADMIN_STATS)
 
 # ── API (mock) ─────────────────────────────────────────────────────────────────
@@ -1022,6 +1123,35 @@ def _get_onchain():
             _onchain = False
     return _onchain or None
 
+def _record_order_from_payment(session_id: str, agent_id: int, buyer: str, amount_usdc: float) -> None:
+    """Persist a new Order row so /order/<sessionId> renders the real agent + amount."""
+    from models import Order as OrderModel
+    try:
+        sid = str(session_id)
+        if not sid:
+            return
+        agent = next((a for a in AGENTS if a["id"] == int(agent_id)), None)
+        agent_name = agent["name"] if agent else f"Agent #{agent_id}"
+        today = time.strftime("%Y-%m-%d")
+        # In-memory mirror
+        ORDERS.append({
+            "id": sid, "agent": agent_name, "agent_id": int(agent_id),
+            "buyer": buyer or "0x0000...0000", "amount": float(amount_usdc),
+            "status": "in_escrow", "date": today,
+            "task": "Escrow session opened via x402",
+        })
+        # DB row (if schema allows)
+        if not OrderModel.query.get(sid):
+            db.session.add(OrderModel(
+                id=sid, agent_id=int(agent_id), buyer=(buyer or "0x0000...0000"),
+                amount=float(amount_usdc), status="in_escrow",
+                task="Escrow session opened via x402", date=today,
+            ))
+            db.session.commit()
+    except Exception as e:
+        log.warning("Failed to record Order %s: %s", session_id, e)
+
+
 @app.route("/api/x402/pay", methods=["POST"])
 @limiter.limit("30/minute")
 def api_x402_pay():
@@ -1031,10 +1161,25 @@ def api_x402_pay():
     if missing:
         return jsonify({"error": f"missing fields: {missing}"}), 400
 
+    # Amount is in USDC micro-units in the permit; convert to human USDC for display.
+    try:
+        amount_usdc = float(int(payload["value"])) / 1_000_000.0
+    except Exception:
+        amount_usdc = 0.0
+    buyer_addr = payload.get("from", "")
+    agent_id = payload.get("agentId")
+
     if FACILITATOR_URL:
         try:
             import requests
             r = requests.post(f"{FACILITATOR_URL}/x402/execute", json=payload, timeout=30)
+            if r.ok:
+                try:
+                    body = r.json()
+                    if body.get("sessionId"):
+                        _record_order_from_payment(body["sessionId"], agent_id, buyer_addr, amount_usdc)
+                except Exception:
+                    pass
             return (r.text, r.status_code, r.headers.items())
         except Exception as e:
             return jsonify({"error": f"facilitator unreachable: {e}"}), 502
@@ -1042,16 +1187,22 @@ def api_x402_pay():
     oc = _get_onchain()
     if oc and oc.facilitator:
         try:
-            return jsonify(oc.x402_execute(payload))
+            result = oc.x402_execute(payload)
+            if result.get("sessionId"):
+                _record_order_from_payment(result["sessionId"], agent_id, buyer_addr, amount_usdc)
+            return jsonify(result)
         except Exception as e:
             return jsonify({"error": f"onchain x402 failed: {e}"}), 500
 
-    # Mockup fallback — pretend the payment went through.
+    # Mockup fallback: pretend the payment went through, but still record an Order
+    # so the buyer can navigate to /order/<sessionId> and see real data.
+    session_id = str(uuid.uuid4())[:8]
+    _record_order_from_payment(session_id, agent_id, buyer_addr, amount_usdc)
     return jsonify({
-        "sessionId": str(uuid.uuid4())[:8],
-        "agentId": payload["agentId"],
+        "sessionId": session_id,
+        "agentId": agent_id,
         "status": "mock_settled",
-        "note": "No FACILITATOR_URL and no FACILITATOR_PRIVATE_KEY — mock response. Set either to enable real on-chain.",
+        "note": "No FACILITATOR_URL and no FACILITATOR_PRIVATE_KEY. Mock response. Set either to enable real on-chain.",
     })
 
 # Submit a dispute. Proxies to the gatekeeper backend, which (optionally) signs
@@ -1088,7 +1239,7 @@ def api_dispute_submit():
     print(f"[dispute] agent={payload['agentId']} sev={payload['severity']} reason={payload['reason']!r}")
     return jsonify({
         "status": "pending_review",
-        "note": "No GATEKEEPER_URL and no GATEKEEPER_PRIVATE_KEY — dispute logged but no on-chain incident was signed.",
+        "note": "No GATEKEEPER_URL and no GATEKEEPER_PRIVATE_KEY - dispute logged but no on-chain incident was signed.",
     })
 
 
@@ -1120,23 +1271,37 @@ def api_session(session_id):
     return jsonify({"error": "no on-chain backend configured"}), 503
 
 
-# On-chain deployment metadata for the frontend. Exposed so the UI can link
-# to Snowtrace without hardcoding addresses in templates.
+# On-chain deployment metadata for the frontend. Single source of truth is
+# onchain.get_deployment(), which reads env overrides at call time so a new
+# deployer only needs to export the relevant *_ADDRESS vars and restart.
 @app.route("/api/onchain/info")
 def api_onchain_info():
-    return jsonify({
-        "chainId": 43113,
-        "chain": "Avalanche Fuji",
-        "explorer": "https://testnet.snowtrace.io",
-        "contracts": {
-            "MockUSDC":           "0x9C49D730Dfb82B7663aBE6069B5bFe867fa34c9f",
-            "AgentRegistry":      "0x6B71b84Fa3C313ccC43D63A400Ab47e6A0d4BCbB",
-            "ReputationContract": "0x40ef89Ce1E248Df00AF6Dc37f96BBf92A9Bf603A",
-            "StakingSlashing":    "0xfc942b4d1Eb363F25886b3F5935394BD4932B896",
-            "EscrowPayment":      "0xD19990C7CB8C386fa865135Ce9706A5A37A3f2f2",
-            "AuctionMarket":      "0xa7AEEca5a76bd5Cd38B15dfcC2c288d3645E53E3",
-        },
-    })
+    from onchain import get_deployment
+    return jsonify(get_deployment())
+
+
+# /config.js - populates window.AGENTHIRE_CHAIN + window.AGENTHIRE_ADDRESSES
+# from the active deployment so the frontend never carries hardcoded addresses.
+# Loaded in base.html BEFORE static/js/contracts.js (which now only ships ABIs).
+@app.route("/config.js")
+def config_js():
+    import json
+    from flask import Response
+    from onchain import get_deployment
+    d = get_deployment()
+    js = (
+        "// Auto-generated from server env. Do not edit.\n"
+        "window.AGENTHIRE_CHAIN = " + json.dumps({
+            "chainId":    d["chainId"],
+            "chainIdHex": d["chainIdHex"],
+            "name":       d["chain"],
+            "rpcUrl":     d["rpcUrl"],
+            "explorer":   d["explorer"],
+            "nativeCurrency": {"name": "AVAX", "symbol": "AVAX", "decimals": 18},
+        }) + ";\n"
+        "window.AGENTHIRE_ADDRESSES = " + json.dumps(d["contracts"]) + ";\n"
+    )
+    return Response(js, mimetype="application/javascript")
 
 
 # ── REST Agent API ─────────────────────────────────────────────────────────────
@@ -1197,7 +1362,7 @@ def api_agents_register():
     return jsonify({
         "agentId": None,
         "status": "mock_registered",
-        "note": "No FACILITATOR_PRIVATE_KEY — registration not sent on-chain.",
+        "note": "No FACILITATOR_PRIVATE_KEY - registration not sent on-chain.",
     }), 201
 
 
@@ -1319,7 +1484,7 @@ def api_auction_post_bid():
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 
-    # Mock path — persist to DB so bids survive restarts
+    # Mock path - persist to DB so bids survive restarts
     bid = AuctionBid(
         deposit_amount=int(payload["depositAmount"]),
         token_budget=int(payload["tokenBudget"]),
@@ -1331,7 +1496,7 @@ def api_auction_post_bid():
     db.session.add(bid)
     db.session.commit()
     return jsonify({**bid.to_dict(), "status": "mock_posted",
-                    "note": "mock — FACILITATOR_PRIVATE_KEY not set"}), 201
+                    "note": "mock - FACILITATOR_PRIVATE_KEY not set"}), 201
 
 
 @app.route("/api/auctions/<bid_id>/cancel", methods=["POST"])
@@ -1402,40 +1567,193 @@ def admin_reject_verification(vrf_id):
     return jsonify({"id": vrf_id, "status": "rejected"})
 
 
+@app.route("/admin/verification-queue/<vrf_id>/test-start", methods=["POST"])
+@require_api_key
+def admin_start_testing(vrf_id):
+    from models import VerificationEntry
+    entry = VerificationEntry.query.get(vrf_id)
+    entry_mem = next((v for v in VERIFICATION_QUEUE if v["id"] == vrf_id), None)
+    if not entry and not entry_mem:
+        return jsonify({"error": "not found"}), 404
+    if entry:
+        entry.status = "testing"
+        db.session.commit()
+    if entry_mem:
+        entry_mem["status"] = "testing"
+    log.info("Verification testing started: %s", vrf_id)
+    return jsonify({"id": vrf_id, "status": "testing"})
+
+
+@app.route("/admin/verification-queue/<vrf_id>/escalate", methods=["POST"])
+@require_api_key
+def admin_escalate_verification(vrf_id):
+    from models import VerificationEntry
+    entry = VerificationEntry.query.get(vrf_id)
+    entry_mem = next((v for v in VERIFICATION_QUEUE if v["id"] == vrf_id), None)
+    if not entry and not entry_mem:
+        return jsonify({"error": "not found"}), 404
+    if entry:
+        entry.status = "human_review"
+        db.session.commit()
+    if entry_mem:
+        entry_mem["status"] = "human_review"
+    log.info("Verification escalated to human review: %s", vrf_id)
+    return jsonify({"id": vrf_id, "status": "human_review"})
+
+
 @app.route("/admin/payouts/<pay_id>/release", methods=["POST"])
 @require_api_key
 def admin_release_payout(pay_id):
+    from models import Payout
+    p = Payout.query.get(pay_id)
+    if not p:
+        return jsonify({"error": "not found"}), 404
+    if p.status == "released":
+        return jsonify({"error": "already released"}), 400
+    p.status = "released"
+    db.session.commit()
     log.info("Payout released: %s", pay_id)
     return jsonify({"id": pay_id, "status": "released"})
+
+
+@app.route("/admin/payouts/<pay_id>/hold", methods=["POST"])
+@require_api_key
+def admin_hold_payout(pay_id):
+    from models import Payout
+    p = Payout.query.get(pay_id)
+    if not p:
+        return jsonify({"error": "not found"}), 404
+    p.status = "held"
+    db.session.commit()
+    log.info("Payout held: %s", pay_id)
+    return jsonify({"id": pay_id, "status": "held"})
+
+
+@app.route("/admin/payouts/<pay_id>/refund", methods=["POST"])
+@require_api_key
+def admin_refund_payout(pay_id):
+    from models import Payout
+    p = Payout.query.get(pay_id)
+    if not p:
+        return jsonify({"error": "not found"}), 404
+    p.status = "refunded"
+    db.session.commit()
+    log.info("Payout refunded: %s", pay_id)
+    return jsonify({"id": pay_id, "status": "refunded"})
+
+
+@app.route("/admin/payouts/release-all", methods=["POST"])
+@require_api_key
+def admin_release_all_payouts():
+    from models import Payout
+    pending = Payout.query.filter_by(status="pending").all()
+    released_ids = []
+    for p in pending:
+        p.status = "released"
+        released_ids.append(p.id)
+    db.session.commit()
+    log.info("Bulk release: %d payouts", len(released_ids))
+    return jsonify({"released": released_ids, "count": len(released_ids)})
 
 
 @app.route("/admin/moderation/<rpt_id>/resolve", methods=["POST"])
 @require_api_key
 def admin_resolve_report(rpt_id):
+    from models import ModerationReport
+    r = ModerationReport.query.get(rpt_id)
+    if not r:
+        return jsonify({"error": "not found"}), 404
+    data = request.get_json(silent=True) or {}
+    r.status = "resolved"
+    notes = data.get("notes", "").strip()
+    if notes:
+        r.notes = notes
+    db.session.commit()
     log.info("Moderation report resolved: %s", rpt_id)
     return jsonify({"id": rpt_id, "status": "resolved"})
 
 
+@app.route("/admin/moderation/<rpt_id>/investigate", methods=["POST"])
+@require_api_key
+def admin_investigate_report(rpt_id):
+    from models import ModerationReport
+    r = ModerationReport.query.get(rpt_id)
+    if not r:
+        return jsonify({"error": "not found"}), 404
+    r.status = "investigating"
+    db.session.commit()
+    log.info("Moderation report under investigation: %s", rpt_id)
+    return jsonify({"id": rpt_id, "status": "investigating"})
+
+
+@app.route("/admin/moderation/<rpt_id>/suspend", methods=["POST"])
+@require_api_key
+def admin_suspend_agent(rpt_id):
+    from models import ModerationReport, Agent as AgentModel
+    r = ModerationReport.query.get(rpt_id)
+    if not r:
+        return jsonify({"error": "not found"}), 404
+    r.status = "suspended"
+    if r.agent_id:
+        ag = AgentModel.query.get(r.agent_id)
+        if ag:
+            ag.verified = False
+            ag.verification_tier = "suspended"
+        # mirror in in-memory list so marketplace reflects the suspension
+        for a in AGENTS:
+            if a["id"] == r.agent_id:
+                a["verified"] = False
+                a["verification_tier"] = "suspended"
+    db.session.commit()
+    log.info("Agent suspended via moderation report: %s", rpt_id)
+    return jsonify({"id": rpt_id, "status": "suspended", "agent": r.agent})
+
+
 # ── Order management ─────────────────────────────────────────────────────────
+
+def _find_order(order_id):
+    """Locate an order in-memory first, then fall back to DB. Returns (mem_dict_or_None, db_row_or_None)."""
+    from models import Order as OrderModel
+    mem = next((o for o in ORDERS if o["id"] == order_id), None)
+    row = OrderModel.query.get(order_id)
+    return mem, row
+
 
 @app.route("/api/orders/<order_id>/complete", methods=["POST"])
 def api_order_complete(order_id):
     """Mark an order complete and release escrow. Updates status in DB and in-memory."""
-    from models import Order as OrderModel
-    order_mem = next((o for o in ORDERS if o["id"] == order_id), None)
-    if not order_mem:
+    mem, row = _find_order(order_id)
+    if not mem and not row:
         return jsonify({"error": "order not found"}), 404
-    if order_mem["status"] not in ("in_escrow", "in_progress"):
-        return jsonify({"error": f"order is already {order_mem['status']}"}), 400
-    order_mem["status"] = "completed"
-    # Persist to DB if present
-    db_order = OrderModel.query.get(order_id)
-    if db_order:
-        db_order.status = "completed"
+    current = (mem or {}).get("status") or (row.status if row else "")
+    if current not in ("in_escrow", "in_progress"):
+        return jsonify({"error": f"order is already {current}"}), 400
+    if mem:
+        mem["status"] = "completed"
+    if row:
+        row.status = "completed"
         db.session.commit()
     log.info("Order %s marked complete", order_id)
     return jsonify({"orderId": order_id, "status": "completed",
                     "message": "Escrow released. Seller has been paid."})
+
+
+@app.route("/api/orders/<order_id>/start", methods=["POST"])
+def api_order_start(order_id):
+    """Seller marks an escrowed order as 'in_progress' to begin execution."""
+    mem, row = _find_order(order_id)
+    if not mem and not row:
+        return jsonify({"error": "order not found"}), 404
+    current = (mem or {}).get("status") or (row.status if row else "")
+    if current != "in_escrow":
+        return jsonify({"error": f"order cannot start from state '{current}'"}), 400
+    if mem:
+        mem["status"] = "in_progress"
+    if row:
+        row.status = "in_progress"
+        db.session.commit()
+    log.info("Order %s started by seller", order_id)
+    return jsonify({"orderId": order_id, "status": "in_progress"})
 
 
 # ── Rating API ─────────────────────────────────────────────────────────────────
@@ -1445,7 +1763,7 @@ def api_rate_agent(agent_id):
     payload = request.get_json(silent=True) or {}
     rating = payload.get("rating")
     if not rating or not (1 <= int(rating) <= 5):
-        return jsonify({"error": "rating must be 1–5"}), 400
+        return jsonify({"error": "rating must be between 1 and 5"}), 400
     agent = next((a for a in AGENTS if a["id"] == agent_id), None)
     if not agent:
         return jsonify({"error": "agent not found"}), 404
@@ -1455,6 +1773,18 @@ def api_rate_agent(agent_id):
     )
     agent["rating"] = new_rating
     agent["reviews"] += 1
+    # Persist the full review so it shows up on the agent detail page.
+    try:
+        from models import Review as ReviewModel
+        user = payload.get("user") or "0xanon..."
+        feedback = (payload.get("feedback") or "").strip()
+        db.session.add(ReviewModel(
+            agent_id=agent_id, user=user, rating=int(rating),
+            comment=feedback, date=time.strftime("%Y-%m-%d"),
+        ))
+        db.session.commit()
+    except Exception as e:
+        log.warning("Could not persist review for agent %s: %s", agent_id, e)
     log.info("Agent %s rated %s (new avg %.1f, %d reviews)", agent_id, rating, new_rating, agent["reviews"])
     return jsonify({"agentId": agent_id, "rating": new_rating, "reviews": agent["reviews"]})
 
@@ -1482,13 +1812,13 @@ def api_search():
 
 @app.route("/api/health")
 def api_health():
-    """Liveness probe — always returns 200 if the process is alive."""
+    """Liveness probe - always returns 200 if the process is alive."""
     return jsonify({"status": "ok", "service": "agenthire", "ts": int(time.time())})
 
 
 @app.route("/api/ready")
 def api_ready():
-    """Readiness probe — checks DB connectivity."""
+    """Readiness probe - checks DB connectivity."""
     try:
         db.session.execute(db.text("SELECT 1"))
         return jsonify({"status": "ready", "db": "ok", "ts": int(time.time())})

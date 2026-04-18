@@ -1,5 +1,5 @@
 """
-config.py — Centralized configuration for AgentHire.
+config.py - Centralized configuration for AgentHire.
 
 Usage:
     from config import config
@@ -23,7 +23,7 @@ from typing import Optional
 
 
 class Config:
-    """Base configuration — shared across all environments."""
+    """Base configuration - shared across all environments."""
 
     # ── Flask ──────────────────────────────────────────────────────────────
     SECRET_KEY: str = os.environ.get("SECRET_KEY", "dev-secret-change-in-production")
@@ -60,20 +60,20 @@ class Config:
 
 
 class DevelopmentConfig(Config):
-    """Development — verbose, SQLite, no strict auth."""
+    """Development - verbose, SQLite, no strict auth."""
     DEBUG = True
     SQLALCHEMY_ECHO = False  # flip to True to debug queries
 
 
 class TestingConfig(Config):
-    """Testing — in-memory SQLite, no rate limiting."""
+    """Testing - in-memory SQLite, no rate limiting."""
     TESTING = True
     SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
     RATELIMIT_ENABLED = False
 
 
 class ProductionConfig(Config):
-    """Production — strict, no debug, env-driven secrets."""
+    """Production - strict, no debug, env-driven secrets."""
     DEBUG = False
 
     @classmethod

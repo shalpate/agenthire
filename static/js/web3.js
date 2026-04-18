@@ -1,4 +1,4 @@
-// AgentHire — Web3 integration layer.
+// AgentHire - Web3 integration layer.
 // Depends on: ethers (UMD CDN), contracts.js
 
 (() => {
@@ -16,7 +16,7 @@
   };
 
   // ── HELPERS ──────────────────────────────────────────────────────────────
-  const short = (a) => a ? a.slice(0, 6) + '…' + a.slice(-4) : '';
+  const short = (a) => a ? a.slice(0, 6) + '...' + a.slice(-4) : '';
   const toUSDC = (n) => Number(n) / 1e6;
   const fromUSDC = (n) => BigInt(Math.floor(Number(n) * 1e6));
 
@@ -51,24 +51,24 @@
   function activateDemoMode() {
     const DEMO_ADDRESS = '0xDemo...1234';
     window.AgentHire.address = DEMO_ADDRESS;
-    window.AgentHire.connected = true; // visual only — no signing capability
+    window.AgentHire.connected = true; // visual only - no signing capability
     window.AgentHire._demoMode = true;
     const btn = document.getElementById('wallet-btn');
     if (btn) {
       btn.innerHTML = `<span style="font-family:var(--font-mono); color:var(--amber);">Demo Mode</span>`;
       btn.setAttribute('data-connected', 'true');
-      btn.title = 'Demo mode — no real wallet connected. Payments will use mock responses.';
+      btn.title = 'Demo mode - no real wallet connected. Payments will use mock responses.';
     }
-    if (window.showToast) showToast('Demo mode active — no wallet required', 'info');
+    if (window.showToast) showToast('Demo mode active - no wallet required', 'info');
     window.dispatchEvent(new CustomEvent('agenthire:connected', { detail: { address: DEMO_ADDRESS, demo: true } }));
   }
 
   // ── CONNECT ──────────────────────────────────────────────────────────────
   async function connectWallet() {
     if (!window.ethereum) {
-      // No wallet extension detected — offer demo mode
+      // No wallet extension detected - offer demo mode
       if (window.showToast) {
-        showToast('No wallet detected — switching to Demo Mode', 'warning');
+        showToast('No wallet detected - switching to Demo Mode', 'warning');
       }
       activateDemoMode();
       return window.AgentHire.address;
@@ -115,7 +115,7 @@
   }
 
   async function getAgentProfile(agentId) {
-    // Read-only — works without connect via public RPC
+    // Read-only - works without connect via public RPC
     const provider = window.AgentHire.provider || new ethers.JsonRpcProvider(CHAIN.rpcUrl);
     const reg = new ethers.Contract(ADDR.AgentRegistry, ABI.AgentRegistry, provider);
     const rep = new ethers.Contract(ADDR.ReputationContract, ABI.ReputationContract, provider);
@@ -165,7 +165,7 @@
     return tx.hash;
   }
 
-  // ── x402 PAYMENT — sign EIP-3009, call backend, open escrow ──────────────
+  // ── x402 PAYMENT - sign EIP-3009, call backend, open escrow ──────────────
   async function payWithX402({ agentId, depositUSDC, tokenBudget, categoryId = 0, facilitator }) {
     if (!window.AgentHire.connected) await connectWallet();
     const { signer, address } = window.AgentHire;
@@ -254,7 +254,7 @@
         catch (e) { if (window.showToast) showToast('Connect failed: ' + e.message, 'error'); }
       });
     }
-    // If already connected (page reload, MetaMask session active) — restore state
+    // If already connected (page reload, MetaMask session active) - restore state
     if (window.ethereum && window.ethereum.selectedAddress) {
       connectWallet().catch(() => {});
     }

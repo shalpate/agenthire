@@ -63,7 +63,7 @@
             <div class="exec-stage-sub">{{ stage.name }}</div>
           </div>
           <div class="exec-stage-time {{ 'done' if is_done }}" data-time-slot="{{ loop.index0 }}">
-            {% if is_done %}{{ loop.index }}s{% else %}—{% endif %}
+            {% if is_done %}{{ loop.index }}s{% else %} - {% endif %}
           </div>
         </div>
         {% endfor %}
@@ -109,7 +109,7 @@
               </span>
               <span class="badge badge-approved" style="font-size:.5rem;">sub-agent</span>
             </div>
-            <span style="font-family:var(--font-mono); font-size:.75rem; color:var(--text);" id="breakdown-sub1">—</span>
+            <span style="font-family:var(--font-mono); font-size:.75rem; color:var(--text);" id="breakdown-sub1"> - </span>
           </div>
 
           <!-- Sub-agent 2 -->
@@ -121,7 +121,7 @@
               </span>
               <span class="badge badge-approved" style="font-size:.5rem;">sub-agent</span>
             </div>
-            <span style="font-family:var(--font-mono); font-size:.75rem; color:var(--text);" id="breakdown-sub2">—</span>
+            <span style="font-family:var(--font-mono); font-size:.75rem; color:var(--text);" id="breakdown-sub2"> - </span>
           </div>
 
           <!-- Platform fee -->
@@ -202,7 +202,7 @@
 
         {% if order.status == 'completed' %}
         <div style="background:var(--card-2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:16px; font-family:var(--font-mono); font-size:.8rem; line-height:1.8; color:var(--text);">
-          <div style="color:var(--green); margin-bottom:10px;">// Task completed — {{ agent.name }}</div>
+          <div style="color:var(--green); margin-bottom:10px;">// Task completed - {{ agent.name }}</div>
           <div style="color:var(--text-2);">// Duration: 3m 42s · Base: ${{ "%.3f"|format(agent.current_price * 10) }}</div>
           {% if agent.id in [1,3,4,7] %}
           <div style="color:var(--text-2); margin-bottom:12px;">// Sub-agent cost: $0.022 · Total: ${{ "%.3f"|format(order.amount) }}</div>
@@ -214,9 +214,34 @@
           <div style="margin-top:12px;">Report: <span style="color:var(--blue);">report_20260415.pdf</span></div>
         </div>
         <div style="display:flex; gap:10px; margin-top:14px;">
-          <button class="btn btn-secondary btn-sm" onclick="showToast('Downloading…', 'info')">Download Report</button>
-          <button class="btn btn-ghost btn-sm" onclick="showToast('Copied to clipboard', 'success')">Copy Output</button>
+          <button class="btn btn-secondary btn-sm" id="download-report-btn">Download Report</button>
+          <button class="btn btn-ghost btn-sm" id="copy-output-btn">Copy Output</button>
         </div>
+        <script>
+        (() => {
+          const dl = document.getElementById('download-report-btn');
+          const cp = document.getElementById('copy-output-btn');
+          if (dl) dl.addEventListener('click', () => {
+            const summary = document.querySelector('.card [style*="font-family:var(--font-mono)"]')?.innerText || 'Report not available.';
+            const blob = new Blob([summary], { type: 'text/plain;charset=utf-8' });
+            const url  = URL.createObjectURL(blob);
+            const a    = document.createElement('a');
+            a.href = url; a.download = '{{ order.id }}-report.txt';
+            document.body.appendChild(a); a.click(); a.remove();
+            URL.revokeObjectURL(url);
+            if (window.showToast) showToast('Report downloaded as text.', 'success');
+          });
+          if (cp) cp.addEventListener('click', async () => {
+            const text = document.querySelector('.card [style*="font-family:var(--font-mono)"]')?.innerText || '';
+            try {
+              await navigator.clipboard.writeText(text);
+              showToast('Output copied to clipboard.', 'success');
+            } catch (e) {
+              showToast('Copy failed: ' + e.message, 'error');
+            }
+          });
+        })();
+        </script>
         {% elif order.status == 'in_progress' %}
         <div class="flex-col gap-10">
           <div class="skeleton skel-line"></div>
@@ -274,7 +299,7 @@
             <div class="timeline-dot {{ 'done' if order.status == 'completed' else 'active' }}">{{ '✓' if order.status == 'completed' else '⟳' }}</div>
             <div class="timeline-content" style="padding-top:3px;">
               <h4>Execution{% if agent.id in [1,3,4,7] %} (A2A Pipeline){% endif %}</h4>
-              <p>{{ 'Completed' if order.status == 'completed' else 'In progress — real-time flow above' }}</p>
+              <p>{{ 'Completed' if order.status == 'completed' else 'In progress - real-time flow above' }}</p>
             </div>
           </div>
           <div class="timeline-item">
@@ -334,8 +359,8 @@
 
       {% if order.status == 'completed' %}
       <div class="card" style="text-align:center; border-color:var(--green-border);">
-        <div class="stars" style="font-size:1.25rem; margin-bottom:8px; justify-content:center; display:flex; gap:2px;">
-          <span class="star-empty">&#9733;</span><span class="star-empty">&#9733;</span><span class="star-empty">&#9733;</span><span class="star-empty">&#9733;</span><span class="star-empty">&#9733;</span>
+        <div style="display:flex; justify-content:center; margin-bottom:8px;">
+          <span class="rating-stars" style="--star-fill:0%; font-size:1.25rem; letter-spacing:3px;" aria-label="Not yet rated">★★★★★</span>
         </div>
         <div class="font-bold mb-8">Rate this agent</div>
         <p class="text-sm mb-14">Your rating builds their on-chain reputation</p>
@@ -414,12 +439,12 @@
     </div>
     <div class="modal-footer">
       <button class="btn btn-danger btn-sm" onclick="closeModal('budget-modal'); showToast('Execution cancelled. $0.82 charged for completed work.', 'warning')">Cancel</button>
-      <button class="btn btn-gradient btn-sm" onclick="closeModal('budget-modal'); showToast('Budget approved. Execution resuming…', 'success')">Approve +$0.03</button>
+      <button class="btn btn-gradient btn-sm" onclick="closeModal('budget-modal'); showToast('Budget approved. Execution resuming...', 'success')">Approve +$0.03</button>
     </div>
   </div>
 </div>
 
-<!-- ── On-chain session panel — reads live from EscrowPayment.getSession ── -->
+<!-- ── On-chain session panel - reads live from EscrowPayment.getSession ── -->
 <div style="max-width:1100px; margin:24px auto; padding:0 24px;">
   <div id="onchain-session-panel" style="display:none; background:var(--surface-1); border:1px solid var(--border-2); border-radius:var(--radius-md); padding:18px 22px;">
     <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
@@ -430,12 +455,12 @@
       <a id="onchain-tx-link" href="#" target="_blank" style="font-family:var(--font-mono); font-size:.6875rem; color:var(--text-3);">view on snowtrace ↗</a>
     </div>
     <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:14px; font-family:var(--font-mono); font-size:.75rem;">
-      <div><div style="color:var(--text-3); font-size:.625rem; text-transform:uppercase;">Session ID</div><div id="s-id" style="color:var(--text-1); font-weight:600;">—</div></div>
-      <div><div style="color:var(--text-3); font-size:.625rem; text-transform:uppercase;">Agent</div><div id="s-agent" style="color:var(--text-1);">—</div></div>
-      <div><div style="color:var(--text-3); font-size:.625rem; text-transform:uppercase;">Deposit</div><div id="s-deposit" style="color:var(--text-1);">—</div></div>
-      <div><div style="color:var(--text-3); font-size:.625rem; text-transform:uppercase;">Price / token</div><div id="s-price" style="color:var(--text-1);">—</div></div>
-      <div><div style="color:var(--text-3); font-size:.625rem; text-transform:uppercase;">State</div><div id="s-state" style="color:var(--green); font-weight:600;">—</div></div>
-      <div><div style="color:var(--text-3); font-size:.625rem; text-transform:uppercase;">Expires</div><div id="s-expires" style="color:var(--text-1);">—</div></div>
+      <div><div style="color:var(--text-3); font-size:.625rem; text-transform:uppercase;">Session ID</div><div id="s-id" style="color:var(--text-1); font-weight:600;"> - </div></div>
+      <div><div style="color:var(--text-3); font-size:.625rem; text-transform:uppercase;">Agent</div><div id="s-agent" style="color:var(--text-1);"> - </div></div>
+      <div><div style="color:var(--text-3); font-size:.625rem; text-transform:uppercase;">Deposit</div><div id="s-deposit" style="color:var(--text-1);"> - </div></div>
+      <div><div style="color:var(--text-3); font-size:.625rem; text-transform:uppercase;">Price / token</div><div id="s-price" style="color:var(--text-1);"> - </div></div>
+      <div><div style="color:var(--text-3); font-size:.625rem; text-transform:uppercase;">State</div><div id="s-state" style="color:var(--green); font-weight:600;"> - </div></div>
+      <div><div style="color:var(--text-3); font-size:.625rem; text-transform:uppercase;">Expires</div><div id="s-expires" style="color:var(--text-1);"> - </div></div>
     </div>
   </div>
 </div>
@@ -482,10 +507,10 @@
     if (!orderId) return;
     if (!confirm('Confirm delivery and release escrow? This cannot be undone.')) return;
     markBtn.disabled = true;
-    markBtn.textContent = 'Releasing…';
+    markBtn.textContent = 'Releasing...';
     try {
       const res = await AgentHireAPI.post('/api/orders/' + orderId + '/complete', {});
-      showToast('Escrow released — seller has been paid.', 'success');
+      showToast('Escrow released - seller has been paid.', 'success');
       // Reload after short delay to show completed state
       setTimeout(() => window.location.reload(), 1400);
     } catch (e) {
@@ -511,7 +536,7 @@
     const num = row.querySelector('.exec-stage-num');
     if (num) { num.textContent = i + 1; num.className = 'exec-stage-num waiting'; }
     const t = row.querySelector('[data-time-slot]');
-    if (t) t.textContent = '—';
+    if (t) t.textContent = ' - ';
   });
 
   runExecutionProgress([], 'exec-progress-panel');
@@ -526,7 +551,7 @@
   const maxDisp  = document.getElementById('budget-max-display');
   const isA2A    = {{ 'true' if agent.id in [1,3,4,7] else 'false' }};
 
-  if (!costEl) return; // completed or escrow — no simulation needed
+  if (!costEl) return; // completed or escrow - no simulation needed
 
   if (maxDisp) maxDisp.textContent = '/ $' + maxSpend.toFixed(2) + ' max';
 
@@ -545,8 +570,8 @@
     const fee = (baseAmt + sub1Amt + sub2Amt) * 0.001;
     const el = (id) => document.getElementById(id);
     if (el('breakdown-base')) el('breakdown-base').textContent = '$' + baseAmt.toFixed(4);
-    if (el('breakdown-sub1')) el('breakdown-sub1').textContent = sub1Done ? '$' + sub1Amt.toFixed(4) : (sub1Amt > 0 ? '~$' + sub1Amt.toFixed(4) : '—');
-    if (el('breakdown-sub2')) el('breakdown-sub2').textContent = sub2Done ? '$' + sub2Amt.toFixed(4) : (sub2Amt > 0 ? '~$' + sub2Amt.toFixed(4) : '—');
+    if (el('breakdown-sub1')) el('breakdown-sub1').textContent = sub1Done ? '$' + sub1Amt.toFixed(4) : (sub1Amt > 0 ? '~$' + sub1Amt.toFixed(4) : ' - ');
+    if (el('breakdown-sub2')) el('breakdown-sub2').textContent = sub2Done ? '$' + sub2Amt.toFixed(4) : (sub2Amt > 0 ? '~$' + sub2Amt.toFixed(4) : ' - ');
     if (el('breakdown-fee'))  el('breakdown-fee').textContent  = '$' + fee.toFixed(4);
 
     // Fade in sub-agent rows once they start
@@ -567,14 +592,14 @@
     updateBreakdown();
   }
 
-  // Phase 1 — base agent ticking from t=0
+  // Phase 1 - base agent ticking from t=0
   const baseTick = setInterval(() => {
     baseAmt += Math.random() * 0.006 + 0.002;
     updateTotal();
   }, 900);
 
   if (isA2A) {
-    // Phase 2 — sub-agent 1 starts at 2s
+    // Phase 2 - sub-agent 1 starts at 2s
     setTimeout(() => {
       const sub1Tick = setInterval(() => {
         if (sub1Done) { clearInterval(sub1Tick); return; }
@@ -593,10 +618,10 @@
       if (sub1Cost)   sub1Cost.textContent = '$' + sub1Amt.toFixed(4);
       if (step1) step1.className = step1.className.replace('running', 'done');
       updateTotal();
-      showToast('SecureAudit AI completed — $' + sub1Amt.toFixed(4), 'success');
+      showToast('SecureAudit AI completed - $' + sub1Amt.toFixed(4), 'success');
     }, 7000);
 
-    // Phase 3 — sub-agent 2 starts at 5s
+    // Phase 3 - sub-agent 2 starts at 5s
     setTimeout(() => {
       const sub2Tick = setInterval(() => {
         if (sub2Done) { clearInterval(sub2Tick); return; }
@@ -615,7 +640,7 @@
       if (sub2Cost)   sub2Cost.textContent = '$' + sub2Amt.toFixed(4);
       if (step2) step2.className = step2.className.replace('running', 'done');
       updateTotal();
-      showToast('TestingMaster completed — $' + sub2Amt.toFixed(4), 'success');
+      showToast('TestingMaster completed - $' + sub2Amt.toFixed(4), 'success');
     }, 11000);
 
     // Over-budget modal at 14s if approaching cap

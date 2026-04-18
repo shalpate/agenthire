@@ -1,25 +1,14 @@
-// AgentHire — on-chain config. All contracts live on Avalanche Fuji testnet.
-// Addresses from: https://github.com/nichar3232/ai-agent-marketplace/blob/main/deployments.json
+// AgentHire - on-chain ABIs only.
+//
+// Addresses and chain metadata come from the backend at /config.js (rendered
+// from server env by the Flask app). base.html loads /config.js BEFORE this
+// file, so window.AGENTHIRE_CHAIN and window.AGENTHIRE_ADDRESSES are already
+// populated when the script below runs.
+//
+// To point the UI at a different deployment, export the *_ADDRESS env vars
+// documented in .env.example and restart Flask - no code changes needed.
 
-window.AGENTHIRE_CHAIN = {
-  chainId: 43113,
-  chainIdHex: '0xa869',
-  name: 'Avalanche Fuji',
-  rpcUrl: 'https://api.avax-test.network/ext/C/rpc',
-  explorer: 'https://testnet.snowtrace.io',
-  nativeCurrency: { name: 'AVAX', symbol: 'AVAX', decimals: 18 },
-};
-
-window.AGENTHIRE_ADDRESSES = {
-  MockUSDC:           '0x9C49D730Dfb82B7663aBE6069B5bFe867fa34c9f',
-  AgentRegistry:      '0x6B71b84Fa3C313ccC43D63A400Ab47e6A0d4BCbB',
-  ReputationContract: '0x40ef89Ce1E248Df00AF6Dc37f96BBf92A9Bf603A',
-  StakingSlashing:    '0xfc942b4d1Eb363F25886b3F5935394BD4932B896',
-  EscrowPayment:      '0xD19990C7CB8C386fa865135Ce9706A5A37A3f2f2',
-  AuctionMarket:      '0xa7AEEca5a76bd5Cd38B15dfcC2c288d3645E53E3',
-};
-
-// Minimal ABIs — only what the UI actually calls. Full ABIs are in the backend repo.
+// Minimal ABIs - only what the UI actually calls. Full ABIs are in the backend repo.
 window.AGENTHIRE_ABIS = {
   MockUSDC: [
     'function balanceOf(address) view returns (uint256)',

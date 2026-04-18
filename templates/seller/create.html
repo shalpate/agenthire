@@ -37,51 +37,51 @@
       <h3 style="margin-bottom:24px;">Agent Information</h3>
       <div class="flex-col gap-20">
         <div class="form-group">
-          <label class="form-label">Agent Name *</label>
-          <input type="text" class="form-input" placeholder="e.g. CodeReview Pro">
+          <label class="form-label" for="create-name">Agent Name *</label>
+          <input type="text" class="form-input" id="create-name" name="name" placeholder="e.g. CodeReview Pro">
           <div class="form-hint">Choose a clear, descriptive name that explains what your agent does</div>
         </div>
         <div class="form-group">
-          <label class="form-label">Short Description *</label>
-          <input type="text" class="form-input" placeholder="One-line description shown on marketplace cards">
+          <label class="form-label" for="create-desc">Short Description *</label>
+          <input type="text" class="form-input" id="create-desc" name="description" placeholder="One-line description shown on marketplace cards" maxlength="120">
           <div class="form-hint">Max 120 characters</div>
         </div>
         <div class="form-group">
-          <label class="form-label">Full Description *</label>
-          <textarea class="form-textarea" placeholder="Detailed description of capabilities, use cases, and what buyers can expect…" style="min-height:140px;"></textarea>
+          <label class="form-label" for="create-long-desc">Full Description *</label>
+          <textarea class="form-textarea" id="create-long-desc" name="long_description" placeholder="Detailed description of capabilities, use cases, and what buyers can expect." style="min-height:140px;"></textarea>
         </div>
         <div class="grid-2">
           <div class="form-group">
-            <label class="form-label">Category *</label>
-            <select class="form-select">
+            <label class="form-label" for="create-category">Category *</label>
+            <select class="form-select" id="create-category" name="category">
               <option value="">Select category</option>
               {% for cat in categories %}
-              <option>{{ cat }}</option>
+              <option value="{{ cat }}">{{ cat }}</option>
               {% endfor %}
             </select>
           </div>
           <div class="form-group">
-            <label class="form-label">Primary Use Case *</label>
-            <select class="form-select">
+            <label class="form-label" for="create-use-case">Primary Use Case *</label>
+            <select class="form-select" id="create-use-case" name="use_case">
               <option value="">Select use case</option>
               {% for uc in use_cases %}
-              <option>{{ uc }}</option>
+              <option value="{{ uc }}">{{ uc }}</option>
               {% endfor %}
             </select>
           </div>
         </div>
         <div class="form-group">
-          <label class="form-label">Tags</label>
-          <input type="text" class="form-input" placeholder="e.g. code, python, security, review (comma separated)">
+          <label class="form-label" for="create-tags">Tags</label>
+          <input type="text" class="form-input" id="create-tags" name="tags" placeholder="e.g. code, python, security, review (comma separated)">
           <div class="form-hint">Help buyers discover your agent</div>
         </div>
         <div class="form-group">
-          <label class="form-label">Demo URL (optional)</label>
-          <input type="url" class="form-input" placeholder="https://your-agent-demo.com">
+          <label class="form-label" for="create-demo">Demo URL (optional)</label>
+          <input type="url" class="form-input" id="create-demo" name="demo_url" placeholder="https://your-agent-demo.com">
         </div>
         <div class="form-group">
-          <label class="form-label">Capabilities (one per line) *</label>
-          <textarea class="form-textarea" placeholder="Static code analysis&#10;Security vulnerability detection&#10;Performance optimization&#10;Documentation generation" style="min-height:100px;"></textarea>
+          <label class="form-label" for="create-capabilities">Capabilities (one per line) *</label>
+          <textarea class="form-textarea" id="create-capabilities" name="capabilities" placeholder="Static code analysis&#10;Security vulnerability detection&#10;Performance optimization&#10;Documentation generation" style="min-height:100px;"></textarea>
         </div>
       </div>
     </div>
@@ -115,7 +115,7 @@
         <!-- Live preview -->
         <div style="font-family:var(--font-mono); font-size:.5625rem; text-transform:uppercase; letter-spacing:.1em; color:var(--text-3); margin-bottom:8px;">Buyer Preview</div>
         <div class="workflow-preview">
-          <div class="workflow-preview-header">How this agent works — buyer view</div>
+          <div class="workflow-preview-header">How this agent works - buyer view</div>
           <div id="editor-preview-list">
             <div style="font-size:.8125rem; color:var(--text-3); padding:12px 16px;">No stages defined yet.</div>
           </div>
@@ -145,13 +145,13 @@
 
       <div class="grid-2 gap-20 mb-24">
         <div class="form-group">
-          <label class="form-label">Minimum Price (USDC) *</label>
-          <input type="number" class="form-input" step="0.00001" min="0.00001" placeholder="0.002" oninput="updatePricePreview()">
+          <label class="form-label" for="create-min-price">Minimum Price (USDC) *</label>
+          <input type="number" class="form-input" id="create-min-price" name="min_price" step="0.00001" min="0.00001" placeholder="0.002" oninput="updatePricePreview()">
           <div class="form-hint">Floor price, never go below this</div>
         </div>
         <div class="form-group">
-          <label class="form-label">Maximum Price (USDC) *</label>
-          <input type="number" class="form-input" step="0.00001" min="0.00001" placeholder="0.010" oninput="updatePricePreview()">
+          <label class="form-label" for="create-max-price">Maximum Price (USDC) *</label>
+          <input type="number" class="form-input" id="create-max-price" name="max_price" step="0.00001" min="0.00001" placeholder="0.010" oninput="updatePricePreview()">
           <div class="form-hint">Ceiling price, surge pricing stays below this</div>
         </div>
       </div>
@@ -187,7 +187,7 @@
           <div class="tier-feature">Automated safety testing</div>
           <div class="tier-feature">Performance benchmarking</div>
           <div class="tier-feature">Content policy check</div>
-          <div class="mt-12 text-xs text-muted">Results in 24–48 hours</div>
+          <div class="mt-12 text-xs text-muted">Results in 24-48 hours</div>
         </div>
         <div class="tier-card" data-tier="thorough">
           <span class="badge badge-verified mb-12" style="display:inline-flex;">✓ Verified badge</span>
@@ -198,7 +198,7 @@
           <div class="tier-feature">Deeper reliability testing</div>
           <div class="tier-feature">ERC-8004 identity registration</div>
           <div class="tier-feature">Priority marketplace placement</div>
-          <div class="mt-12 text-xs text-muted">Results in 3–5 business days</div>
+          <div class="mt-12 text-xs text-muted">Results in 3-5 business days</div>
         </div>
       </div>
 
@@ -223,7 +223,7 @@
           <div class="flex-between mb-8 text-sm"><span class="text-muted">Name</span><span>Your Agent Name</span></div>
           <div class="flex-between mb-8 text-sm"><span class="text-muted">Category</span><span>Development</span></div>
           <div class="flex-between mb-8 text-sm"><span class="text-muted">Billing</span><span>Per Token</span></div>
-          <div class="flex-between mb-8 text-sm"><span class="text-muted">Price Range</span><span>$0.002 – $0.010</span></div>
+          <div class="flex-between mb-8 text-sm"><span class="text-muted">Price Range</span><span>$0.002 - $0.010</span></div>
           <div class="flex-between text-sm"><span class="text-muted">Verification</span><span>Basic ($10 USDC)</span></div>
         </div>
 
@@ -258,37 +258,88 @@
   goToStep(1);
   initSubagentEditor();
 
-  // ── Submit handler ──────────────────────────────────────────────────────────
+  /* ── Per-step validation ──────────────────────────────────────────
+     Intercepts the Continue button BEFORE the generic goToStep handler in
+     main.js runs - if validation fails, stopImmediatePropagation blocks
+     the step advance and surfaces a toast. */
+  (function attachStepValidation() {
+    const nextBtn = document.getElementById('step-next');
+    if (!nextBtn) return;
+    nextBtn.addEventListener('click', (e) => {
+      const step = (window.currentStep !== undefined) ? window.currentStep : null;
+      // Step 2: enforce min < max, both positive
+      const activeStep = document.querySelector('.form-step[style*="display:block"], .form-step[style*="display: block"]');
+      if (activeStep && activeStep.id === 'step-2') {
+        const inputs = activeStep.querySelectorAll('input[type="number"]');
+        const minV = parseFloat(inputs[0]?.value);
+        const maxV = parseFloat(inputs[1]?.value);
+        if (!minV || !maxV || minV <= 0 || maxV <= 0) {
+          showToast('Enter valid minimum and maximum prices.', 'warning');
+          e.stopImmediatePropagation();
+          return;
+        }
+        if (maxV <= minV) {
+          showToast('Maximum price must be greater than the minimum.', 'error');
+          e.stopImmediatePropagation();
+          return;
+        }
+      }
+      // Step 1: enforce name, description, category
+      if (activeStep && activeStep.id === 'step-1') {
+        const req = [['create-name', 'agent name'],
+                     ['create-desc', 'short description'],
+                     ['create-long-desc', 'full description']];
+        for (const [id, label] of req) {
+          const v = (document.getElementById(id)?.value || '').trim();
+          if (!v) {
+            showToast('Please fill in the ' + label + '.', 'warning');
+            e.stopImmediatePropagation();
+            return;
+          }
+        }
+        if (!(document.getElementById('create-category')?.value || '').trim()) {
+          showToast('Select a category.', 'warning');
+          e.stopImmediatePropagation();
+          return;
+        }
+      }
+      // Step 3: require verification tier selected
+      if (activeStep && activeStep.id === 'step-3') {
+        const sel = activeStep.querySelector('.tier-card.selected');
+        if (!sel) {
+          showToast('Choose a verification tier before continuing.', 'warning');
+          e.stopImmediatePropagation();
+          return;
+        }
+      }
+    }, true); // capture phase - runs before main.js's bubble listener
+  })();
+
+  // ── Submit handler ─────────────────────────────────────────────────────────
   document.getElementById('step-submit').addEventListener('click', async () => {
     const btn = document.getElementById('step-submit');
     btn.disabled = true;
-    btn.textContent = 'Submitting…';
+    btn.textContent = 'Submitting...';
 
-    // Collect all step data
-    const step1 = document.getElementById('step-1');
+    const byId = (id) => (document.getElementById(id)?.value || '').trim();
     const step2 = document.getElementById('step-2');
     const step3 = document.getElementById('step-3');
-
-    const inputs = (step) => step ? [...step.querySelectorAll('input,textarea,select')] : [];
-    const val = (step, idx) => { const els = inputs(step); return els[idx] ? els[idx].value.trim() : ''; };
-
     const billingEl = step2 ? step2.querySelector('[data-tier].selected') : null;
     const tierEl = step3 ? step3.querySelector('[data-tier].selected') : null;
-    const priceInputs = step2 ? step2.querySelectorAll('input[type="number"]') : [];
 
     const payload = {
-      name:              val(step1, 0),
-      description:       val(step1, 1),
-      long_description:  val(step1, 2),
-      category:          val(step1, 3),
-      use_case:          val(step1, 4),
-      tags:              val(step1, 5),
-      capabilities:      val(step1, 7),
+      name:              byId('create-name'),
+      description:       byId('create-desc'),
+      long_description:  byId('create-long-desc'),
+      category:          byId('create-category'),
+      use_case:          byId('create-use-case'),
+      tags:              byId('create-tags'),
+      capabilities:      byId('create-capabilities'),
       billing:           billingEl ? billingEl.dataset.tier : 'per_token',
-      min_price:         priceInputs[0] ? priceInputs[0].value : '0.002',
-      max_price:         priceInputs[1] ? priceInputs[1].value : '0.010',
+      min_price:         byId('create-min-price') || '0.002',
+      max_price:         byId('create-max-price') || '0.010',
       verification_tier: tierEl ? tierEl.dataset.tier : 'basic',
-      seller:            window.AgentHire && window.AgentHire.address ? window.AgentHire.address : 'Unknown Seller',
+      seller:            (window.AgentHire && window.AgentHire.address) ? window.AgentHire.address : 'Unknown Seller',
     };
 
     if (!payload.name || !payload.description || !payload.category) {

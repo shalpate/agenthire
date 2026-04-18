@@ -68,7 +68,7 @@
       </div>
 
       <div class="font-bold text-sm mb-12">Peak Demand Windows</div>
-      {% for window in [('9:00 AM – 11:00 AM UTC', 'High', '1.6×–2.1×'), ('2:00 PM – 4:00 PM UTC', 'Medium', '1.2×–1.5×'), ('8:00 PM – 10:00 PM UTC', 'High', '1.4×–1.8×')] %}
+      {% for window in [('9:00 AM - 11:00 AM UTC', 'High', '1.6×-2.1×'), ('2:00 PM - 4:00 PM UTC', 'Medium', '1.2×-1.5×'), ('8:00 PM - 10:00 PM UTC', 'High', '1.4×-1.8×')] %}
       <div class="flex-between py-10" style="border-bottom: 1px solid {{ 'var(--border)' if not loop.last else 'transparent' }};">
         <div>
           <div class="text-sm font-bold">{{ window[0] }}</div>
@@ -104,10 +104,10 @@
   <div class="card">
     <div class="flex-between mb-16">
       <h3>Transaction History</h3>
-      <button class="btn btn-ghost btn-sm" onclick="showToast('Exporting CSV…', 'info')">Export CSV</button>
+      <button class="btn btn-ghost btn-sm" id="export-csv-btn">Export CSV</button>
     </div>
     <div class="table-wrap">
-      <table>
+      <table id="tx-history-table">
         <thead>
           <tr>
             <th>Date</th>
@@ -167,5 +167,35 @@ makeBarChart('usage-chart',
   ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],
   [{ label: 'Tasks', data: [320, 480, 390, 520, 610, 280, 241], backgroundColor: 'rgba(59,130,246,.5)', borderColor: '#3B82F6', borderWidth: 1 }]
 );
+
+/* ── CSV export ─────────────────────────────────────────────────────
+   Serializes the transaction history table to a CSV file and triggers
+   a browser download. No server round-trip. */
+(function wireCsvExport() {
+  const btn   = document.getElementById('export-csv-btn');
+  const table = document.getElementById('tx-history-table');
+  if (!btn || !table) return;
+  btn.addEventListener('click', () => {
+    const rows = [...table.querySelectorAll('tr')];
+    const esc = (v) => {
+      const s = String(v ?? '').replace(/\s+/g, ' ').trim();
+      return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+    };
+    const csv = rows.map(row => {
+      return [...row.children].map(cell => esc(cell.innerText)).join(',');
+    }).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    const stamp = new Date().toISOString().slice(0, 10);
+    a.href = url;
+    a.download = 'agenthire-earnings-' + stamp + '.csv';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    if (window.showToast) showToast('CSV downloaded', 'success');
+  });
+})();
 </script>
 {% endblock %}

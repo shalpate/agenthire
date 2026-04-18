@@ -95,14 +95,9 @@
       <div class="card">
         <h4 style="margin-bottom:16px;">Performance</h4>
         <div class="flex-between mb-10 text-sm"><span class="text-muted">Rating</span>
-          <div class="rating">
-            <span class="stars">
-              {% set r = agent.rating | int %}
-              {% for i in range(5) %}
-              <span class="{{ 'star-filled' if i < r else 'star-empty' }}">&#9733;</span>
-              {% endfor %}
-            </span>
-            <span class="rating-value font-bold">{{ agent.rating }}</span>
+          <div class="rating" title="{{ agent.rating }} out of 5">
+            <span class="rating-stars" style="--star-fill:{{ ((agent.rating / 5) * 100) | round(1) }}%;" aria-label="{{ agent.rating }} out of 5">★★★★★</span>
+            <span class="rating-value font-bold">{{ "%.1f"|format(agent.rating) }}</span>
           </div></div>
         <div class="flex-between mb-10 text-sm"><span class="text-muted">Reviews</span>
           <span class="font-bold">{{ agent.reviews }}</span></div>
@@ -140,7 +135,7 @@
 
   async function saveChanges() {
     const btn = document.getElementById('save-btn');
-    btn.disabled = true; btn.textContent = 'Saving…';
+    btn.disabled = true; btn.textContent = 'Saving...';
     try {
       const res = await AgentHireAPI.post('/seller/agents/{{ agent.id }}', {
         action: 'update',

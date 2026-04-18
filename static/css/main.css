@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   AgentHire — "The Exchange" Design System
+   AgentHire - "The Exchange" Design System
    Direction: Bloomberg precision × Swiss grid × high-end auction house
    Agents are economic actors. The UI is professional infrastructure.
    ═══════════════════════════════════════════════════════════════════════════ */
@@ -20,24 +20,24 @@
   --text-3:    #666666;
   --text-4:    #444444;
 
-  /* Brand red — primary actions, CTAs, logo accent */
+  /* Brand red - primary actions, CTAs, logo accent */
   --red:           #E84142;
   --red-dark:      #A32D2D;
   --red-darkest:   #501313;
   --red-dim:       rgba(232,65,66,.12);
   --red-border:    rgba(232,65,66,.30);
 
-  /* Green — verified / trust / success only */
+  /* Green - verified / trust / success only */
   --green:         #22C55E;
   --green-dim:     rgba(34,197,94,.10);
   --green-border:  rgba(34,197,94,.22);
 
-  /* Amber — surge / warning */
+  /* Amber - surge / warning */
   --amber:         #F59E0B;
   --amber-dim:     rgba(245,158,11,.10);
   --amber-border:  rgba(245,158,11,.22);
 
-  /* Blue — info only */
+  /* Blue - info only */
   --blue:          #3B82F6;
   --blue-dim:      rgba(59,130,246,.10);
   --blue-border:   rgba(59,130,246,.22);
@@ -83,7 +83,7 @@ img { display: block; max-width: 100%; }
 button { cursor: pointer; font-family: inherit; }
 input, select, textarea { font-family: inherit; }
 
-/* Monospace utility — all prices, all data */
+/* Monospace utility - all prices, all data */
 .mono { font-family: var(--font-mono) !important; }
 
 /* ── Typography ────────────────────────────────────────────────────────────── */
@@ -115,7 +115,7 @@ p  { color: var(--text-2); }
 .gap-16 { gap: 16px; } .gap-24 { gap: 24px; }  .gap-32 { gap: 32px; }
 
 /* ── Live Ticker Strip ─────────────────────────────────────────────────────── */
-/* The first signature element — marketplace activity visualization */
+/* The first signature element - marketplace activity visualization */
 .ticker-strip {
   height: 30px;
   background: var(--card);
@@ -263,7 +263,7 @@ p  { color: var(--text-2); }
 
 .nav-right { display: flex; align-items: center; gap: 10px; }
 
-/* Role switcher — more restrained */
+/* Role switcher - more restrained */
 .role-switcher {
   display: flex;
   background: var(--card-2);
@@ -376,46 +376,49 @@ p  { color: var(--text-2); }
   box-shadow: 0 0 0 1px var(--border-2);
 }
 
-/* ── Agent Card — "Exchange Order Book Entry" ──────────────────────────────── */
-/* Second signature element — agents as tradeable instruments, not SaaS cards  */
+/* ── Agent Card — flex column with an explicit spacer div that absorbs all
+   free space, guaranteeing the footer sits on the same baseline across every
+   card regardless of optional rows (surge banner, sub-agent hint). */
 .agent-card {
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: 0;               /* grid-connected; gap:1px makes the grid the border */
-  padding: 20px;
+  border-radius: 0;
+  padding: 22px;
   display: flex;
   flex-direction: column;
   gap: 14px;
-  transition: background var(--transition);
+  min-height: 280px;
+  transition: background var(--transition), border-color var(--transition);
   position: relative;
   overflow: hidden;
   cursor: pointer;
 }
-.agent-card:first-child                       { border-radius: var(--radius) 0 0 0; }
-.agent-card:nth-child(3n)                     { border-radius: 0 var(--radius) 0 0; }
+.agent-card:first-child   { border-radius: var(--radius) 0 0 0; }
+.agent-card:nth-child(3n) { border-radius: 0 var(--radius) 0 0; }
 
-/* Trust bar — left edge, color = verification tier */
+/* Trust bar — subtle left edge, tier color without glow clash */
 .agent-card::before {
   content: '';
   position: absolute;
   left: 0; top: 0; bottom: 0;
-  width: 3px;
+  width: 2px;
   background: var(--border-2);
   transition: background var(--transition);
+  z-index: 1;
 }
 .agent-card.verified::before   { background: var(--green); }
-.agent-card.unverified::before { background: var(--amber); }
-.agent-card.featured::after    {
+.agent-card.unverified::before { background: var(--border-2); }
+.agent-card.featured::after {
   content: '';
   position: absolute;
   top: 0; left: 0; right: 0;
   height: 1px;
-  background: linear-gradient(90deg, transparent, var(--red), transparent);
+  background: linear-gradient(90deg, transparent 10%, var(--red) 50%, transparent 90%);
+  opacity: .6;
+  z-index: 1;
 }
 
 .agent-card:hover { background: var(--card-3); }
-.agent-card:hover.verified::before   { box-shadow: 2px 0 10px rgba(34,197,94,.3); }
-.agent-card:hover.unverified::before { box-shadow: 2px 0 10px rgba(245,158,11,.25); }
 
 /* Card header */
 .agent-card-header {
@@ -425,7 +428,7 @@ p  { color: var(--text-2); }
   gap: 12px;
 }
 
-/* Monogram avatar — square, category-coded, no emoji */
+/* Monogram avatar — neutral tile, letter color = tier */
 .agent-avatar {
   width: 36px;
   height: 36px;
@@ -438,8 +441,11 @@ p  { color: var(--text-2); }
   font-weight: 600;
   letter-spacing: 0.04em;
   flex-shrink: 0;
-  border: 1px solid var(--border-2);
+  border: 1px solid var(--border);
+  background: var(--card-2) !important;
+  color: var(--text-2) !important;
 }
+.agent-card.verified .agent-avatar { color: var(--green) !important; }
 
 .agent-card-name { font-size: 0.9375rem; font-weight: 600; color: var(--text); }
 .agent-card-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 2px; }
@@ -451,33 +457,29 @@ p  { color: var(--text-2); }
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  height: calc(0.8125rem * 1.55 * 2);
+  margin: 0;
+  flex-shrink: 0;
 }
+.agent-card > .surge-banner,
+.agent-card > .card-subagent-hint { flex-shrink: 0; }
+/* The spacer is the ONLY flex-growing item — it eats all remaining card height
+   so the footer always lands at the bottom, on the same baseline as siblings. */
+.agent-card-spacer { flex: 1 1 auto; min-height: 4px; }
 
-/* Price row — monospace, prominent */
+/* Price row — pinned to the last grid row, same baseline for every card */
 .agent-card-footer {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
-  margin-top: auto;
+  gap: 12px;
   padding-top: 14px;
   border-top: 1px solid var(--border);
+  min-height: 56px;
 }
 
-/* Activity signal bars (demand indicator) */
-.signal-bars {
-  display: flex;
-  align-items: flex-end;
-  gap: 2px;
-  height: 16px;
-}
-.signal-bar {
-  width: 3px;
-  border-radius: 1px;
-  background: var(--border-2);
-  transition: background var(--transition);
-}
-.signal-bar.active { background: var(--green); }
-.signal-bar.surge  { background: var(--amber); }
+/* Legacy signal-bar CSS kept as no-op in case any other page still references it */
+.signal-bars, .signal-bar { display: none !important; }
 
 /* ── Badges ────────────────────────────────────────────────────────────────── */
 .badge {
@@ -494,7 +496,8 @@ p  { color: var(--text-2); }
   font-family: var(--font-mono);
 }
 .badge-verified   { background: var(--green-dim);  color: var(--green);  border: 1px solid var(--green-border); }
-.badge-unverified { background: var(--amber-dim);  color: var(--amber);  border: 1px solid var(--amber-border); }
+/* Unverified - neutral grey, doesn't compete with the surge banner's amber */
+.badge-unverified { background: var(--card-2);     color: var(--text-3); border: 1px solid var(--border-2); }
 .badge-surge      { background: var(--amber-dim);  color: var(--amber);  border: 1px solid var(--amber-border); animation: surge-pulse 2s ease-in-out infinite; }
 .badge-featured   { background: var(--blue-dim);   color: var(--blue);   border: 1px solid var(--blue-border); }
 .badge-pending    { background: var(--card-2);      color: var(--text-2); border: 1px solid var(--border-2); }
@@ -511,16 +514,41 @@ p  { color: var(--text-2); }
   50%       { opacity: 0.65; }
 }
 
-/* ── Star Rating ────────────────────────────────────────────────────────────── */
-.rating        { display: flex; align-items: center; gap: 6px; }
-.stars         { display: inline-flex; gap: 1px; line-height: 1; }
-.star-filled   { color: var(--amber); font-size: 0.8125rem; }
-.star-empty    { color: var(--border-2); font-size: 0.8125rem; }
+/* ── Star Rating ───────────────────────────────────────────────── */
+/* Proportional star rating: the widget literally contains "★★★★★", and its
+   text color is a linear gradient that hard-switches from amber to grey at the
+   --star-fill percentage. background-clip: text paints ONLY the star glyphs,
+   so a 4.6 rating shows four solid amber stars plus the left 80% of the fifth
+   star in amber and the right 20% in grey — a real proportional fill that
+   works in every modern browser, no pseudo-elements, no layout surprises. */
+.rating        { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
+.rating-stars {
+  --star-fill: 0%;
+  display: inline-block;
+  font-size: 0.95rem;
+  line-height: 1;
+  letter-spacing: 2px;
+  font-family: 'Segoe UI Symbol', 'Apple Color Emoji', 'Arial', sans-serif;
+  background: linear-gradient(
+    90deg,
+    var(--amber) 0%,
+    var(--amber) var(--star-fill),
+    var(--border-2) var(--star-fill),
+    var(--border-2) 100%
+  );
+  -webkit-background-clip: text;
+          background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  user-select: none;
+}
 .rating-value  { font-size: 0.8125rem; font-weight: 700; color: var(--text); font-family: var(--font-mono); }
 .rating-count  { font-size: 0.75rem; color: var(--text-3); font-family: var(--font-mono); }
 
-/* Legacy .stars fallback */
-.stars { color: var(--amber); font-size: 0.8125rem; letter-spacing: 0; }
+/* Legacy classes kept so older templates still render something reasonable */
+.stars         { display: inline-flex; gap: 1px; line-height: 1; color: var(--amber); font-size: 0.8125rem; letter-spacing: 0; }
+.star-filled   { color: var(--amber); font-size: 0.8125rem; }
+.star-empty    { color: var(--border-2); font-size: 0.8125rem; }
 
 /* ── Price Display ─────────────────────────────────────────────────────────── */
 .price-box {
@@ -584,29 +612,117 @@ p  { color: var(--text-2); }
 .search-bar input::placeholder { color: var(--text-3); }
 .search-icon { color: var(--text-3); font-size: 0.9rem; }
 
-.filter-sidebar { width: 200px; flex-shrink: 0; display: flex; flex-direction: column; gap: 22px; }
+/* ── Filter sidebar — modern minimalist list ────────────────────────── */
+.filter-sidebar {
+  width: 220px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding-right: 8px;
+}
+.filter-sidebar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+.filter-sidebar-title {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--text);
+}
+.filter-sidebar-clear {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  transition: color var(--transition);
+}
+.filter-sidebar-clear:hover { color: var(--red); }
+.filter-group { display: flex; flex-direction: column; }
 .filter-group h4 {
   font-size: 0.625rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.12em;
   color: var(--text-3);
   margin-bottom: 10px;
   font-family: var(--font-mono);
 }
+/* Native radio/checkbox circles looked chunky and OS-inconsistent. Hide them
+   and style the entire <label> row instead. Selected = red left bar + bg tint,
+   matching the marketplace card trust bar — one consistent design vocabulary. */
 .filter-option {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 9px;
-  padding: 5px 0;
+  gap: 10px;
+  padding: 7px 12px 7px 14px;
+  margin: 0 -12px;
   cursor: pointer;
   font-size: 0.8125rem;
   color: var(--text-2);
-  transition: color var(--transition);
+  border-radius: var(--radius-sm);
+  transition: color var(--transition), background var(--transition);
+  user-select: none;
 }
-.filter-option:hover { color: var(--text); }
+.filter-option::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  border-radius: 2px;
+  background: transparent;
+  transition: background var(--transition);
+}
+.filter-option:hover { color: var(--text); background: var(--card-2); }
 .filter-option input[type="radio"],
-.filter-option input[type="checkbox"] { accent-color: var(--red); width: 14px; height: 14px; cursor: pointer; }
+.filter-option input[type="checkbox"] {
+  /* Visually hide but keep accessible & still submit value */
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+  width: 1px; height: 1px;
+}
+.filter-option:has(input:checked) {
+  color: var(--text);
+  background: var(--card-2);
+  font-weight: 500;
+}
+.filter-option:has(input:checked)::before {
+  background: var(--red);
+}
+.filter-option:has(input:focus-visible) {
+  box-shadow: 0 0 0 1px var(--red-border);
+}
+/* Checkbox variant shows a small square tick-box on the right so the user still
+   has a visible affordance for multi-select style filters. */
+.filter-option:has(input[type="checkbox"])::after {
+  content: '';
+  margin-left: auto;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  border: 1px solid var(--border-2);
+  background: transparent;
+  transition: background var(--transition), border-color var(--transition);
+}
+.filter-option:has(input[type="checkbox"]:checked)::after {
+  background: var(--red);
+  border-color: var(--red);
+  background-image: linear-gradient(45deg, transparent 45%, #fff 45%, #fff 55%, transparent 55%),
+                    linear-gradient(-45deg, transparent 45%, #fff 45%, #fff 55%, transparent 55%);
+  background-size: 8px 8px, 8px 8px;
+  background-position: 3px 4px, 3px 4px;
+  background-repeat: no-repeat;
+}
 
 .sort-btn {
   padding: 5px 12px;
@@ -1097,7 +1213,7 @@ tbody tr:hover { background: var(--card-2); }
 .market-row:last-of-type { border-bottom: none; }
 .market-row:hover { background: var(--card-2); }
 
-/* Verification accent — left border on rows */
+/* Verification accent - left border on rows */
 .market-row::before {
   content: '';
   position: absolute;
@@ -1436,7 +1552,7 @@ tbody tr:hover { background: var(--card-2); }
 }
 .card-subagent-hint .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--blue); }
 
-/* ── SubagentWorkflow — "How this agent works" ─────────────────────────────── */
+/* ── SubagentWorkflow - "How this agent works" ─────────────────────────────── */
 .stage-list { display: flex; flex-direction: column; gap: 0; }
 
 .stage-item {
@@ -2087,4 +2203,475 @@ tbody tr:hover { background: var(--card-2); }
   .btn-lg       { width: 100%; }
   .hero-stats   { flex-wrap: wrap; gap: 16px; }
   .hero-stat    { border-right: none; margin-right: 0; min-width: 40%; }
+}
+
+/* ╔═══ Marketplace Overhaul ══════════════════════════════════════════╗
+   Self-contained `.mkt-*` design system for the marketplace page.
+   - Full-page wrapper (1680px max, responsive side padding)
+   - Hero · inline filter chips · search bar · responsive card grid
+   - Cards use CSS grid with auto/auto/1fr/auto rows → footer is always
+     pinned to the same baseline in every card on the row
+   - Stars use linear-gradient + background-clip: text for TRUE proportional
+     fills (4.6 rating = 4 full amber stars + 80% amber / 20% grey fifth)
+   ╚═════════════════════════════════════════════════════════════════╝ */
+
+.mkt-wrap {
+  max-width: 1680px;
+  margin: 0 auto;
+  padding: 32px clamp(20px, 4vw, 56px) 80px;
+}
+
+/* ── Hero ──────────────────────────────────────────────────────────── */
+.mkt-hero {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 32px;
+  flex-wrap: wrap;
+  padding-bottom: 24px;
+  margin-bottom: 28px;
+  border-bottom: 1px solid var(--border);
+}
+.mkt-title {
+  font-size: clamp(1.75rem, 2.4vw, 2.25rem);
+  font-weight: 600;
+  letter-spacing: -.02em;
+  line-height: 1.1;
+  margin-bottom: 8px;
+}
+.mkt-sub {
+  font-size: .9375rem;
+  color: var(--text-2);
+  max-width: 620px;
+  line-height: 1.55;
+}
+.mkt-hero-right { display: flex; gap: 40px; flex-shrink: 0; }
+.mkt-metric { display: flex; flex-direction: column; gap: 4px; min-width: 80px; }
+.mkt-metric-num {
+  font-family: var(--font-mono);
+  font-size: 1.375rem;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: -.01em;
+}
+.mkt-metric-lbl {
+  font-family: var(--font-mono);
+  font-size: .625rem;
+  font-weight: 600;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+/* ── Controls ───────────────────────────────────────────────────────── */
+.mkt-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 24px;
+}
+.mkt-search {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+.mkt-search:focus-within {
+  border-color: var(--red);
+  box-shadow: 0 0 0 3px var(--red-dim);
+}
+.mkt-search input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font-size: .9375rem;
+  padding: 14px 0;
+  font-family: var(--font-body);
+}
+.mkt-search input::placeholder { color: var(--text-3); }
+.mkt-search-clear {
+  background: none;
+  border: none;
+  color: var(--text-3);
+  cursor: pointer;
+  font-size: .875rem;
+  padding: 4px 6px;
+  border-radius: 4px;
+  transition: color var(--transition), background var(--transition);
+}
+.mkt-search-clear:hover { color: var(--text); background: var(--card-2); }
+
+.mkt-sort, .mkt-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  row-gap: 8px;
+}
+.mkt-sort-label, .mkt-chips-label {
+  font-family: var(--font-mono);
+  font-size: .625rem;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  margin-right: 4px;
+}
+.mkt-chips-sep {
+  width: 1px;
+  align-self: stretch;
+  background: var(--border);
+  margin: 0 6px;
+}
+
+/* Sort pills — slightly tighter than the category chips */
+.mkt-pill {
+  padding: 6px 12px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-2);
+  font-family: var(--font-mono);
+  font-size: .75rem;
+  font-weight: 500;
+  letter-spacing: .02em;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+.mkt-pill:hover {
+  color: var(--text);
+  border-color: var(--border-2);
+  background: var(--card-2);
+}
+.mkt-pill.is-active {
+  color: var(--red);
+  border-color: var(--red);
+  background: var(--red-dim);
+}
+
+/* Category + verification chips */
+.mkt-chip {
+  padding: 7px 14px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-2);
+  font-size: .8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition);
+  white-space: nowrap;
+}
+.mkt-chip:hover {
+  color: var(--text);
+  border-color: var(--border-2);
+  background: var(--card-2);
+}
+.mkt-chip.is-active {
+  color: #fff;
+  border-color: var(--red);
+  background: var(--red);
+}
+.mkt-chip-reset {
+  color: var(--text-3);
+  border-style: dashed;
+  margin-left: auto;
+}
+.mkt-chip-reset:hover { color: var(--red); border-color: var(--red); background: transparent; }
+
+/* Result count */
+.mkt-count {
+  font-family: var(--font-mono);
+  font-size: .75rem;
+  letter-spacing: .04em;
+  color: var(--text-3);
+  margin-bottom: 20px;
+}
+.mkt-count .mono { color: var(--text); font-weight: 600; }
+
+/* ── Card grid ────────────────────────────────────────────────────── */
+.mkt-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  grid-auto-rows: 1fr;          /* every row equal height */
+  gap: 18px;
+}
+
+.mkt-card {
+  display: grid;
+  /* 6 explicit rows — head / surge / desc / meta / flexible spacer / footer.
+     Missing optional items (surge / meta) just leave their row empty (auto
+     → 0 height); the 1fr spacer row always eats remaining height, so the
+     footer row lands on the same baseline across every card in the grid. */
+  grid-template-rows: auto auto auto auto 1fr auto;
+  gap: 10px;
+  padding: 22px;
+  min-height: 280px;
+  height: 100%;                   /* fill the row height from grid-auto-rows:1fr */
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: inherit;
+  text-decoration: none;
+  position: relative;
+  overflow: hidden;
+  transition: border-color var(--transition), background var(--transition), transform var(--transition);
+}
+.mkt-card:hover {
+  border-color: var(--border-2);
+  background: var(--card-2);
+  transform: translateY(-1px);
+}
+/* Accent strip on the top edge (verified = green, featured = red) */
+.mkt-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: transparent;
+  transition: background var(--transition);
+}
+.mkt-card.is-verified::before { background: var(--green); }
+.mkt-card.is-featured::before { background: var(--red); }
+.mkt-card.is-unverified::before { background: var(--border-2); }
+
+/* Card head */
+.mkt-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+.mkt-card-ident { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.mkt-card-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: .6875rem;
+  font-weight: 700;
+  letter-spacing: .04em;
+  color: var(--text);
+  background: var(--card-2);
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.mkt-card.is-verified .mkt-card-avatar { color: var(--green); border-color: var(--green-border); }
+.mkt-card-ident-text { min-width: 0; }
+.mkt-card-name {
+  font-size: .9375rem;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mkt-card-seller {
+  font-family: var(--font-mono);
+  font-size: .6875rem;
+  color: var(--text-3);
+  margin-top: 2px;
+}
+.mkt-card-badges {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.mkt-tag {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: .5625rem;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.mkt-tag-verified   { color: var(--green); background: var(--green-dim); border: 1px solid var(--green-border); }
+.mkt-tag-unverified { color: var(--text-3); background: transparent;     border: 1px solid var(--border-2); }
+.mkt-tag-featured   { color: var(--red);   background: var(--red-dim);   border: 1px solid var(--red-border); }
+
+/* Explicit row assignment per child keeps optional items (surge/meta) in
+   their own rows so the 1fr spacer can absorb whatever vertical slack
+   remains — footer always pins to row 6. */
+.mkt-card-head  { grid-row: 1; grid-column: 1; }
+.mkt-card-surge { grid-row: 2; grid-column: 1; }
+.mkt-card-desc  { grid-row: 3; grid-column: 1; }
+.mkt-card-meta  { grid-row: 4; grid-column: 1; }
+.mkt-card-foot  { grid-row: 6; grid-column: 1; align-self: end; }
+
+.mkt-card-surge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: .625rem;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--amber);
+  justify-self: start;
+}
+.mkt-card-surge-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--amber);
+  box-shadow: 0 0 0 0 rgba(245,158,11,.6);
+  animation: mkt-pulse 2s ease-out infinite;
+}
+@keyframes mkt-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(245,158,11,.5); }
+  80%  { box-shadow: 0 0 0 6px rgba(245,158,11,0); }
+  100% { box-shadow: 0 0 0 0 rgba(245,158,11,0); }
+}
+
+.mkt-card-desc {
+  font-size: .8125rem;
+  line-height: 1.55;
+  color: var(--text-2);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin: 0;
+  height: calc(0.8125rem * 1.55 * 2);   /* exact 2-line box */
+}
+
+.mkt-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: .6875rem;
+  color: var(--text-3);
+  letter-spacing: .02em;
+}
+.mkt-card-meta-item { color: var(--text-2); }
+.mkt-card-meta-sep  { color: var(--border-2); }
+
+/* Footer — always the last grid row = same baseline across every card in the row */
+.mkt-card-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+.mkt-card-price { display: flex; flex-direction: column; gap: 2px; line-height: 1.1; }
+.mkt-card-price-val {
+  font-family: var(--font-mono);
+  font-size: 1.0625rem;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: -.01em;
+}
+.mkt-card-price-unit {
+  font-family: var(--font-mono);
+  font-size: .625rem;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+.mkt-card-rating { display: inline-flex; align-items: center; gap: 8px; }
+.mkt-card-rating-num {
+  font-family: var(--font-mono);
+  font-size: .8125rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+/* ── Proportional stars (marketplace card) ──────────────────────────── */
+/* The span contains literal "★★★★★". Its text color is a gradient that hard-
+   switches from amber to grey at the --star-fill position. background-clip:
+   text paints only the glyphs — so a 4.6 rating (92%) shows four solid amber
+   stars plus the left 80% of the fifth in amber and the right 20% in grey. */
+.mkt-stars {
+  --star-fill: 0%;
+  font-size: 1rem;
+  line-height: 1;
+  letter-spacing: 2px;
+  font-family: 'Segoe UI Symbol','Apple Color Emoji','Arial',sans-serif;
+  background: linear-gradient(
+    90deg,
+    var(--amber) 0%,
+    var(--amber) var(--star-fill),
+    var(--border-2) var(--star-fill),
+    var(--border-2) 100%
+  );
+  -webkit-background-clip: text;
+          background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  user-select: none;
+}
+
+/* ── Empty state ────────────────────────────────────────────────────── */
+.mkt-empty {
+  padding: 80px 24px;
+  text-align: center;
+  border: 1px dashed var(--border-2);
+  border-radius: 12px;
+  color: var(--text-2);
+}
+.mkt-empty-mark {
+  font-family: var(--font-mono);
+  font-size: 1.5rem;
+  color: var(--border-2);
+  margin-bottom: 14px;
+  font-weight: 700;
+}
+.mkt-empty h3 { color: var(--text); margin-bottom: 6px; }
+.mkt-empty p { font-size: .875rem; }
+
+/* ── Floating action button (Post Open Bid) ───────────────────────── */
+.mkt-fab {
+  position: fixed;
+  bottom: 28px;
+  right: 28px;
+  z-index: 100;
+  padding: 14px 22px;
+  border: none;
+  border-radius: 999px;
+  background: var(--red);
+  color: #fff;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: .75rem;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: 0 12px 28px rgba(0,0,0,.5), 0 0 0 1px var(--red-border);
+  transition: transform var(--transition), box-shadow var(--transition);
+}
+.mkt-fab:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 32px rgba(0,0,0,.55), 0 0 0 1px var(--red);
+  background: var(--red-dark);
+}
+
+/* ── Responsive ───────────────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .mkt-hero { flex-direction: column; align-items: flex-start; gap: 18px; }
+  .mkt-hero-right { width: 100%; gap: 24px; }
+  .mkt-grid { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+}
+@media (max-width: 560px) {
+  .mkt-wrap { padding: 20px 16px 72px; }
+  .mkt-grid { grid-template-columns: 1fr; }
+  .mkt-fab { bottom: 16px; right: 16px; padding: 12px 18px; }
 }

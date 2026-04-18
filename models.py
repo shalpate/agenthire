@@ -1,12 +1,15 @@
 """
-models.py — SQLAlchemy ORM models for AgentHire.
+models.py: SQLAlchemy ORM models for AgentHire.
 
 Tables
 ------
-agents              — Registered AI agents (mirrors AGENTS list)
-orders              — Buyer orders / escrow sessions (mirrors ORDERS)
-verification_entries— Verification queue entries (mirrors VERIFICATION_QUEUE)
-auction_bids        — Open auction bids (mirrors _AUCTION_BIDS)
+agents              : Registered AI agents (mirrors AGENTS list)
+orders              : Buyer orders / escrow sessions (mirrors ORDERS)
+verification_entries: Verification queue entries (mirrors VERIFICATION_QUEUE)
+auction_bids        : Open auction bids (mirrors _AUCTION_BIDS)
+payouts             : Seller payouts tracked by the admin panel
+moderation_reports  : User-filed reports reviewed by admins
+reviews             : Buyer ratings and feedback per agent
 
 Seed
 ----
@@ -45,7 +48,7 @@ class Agent(db.Model):
     seller              = db.Column(db.String(120), nullable=False, default="")
     seller_rating       = db.Column(db.Float, nullable=False, default=0.0)
     tasks_completed     = db.Column(db.Integer, nullable=False, default=0)
-    avg_completion_time = db.Column(db.String(20), nullable=False, default="—")
+    avg_completion_time = db.Column(db.String(20), nullable=False, default=" - ")
     # JSON-encoded lists
     _tags               = db.Column("tags", db.Text, nullable=False, default="[]")
     _capabilities       = db.Column("capabilities", db.Text, nullable=False, default="[]")
@@ -204,18 +207,114 @@ class AuctionBid(db.Model):
         return f"<AuctionBid {self.id} settled={self.settled}>"
 
 
+# ── Payout ────────────────────────────────────────────────────────────────────
+
+class Payout(db.Model):
+    __tablename__ = "payouts"
+
+    id        = db.Column(db.String(20), primary_key=True)   # e.g. "PAY-001"
+    seller    = db.Column(db.String(120), nullable=False)
+    agent     = db.Column(db.String(120), nullable=False)
+    amount    = db.Column(db.Float, nullable=False, default=0.0)
+    status    = db.Column(db.String(20), nullable=False, default="pending")
+    # pending | released | held
+    date      = db.Column(db.String(20), nullable=False, default="")
+    order_id  = db.Column(db.String(20), nullable=True)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "seller": self.seller,
+            "agent": self.agent,
+            "amount": self.amount,
+            "status": self.status,
+            "date": self.date,
+            "order_id": self.order_id,
+        }
+
+    def __repr__(self):
+        return f"<Payout {self.id} {self.status}>"
+
+
+# ── ModerationReport ──────────────────────────────────────────────────────────
+
+class ModerationReport(db.Model):
+    __tablename__ = "moderation_reports"
+
+    id       = db.Column(db.String(20), primary_key=True)   # e.g. "RPT-001"
+    agent    = db.Column(db.String(120), nullable=False)
+    agent_id = db.Column(db.Integer, nullable=True)
+    reporter = db.Column(db.String(80), nullable=False, default="")
+    reason   = db.Column(db.Text, nullable=False, default="")
+    status   = db.Column(db.String(20), nullable=False, default="open")
+    # open | investigating | resolved | suspended
+    date     = db.Column(db.String(20), nullable=False, default="")
+    notes    = db.Column(db.Text, nullable=False, default="")
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "agent": self.agent,
+            "agent_id": self.agent_id,
+            "reporter": self.reporter,
+            "reason": self.reason,
+            "status": self.status,
+            "date": self.date,
+            "notes": self.notes,
+        }
+
+    def __repr__(self):
+        return f"<ModerationReport {self.id} {self.status}>"
+
+
+# ── Review ────────────────────────────────────────────────────────────────────
+
+class Review(db.Model):
+    __tablename__ = "reviews"
+
+    id        = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    agent_id  = db.Column(db.Integer, db.ForeignKey("agents.id"), nullable=False, index=True)
+    user      = db.Column(db.String(80), nullable=False, default="")
+    rating    = db.Column(db.Integer, nullable=False, default=5)
+    comment   = db.Column(db.Text, nullable=False, default="")
+    date      = db.Column(db.String(20), nullable=False, default="")
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "agent_id": self.agent_id,
+            "user": self.user,
+            "rating": self.rating,
+            "comment": self.comment,
+            "date": self.date,
+        }
+
+    def __repr__(self):
+        return f"<Review agent={self.agent_id} {self.rating}*>"
+
+
 # ── Seed helper ───────────────────────────────────────────────────────────────
 
 def seed_db(app) -> None:
     """
     Populate the database from in-memory mock data on first run.
-    Safe to call every startup — no-ops if tables already have rows.
+    Safe to call every startup: no-ops if tables already have rows.
     """
     with app.app_context():
         db.create_all()
 
         # Import mock data from app module to avoid circular imports at module level
-        from app import AGENTS as _AGENTS, ORDERS as _ORDERS, VERIFICATION_QUEUE as _VQ
+        from app import (
+            AGENTS as _AGENTS,
+            ORDERS as _ORDERS,
+            VERIFICATION_QUEUE as _VQ,
+            PAYOUTS_SEED as _PAY,
+            MODERATION_SEED as _MOD,
+            REVIEWS_SEED as _REV,
+        )
 
         if Agent.query.count() == 0:
             for a in _AGENTS:
@@ -229,7 +328,7 @@ def seed_db(app) -> None:
                     current_price=a["current_price"], surge_active=a["surge_active"],
                     surge_multiplier=a["surge_multiplier"], seller=a["seller"],
                     seller_rating=a["seller_rating"], tasks_completed=a["tasks_completed"],
-                    avg_completion_time=a.get("avg_completion_time", "—"),
+                    avg_completion_time=a.get("avg_completion_time", " - "),
                 )
                 row.tags = a.get("tags", [])
                 row.capabilities = a.get("capabilities", [])
@@ -254,5 +353,32 @@ def seed_db(app) -> None:
                     safety_score=v.get("safety_score"),
                     performance_score=v.get("performance_score"),
                     reliability_score=v.get("reliability_score"),
+                ))
+            db.session.commit()
+
+        if Payout.query.count() == 0:
+            for p in _PAY:
+                db.session.add(Payout(
+                    id=p["id"], seller=p["seller"], agent=p["agent"],
+                    amount=p["amount"], status=p["status"],
+                    date=p["date"], order_id=p.get("order_id"),
+                ))
+            db.session.commit()
+
+        if ModerationReport.query.count() == 0:
+            for r in _MOD:
+                db.session.add(ModerationReport(
+                    id=r["id"], agent=r["agent"], agent_id=r.get("agent_id"),
+                    reporter=r["reporter"], reason=r["reason"],
+                    status=r["status"], date=r["date"],
+                ))
+            db.session.commit()
+
+        if Review.query.count() == 0:
+            for rv in _REV:
+                db.session.add(Review(
+                    agent_id=rv["agent_id"], user=rv["user"],
+                    rating=rv["rating"], comment=rv["comment"],
+                    date=rv["date"],
                 ))
             db.session.commit()

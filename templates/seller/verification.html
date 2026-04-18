@@ -11,7 +11,7 @@
     <a href="/seller/create" class="btn btn-primary">+ New Agent</a>
   </div>
 
-  <div class="flex-col gap-20">
+  <div class="flex-col gap-32">
     {% set status_meta = {
       'pending':      ('badge-pending',  'PEND', 'Pending', 'Your agent is queued for review.'),
       'testing':      ('badge-testing',  'TEST', 'Testing', 'Automated tests are running.'),
@@ -41,7 +41,7 @@
         <span class="icon" style="font-family:var(--font-mono); font-size:.625rem; font-weight:700; color:var(--blue);">{{ meta[1] }}</span>
         <p>{{ meta[3] }}
           {% if item.status == 'testing' %} Automated safety, performance, and reliability tests are running. Results will be available shortly.
-          {% elif item.status == 'human_review' %} A member of our protocol team is conducting a hands-on review. This typically takes 1–3 business days.
+          {% elif item.status == 'human_review' %} A member of our protocol team is conducting a hands-on review. This typically takes 1-3 business days.
           {% elif item.status == 'approved' %} Your agent is now live on the marketplace.
           {% elif item.status == 'rejected' %} Please review the feedback below and resubmit after making the required changes.
           {% endif %}
@@ -118,7 +118,7 @@
       <div style="border-top:1px solid var(--border); padding-top:16px; margin-top:16px;">
         <div class="flex-between mb-12">
           <div style="font-family:var(--font-mono); font-size:.5625rem; text-transform:uppercase; letter-spacing:.1em; color:var(--text-3);">
-            Subagent Workflow — Buyer View
+            Subagent Workflow - Buyer View
           </div>
           {% if mock_stages|selectattr(2)|list|length > 0 %}
           <span class="exec-type-badge exec-type-composable">{{ mock_stages|length }} stages</span>
@@ -127,7 +127,7 @@
           {% endif %}
         </div>
         <div class="workflow-preview">
-          <div class="workflow-preview-header">How this agent works — as buyers will see it</div>
+          <div class="workflow-preview-header">How this agent works - as buyers will see it</div>
           {% for name, type, conditional in mock_stages %}
           <div class="workflow-preview-row">
             <div style="width:7px; height:7px; border-radius:50%; flex-shrink:0;

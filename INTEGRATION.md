@@ -1,4 +1,4 @@
-# AgentHire — Full-Stack Integration Guide
+# AgentHire - Full-Stack Integration Guide
 
 How the frontend (this repo) connects to the on-chain layer.
 
@@ -41,7 +41,7 @@ Loaded by `static/js/web3.js`. Always present after DOMContentLoaded.
 |---|---|
 | `connectWallet()` | Prompts wallet, auto-switches to Fuji, stores signer |
 | `getUsdcBalance()` | Current wallet USDC balance (6-dec base units) |
-| `mintUSDC(n)` | Testnet faucet — mints n USDC to connected wallet |
+| `mintUSDC(n)` | Testnet faucet - mints n USDC to connected wallet |
 | `getAgentProfile(id)` | One-call read: agent + listing + reputation + stake |
 | `payWithX402({ agentId, depositUSDC, tokenBudget, facilitator })` | Sign EIP-3009 permit → POST `/api/x402/pay` → returns session id |
 | `depositDirect({ ... })` | Fallback: `approve` + `depositFunds` (two transactions) |
@@ -62,21 +62,25 @@ Loaded by `static/js/web3.js`. Always present after DOMContentLoaded.
 From the `ai-agent-marketplace` repo:
 
 ```bash
-# Terminal 1 — facilitator (handles x402 payments)
+# Terminal 1 - facilitator (handles x402 payments)
 cd ai-agent-marketplace
 AGENT_PRIVATE_KEY=0x... \
 FACILITATOR_PRIVATE_KEY=0x... \
 PORT=3000 \
 node backend-ref/example-agent-server.js
 
-# Terminal 2 — gatekeeper (signs incidents for disputes)
+# Terminal 2 - gatekeeper (signs incidents for disputes)
 GATEKEEPER_PRIVATE_KEY=0x... \
 PORT=3001 \
 node backend-ref/gatekeeper-server.js
 ```
 
-The gatekeeper key MUST match the one set at contract deploy time:
-`0xdb4135c6884D81497769440788306EE985DD1A6e`. Hit `http://localhost:3001/health` to verify.
+The gatekeeper key MUST match the `GATEKEEPER_ADDRESS` constant configured on
+`ReputationContract` at deploy time. Fetch the expected address from the chain
+with `oc.w3.eth.contract(...).functions.GATEKEEPER_ADDRESS().call()` (or the
+equivalent Solidity getter) and confirm the running signer derives from a
+matching private key. Hit `http://localhost:3001/health` to verify the service
+is reachable.
 
 ### 2. Start Flask with proxy env
 
@@ -90,7 +94,7 @@ python app.py
 
 ### 3. Open browser
 
-http://localhost:5000 — everything works end-to-end on live Fuji.
+http://localhost:5000 - everything works end-to-end on live Fuji.
 
 ## Demo flows
 
@@ -113,7 +117,7 @@ http://localhost:5000 — everything works end-to-end on live Fuji.
 ### Seller staking
 1. Go to `/seller/dashboard`
 2. "On-chain stake" card auto-loads current stake
-3. Enter amount → "Stake USDC" signs tx directly (not via facilitator — staker is msg.sender)
+3. Enter amount → "Stake USDC" signs tx directly (not via facilitator - staker is msg.sender)
 
 ### Dispute
 1. Go to `/order/<id>`
@@ -121,7 +125,7 @@ http://localhost:5000 — everything works end-to-end on live Fuji.
 3. Enter reason + severity
 4. POSTs to `/api/dispute/submit` → Flask → gatekeeper service
 5. Gatekeeper signs + submits `ReputationContract.submitIncident(agentId, affectedUser, severity, sig)`
-6. For severity=2, the contract cascades to `StakingSlashing.slash(agentId, affectedUser)` — 60/40 distribution
+6. For severity=2, the contract cascades to `StakingSlashing.slash(agentId, affectedUser)` - 60/40 distribution
 
 ### Auction
 1. Go to `/marketplace`
@@ -130,7 +134,7 @@ http://localhost:5000 — everything works end-to-end on live Fuji.
 4. Directly signs `AuctionMarket.postBid(...)` from the connected wallet
 
 ### Live feed
-Home page (`/`) shows "LIVE ON-CHAIN ACTIVITY" — polls 6 event types every 12 seconds from the three markets. Click any event to open its tx on Snowtrace.
+Home page (`/`) shows "LIVE ON-CHAIN ACTIVITY" - polls 6 event types every 12 seconds from the three markets. Click any event to open its tx on Snowtrace.
 
 ## Mock fallback
 
