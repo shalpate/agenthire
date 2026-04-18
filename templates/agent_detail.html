@@ -64,37 +64,60 @@
             </div>
             <script>
             (async () => {
-              // Agent IDs on-chain start at 1; Flask mock IDs happen to align.
               const ocAgentId = {{ agent.id }};
-              try {
-                if (!window.AgentHire || !window.AgentHire.getAgentProfile) return;
-                const p = await window.AgentHire.getAgentProfile(ocAgentId);
-                if (!p || !p.active) return; // agent not registered on-chain, hide
-                const b = document.getElementById('onchain-rep-banner');
+              const b = document.getElementById('onchain-rep-banner');
+              const fillBanner = ({ score, tier, tasks, incidents, stake, simulated }) => {
                 b.style.display = 'flex';
-                document.getElementById('oc-score').textContent = p.reputation.score + '/1000';
-                document.getElementById('oc-tier').textContent = p.reputation.tier;
-                document.getElementById('oc-tasks').textContent = p.reputation.tasks;
-                document.getElementById('oc-inc').textContent = p.reputation.incidents;
-                document.getElementById('oc-stake').textContent = p.stake.amountUSDC.toFixed(0) + ' USDC';
+                document.getElementById('oc-score').textContent = score + '/1000';
+                document.getElementById('oc-tier').textContent = 'T' + tier;
+                document.getElementById('oc-tasks').textContent = Number(tasks).toLocaleString();
+                document.getElementById('oc-inc').textContent = incidents;
+                document.getElementById('oc-stake').textContent = Number(stake).toLocaleString() + ' USDC';
+                if (simulated) {
+                  const tag = document.createElement('span');
+                  tag.textContent = 'sim';
+                  tag.title = 'Simulated profile (no live signer configured)';
+                  tag.style.cssText = 'padding:1px 6px; border-radius:999px; background:var(--surface-0); color:var(--text-3); font-size:.5625rem; text-transform:uppercase; letter-spacing:.06em;';
+                  b.appendChild(tag);
+                }
+              };
+
+              // 1) Try the live chain first (works when real signer keys are present).
+              let filled = false;
+              try {
+                if (window.AgentHire && window.AgentHire.getAgentProfile) {
+                  const p = await window.AgentHire.getAgentProfile(ocAgentId);
+                  if (p && p.active) {
+                    fillBanner({
+                      score: p.reputation.score, tier: p.reputation.tier,
+                      tasks: p.reputation.tasks, incidents: p.reputation.incidents,
+                      stake: p.stake.amountUSDC.toFixed(0), simulated: false,
+                    });
+                    filled = true;
+                  }
+                }
+              } catch (e) { /* fall through to simulation */ }
+
+              // 2) Fall back to the simulated profile from the Flask backend.
+              if (!filled) {
+                try {
+                  const sim = await fetch(`/api/agents/${ocAgentId}/profile`).then(r => r.ok ? r.json() : null);
+                  if (sim) {
+                    fillBanner({
+                      score: sim.score, tier: sim.tier,
+                      tasks: sim.tasksCompleted, incidents: sim.repIncidentCount,
+                      stake: sim.stakedUSDCDisplay, simulated: true,
+                    });
+                    filled = true;
+                  }
+                } catch (e) { console.warn('sim profile fetch failed:', e); }
+              }
+
+              // Link to Snowtrace either way.
+              try {
                 const info = await fetch('/api/onchain/info').then(r => r.json()).catch(() => null);
                 if (info) document.getElementById('oc-link').href = info.explorer + '/address/' + info.contracts.ReputationContract;
-                // Per-category tiers
-                const CATS = ['General', 'Dev', 'Research', 'Finance', 'Content', 'Security'];
-                const provider = new ethers.JsonRpcProvider(window.AGENTHIRE_CHAIN.rpcUrl);
-                const rep = new ethers.Contract(window.AGENTHIRE_ADDRESSES.ReputationContract, window.AGENTHIRE_ABIS.ReputationContract, provider);
-                const badges = [];
-                for (let cid = 0; cid < CATS.length; cid++) {
-                  try {
-                    const tier = Number(await rep.getCategoryTier(ocAgentId, cid));
-                    if (tier > 1) badges.push(`<span style="padding:2px 6px; background:var(--surface-0); border:1px solid var(--border-2); border-radius:999px;">${CATS[cid]} T${tier}</span>`);
-                  } catch (_) {}
-                }
-                if (badges.length) {
-                  document.getElementById('oc-categories').style.display = 'block';
-                  document.getElementById('oc-cat-badges').innerHTML = badges.join('');
-                }
-              } catch (e) { console.warn('on-chain rep read failed:', e); }
+              } catch (_) {}
             })();
             </script>
           </div>
@@ -186,6 +209,40 @@
             <span class="text-sm">{{ cap }}</span>
           </div>
           {% endfor %}
+        </div>
+      </div>
+
+      <!-- On-chain activity — price history + recent transactions -->
+      <div class="card mb-24" id="oc-activity-card">
+        <div class="flex-between mb-16">
+          <div>
+            <h3 style="margin-bottom:4px;">On-chain activity</h3>
+            <p class="text-sm text-muted" style="margin:0;">Surge-adjusted price curve and the agent's latest settlements, stakes, and incidents.</p>
+          </div>
+          <span class="live-indicator"><span class="live-dot"></span> Live</span>
+        </div>
+        <div style="height:220px; margin-bottom:20px;"><canvas id="priceHistoryChart"></canvas></div>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:12px; margin-bottom:20px;">
+          <div style="background:var(--card-2); border:1px solid var(--border); border-radius:8px; padding:10px 14px;">
+            <div class="text-xs text-muted" style="text-transform:uppercase; letter-spacing:.06em;">Current surge</div>
+            <div class="font-bold" id="oc-stat-surge" style="font-size:1.1rem; margin-top:4px;">—</div>
+          </div>
+          <div style="background:var(--card-2); border:1px solid var(--border); border-radius:8px; padding:10px 14px;">
+            <div class="text-xs text-muted" style="text-transform:uppercase; letter-spacing:.06em;">Utilization</div>
+            <div class="font-bold" id="oc-stat-util" style="font-size:1.1rem; margin-top:4px;">—</div>
+          </div>
+          <div style="background:var(--card-2); border:1px solid var(--border); border-radius:8px; padding:10px 14px;">
+            <div class="text-xs text-muted" style="text-transform:uppercase; letter-spacing:.06em;">30d revenue</div>
+            <div class="font-bold" id="oc-stat-revenue" style="font-size:1.1rem; margin-top:4px;">—</div>
+          </div>
+          <div style="background:var(--card-2); border:1px solid var(--border); border-radius:8px; padding:10px 14px;">
+            <div class="text-xs text-muted" style="text-transform:uppercase; letter-spacing:.06em;">Stake slashed</div>
+            <div class="font-bold" id="oc-stat-slashed" style="font-size:1.1rem; margin-top:4px;">—</div>
+          </div>
+        </div>
+        <div style="font-family:var(--font-mono); font-size:.625rem; text-transform:uppercase; letter-spacing:.09em; color:var(--text-3); margin-bottom:10px;">Recent transactions</div>
+        <div id="oc-tx-list" style="display:flex; flex-direction:column; gap:6px; font-family:var(--font-mono); font-size:.75rem;">
+          <div class="text-muted">Loading on-chain activity…</div>
         </div>
       </div>
 
@@ -425,5 +482,89 @@
   {% if not agent.surge_active %}
   document.getElementById('modal-surge-row').style.display = 'none';
   {% endif %}
+
+  // ── On-chain activity: price history chart + recent transactions ──────────
+  (async () => {
+    const agentId = {{ agent.id }};
+    try {
+      const [priceRes, profile, quote] = await Promise.all([
+        fetch(`/api/agents/${agentId}/price-history?hours=24`).then(r => r.json()),
+        fetch(`/api/agents/${agentId}/profile`).then(r => r.ok ? r.json() : null),
+        fetch(`/api/pricing/quote/${agentId}`).then(r => r.ok ? r.json() : null),
+      ]);
+
+      // Chart
+      if (priceRes && priceRes.points && priceRes.points.length) {
+        const labels = priceRes.points.map(p => {
+          const d = new Date(p.ts * 1000);
+          return d.getUTCHours().toString().padStart(2,'0') + ':' + d.getUTCMinutes().toString().padStart(2,'0');
+        });
+        const prices = priceRes.points.map(p => p.price);
+        const surges = priceRes.points.map(p => p.surge);
+        if (typeof makeLineChart === 'function') {
+          makeLineChart('priceHistoryChart', labels, [
+            { label: 'Price (USDC/token)', data: prices, borderColor: '#7fb3ff', backgroundColor: 'rgba(127,179,255,0.08)', tension: 0.3, yAxisID: 'y' },
+            { label: 'Surge ×', data: surges, borderColor: '#ffdb7f', backgroundColor: 'rgba(255,219,127,0.04)', tension: 0.3, yAxisID: 'y1' },
+          ], {
+            scales: {
+              y:  { position: 'left',  ticks: { callback: v => '$' + Number(v).toFixed(4) } },
+              y1: { position: 'right', ticks: { callback: v => Number(v).toFixed(2) + '×' }, grid: { drawOnChartArea: false } },
+            },
+            plugins: { legend: { labels: { boxWidth: 10, color: '#9aa4b2' } } },
+          });
+        }
+      }
+
+      // Stat cards
+      if (quote) {
+        document.getElementById('oc-stat-surge').textContent = quote.surgeMultiplier.toFixed(2) + '×';
+        document.getElementById('oc-stat-util').textContent  = (quote.utilization * 100).toFixed(0) + '%';
+      }
+      if (profile) {
+        document.getElementById('oc-stat-revenue').textContent = '$' + Number(profile.totalRevenueUSDC || 0).toLocaleString(undefined, { maximumFractionDigits: 0 });
+        // Count slash events
+        const slashAmt = (profile.recentTransactions || [])
+          .filter(tx => tx.kind === 'slash').reduce((s, t) => s + (t.amountUSDCDisplay || 0), 0);
+        document.getElementById('oc-stat-slashed').textContent = slashAmt > 0 ? '$' + slashAmt.toFixed(0) : '—';
+      }
+
+      // Transactions list
+      const txRes = await fetch(`/api/agents/${agentId}/transactions?limit=12`).then(r => r.ok ? r.json() : null);
+      const list = document.getElementById('oc-tx-list');
+      if (txRes && txRes.transactions && txRes.transactions.length) {
+        const KIND = {
+          deposit: { label: 'Deposit', color: '#7fb3ff' },
+          settle:  { label: 'Settlement', color: '#5ade7a' },
+          refund:  { label: 'Refund', color: '#ffdb7f' },
+          stake:   { label: 'Stake', color: '#7fb3ff' },
+          unstake: { label: 'Unstake', color: '#ffdb7f' },
+          slash:   { label: 'Slash', color: '#ff7f7f' },
+          register:{ label: 'Register', color: '#9aa4b2' },
+          incident:{ label: 'Incident', color: '#ff7f7f' },
+          bid_post:{ label: 'Bid Posted', color: '#7fb3ff' },
+          bid_claim:{ label: 'Bid Claim', color: '#5ade7a' },
+          bid_cancel:{ label: 'Bid Cancel', color: '#ffdb7f' },
+          listing_update: { label: 'Listing', color: '#9aa4b2' },
+        };
+        list.innerHTML = txRes.transactions.map(tx => {
+          const k = KIND[tx.kind] || { label: tx.kind, color: '#9aa4b2' };
+          const age = Math.max(0, Math.floor((Date.now()/1000 - tx.ts)));
+          const ago = age < 60 ? age + 's ago' : age < 3600 ? Math.floor(age/60)+'m ago' : age < 86400 ? Math.floor(age/3600)+'h ago' : Math.floor(age/86400)+'d ago';
+          const amt = tx.amountUSDCDisplay ? '$' + Number(tx.amountUSDCDisplay).toLocaleString(undefined, { maximumFractionDigits: 2 }) : '';
+          const short = (s) => s ? (s.slice(0,6) + '…' + s.slice(-4)) : '';
+          return `<div style="display:grid; grid-template-columns:90px 1fr auto auto; align-items:center; gap:12px; padding:6px 8px; background:var(--card-2); border:1px solid var(--border); border-radius:6px;">
+            <span style="color:${k.color}; font-weight:700;">${k.label}</span>
+            <span class="text-muted">${short(tx.txHash)}</span>
+            <span>${amt}</span>
+            <span class="text-muted text-xs">${ago}</span>
+          </div>`;
+        }).join('');
+      } else {
+        list.innerHTML = '<div class="text-muted">No activity yet.</div>';
+      }
+    } catch (e) {
+      console.warn('agent-detail on-chain activity load failed:', e);
+    }
+  })();
 </script>
 {% endblock %}

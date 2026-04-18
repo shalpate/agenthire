@@ -72,15 +72,55 @@
       });
 
       all.sort((a,b) => b.block - a.block);
-      const rendered = all.slice(0, MAX_EVENTS).map(e => `
-        <a href="${snowtraceTx(e.tx)}" target="_blank" style="display:flex; align-items:center; gap:10px; padding:8px 10px; border-bottom:1px solid var(--border-2); color:var(--text-1); text-decoration:none; font-family:var(--font-mono); font-size:.6875rem;">
-          <span style="color:${e.color}; width:14px; text-align:center;">${e.icon}</span>
-          <span style="flex:1;">${e.text}</span>
-          <span style="color:var(--text-3); font-size:.625rem;">block ${e.block}</span>
-        </a>
-      `).join('');
-      feed.innerHTML = rendered || `<div style="padding:14px; color:var(--text-3); font-family:var(--font-mono); font-size:.75rem;">No recent on-chain activity.</div>`;
-    } catch (e) { console.warn('tx feed failed:', e); }
+      if (all.length) {
+        feed.innerHTML = all.slice(0, MAX_EVENTS).map(e => `
+          <a href="${snowtraceTx(e.tx)}" target="_blank" style="display:flex; align-items:center; gap:10px; padding:8px 10px; border-bottom:1px solid var(--border-2); color:var(--text-1); text-decoration:none; font-family:var(--font-mono); font-size:.6875rem;">
+            <span style="color:${e.color}; width:14px; text-align:center;">${e.icon}</span>
+            <span style="flex:1;">${e.text}</span>
+            <span style="color:var(--text-3); font-size:.625rem;">block ${e.block}</span>
+          </a>
+        `).join('');
+      } else {
+        await renderSimulated(feed);
+      }
+    } catch (e) {
+      console.warn('tx feed (chain) failed:', e);
+      try { await renderSimulated(feed); } catch (_) {}
+    }
+  }
+
+  // Fallback: render the simulated activity feed from the Flask backend.
+  // Keeps the UI alive when the Fuji RPC returns zero recent events or no
+  // signer keys are configured.
+  async function renderSimulated(feed) {
+    const res = await fetch('/api/transactions?limit=' + MAX_EVENTS);
+    if (!res.ok) return;
+    const { transactions } = await res.json();
+    if (!transactions || !transactions.length) {
+      feed.innerHTML = `<div style="padding:14px; color:var(--text-3); font-family:var(--font-mono); font-size:.75rem;">No recent on-chain activity.</div>`;
+      return;
+    }
+    const KIND = {
+      deposit:  { icon: '$',  color: 'var(--green)',  verb: 'Deposit' },
+      settle:   { icon: '✓', color: 'var(--green)',  verb: 'Settled'  },
+      refund:   { icon: '↩', color: 'var(--amber)',  verb: 'Refund'   },
+      stake:    { icon: '▲', color: '#7fb3ff',       verb: 'Stake'    },
+      unstake:  { icon: '▼', color: 'var(--amber)',  verb: 'Unstake'  },
+      slash:    { icon: '!', color: '#ff7f7f',       verb: 'Slash'    },
+      register: { icon: '◆', color: 'var(--text-2)', verb: 'Register' },
+      bid_post: { icon: '⚡', color: 'var(--amber)',  verb: 'Bid'      },
+      bid_claim:{ icon: '⚡', color: 'var(--green)',  verb: 'Claim'    },
+    };
+    feed.innerHTML = transactions.map(tx => {
+      const k = KIND[tx.kind] || { icon: '•', color: 'var(--text-3)', verb: tx.kind };
+      const amt = tx.amountUSDCDisplay ? '$' + Number(tx.amountUSDCDisplay).toFixed(2) + ' USDC' : '';
+      const short = tx.txHash ? tx.txHash.slice(0,8) + '…' + tx.txHash.slice(-4) : '';
+      return `<a href="#" onclick="return false;" style="display:flex; align-items:center; gap:10px; padding:8px 10px; border-bottom:1px solid var(--border-2); color:var(--text-1); text-decoration:none; font-family:var(--font-mono); font-size:.6875rem;">
+        <span style="color:${k.color}; width:14px; text-align:center;">${k.icon}</span>
+        <span style="flex:1;">${k.verb} · agent #${tx.agentId || '—'} · ${amt}</span>
+        <span style="color:var(--text-3); font-size:.625rem;">${short}</span>
+      </a>`;
+    }).join('');
   }
 
   document.addEventListener('DOMContentLoaded', () => {

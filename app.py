@@ -900,6 +900,10 @@ def seller_create():
         if missing:
             return jsonify({"error": f"missing fields: {missing}"}), 400
         new_id = max(a["id"] for a in AGENTS) + 1
+        stake_tier = int(data.get("stake_tier", 1) or 1)
+        stake_tier = max(1, min(3, stake_tier))
+        stake_amount_usdc = {1: 100, 2: 500, 3: 2000}[stake_tier]
+
         new_agent = {
             "id": new_id,
             "name": data["name"],
@@ -924,6 +928,8 @@ def seller_create():
             "tags": [t.strip() for t in data.get("tags", "").split(",") if t.strip()],
             "capabilities": [c.strip() for c in data.get("capabilities", "").split("\n") if c.strip()],
             "avg_completion_time": data.get("avg_completion_time", " - "),
+            "stake_tier": stake_tier,
+            "stake_usdc": stake_amount_usdc,
         }
         AGENTS.append(new_agent)
         VERIFICATION_QUEUE.append({
@@ -1090,16 +1096,29 @@ def admin_payouts():
 @app.route("/api/price/<int:agent_id>")
 @limiter.limit("60/minute")
 def api_price(agent_id):
-    agent = next((a for a in AGENTS if a["id"] == agent_id), None)
-    if not agent:
+    from models import Agent as AgentModel, PricePoint
+    from simulation import current_price
+    agent_row = AgentModel.query.get(agent_id)
+    if not agent_row:
         return jsonify({"error": "not found"}), 404
-    base = agent["current_price"]
-    jitter = random.uniform(-0.0005, 0.0005)
-    price  = max(agent["min_price"], min(agent["max_price"], base + jitter))
+    # Pull the most-recent simulation point for utilization / demand signal.
+    latest = (
+        PricePoint.query
+        .filter_by(agent_id=agent_id)
+        .order_by(PricePoint.ts.desc())
+        .first()
+    )
+    util = latest.utilization if latest else 0.4
+    demand = min(1.0, util + random.uniform(-0.05, 0.1))
+    quote = current_price(agent_row, utilization=util, demand=demand)
     return jsonify({
-        "price": round(price, 5),
-        "surge": agent["surge_active"],
-        "multiplier": agent["surge_multiplier"],
+        "price": quote["currentPrice"],
+        "surge": quote["surgeActive"],
+        "multiplier": quote["surgeMultiplier"],
+        "minPrice": quote["minPrice"],
+        "maxPrice": quote["maxPrice"],
+        "utilization": quote["utilization"],
+        "demand": quote["demand"],
     })
 
 # ── x402 / on-chain integration ────────────────────────────────────────────────
@@ -1376,7 +1395,11 @@ def api_agent_reputation(agent_id):
             return jsonify(oc.get_credit_profile(agent_id))
         except Exception as e:
             return jsonify({"error": str(e)}), 502
-    return jsonify({"error": "no on-chain backend configured"}), 503
+    from simulation import get_credit_profile
+    data = get_credit_profile(agent_id)
+    if data is None:
+        return jsonify({"error": "not found"}), 404
+    return jsonify(data)
 
 
 @app.route("/api/agents/<int:agent_id>/stake")
@@ -1387,7 +1410,88 @@ def api_agent_stake(agent_id):
             return jsonify(oc.get_stake(agent_id))
         except Exception as e:
             return jsonify({"error": str(e)}), 502
-    return jsonify({"error": "no on-chain backend configured"}), 503
+    from simulation import get_stake
+    data = get_stake(agent_id)
+    if data is None:
+        return jsonify({"error": "not found"}), 404
+    return jsonify(data)
+
+
+@app.route("/api/agents/<int:agent_id>/profile")
+def api_agent_profile(agent_id):
+    """Full on-chain profile — rep + stake + recent activity in one call."""
+    from simulation import get_full_profile
+    data = get_full_profile(agent_id)
+    if data is None:
+        return jsonify({"error": "not found"}), 404
+    return jsonify(data)
+
+
+@app.route("/api/agents/<int:agent_id>/price-history")
+def api_agent_price_history(agent_id):
+    from simulation import get_price_history
+    try:
+        hours = min(168, max(1, int(request.args.get("hours", 24))))
+    except ValueError:
+        hours = 24
+    return jsonify({"agentId": agent_id, "hours": hours, "points": get_price_history(agent_id, hours)})
+
+
+@app.route("/api/agents/<int:agent_id>/transactions")
+def api_agent_transactions(agent_id):
+    from simulation import get_transactions
+    try:
+        limit = min(200, max(1, int(request.args.get("limit", 25))))
+    except ValueError:
+        limit = 25
+    kinds_raw = request.args.get("kinds")
+    kinds = [k for k in (kinds_raw.split(",") if kinds_raw else []) if k]
+    return jsonify({
+        "agentId": agent_id,
+        "transactions": get_transactions(agent_id=agent_id, kinds=kinds or None, limit=limit),
+    })
+
+
+@app.route("/api/transactions")
+def api_transactions():
+    """Global on-chain activity feed across all agents."""
+    from simulation import get_transactions
+    try:
+        limit = min(200, max(1, int(request.args.get("limit", 50))))
+    except ValueError:
+        limit = 50
+    kinds_raw = request.args.get("kinds")
+    kinds = [k for k in (kinds_raw.split(",") if kinds_raw else []) if k]
+    return jsonify({"transactions": get_transactions(kinds=kinds or None, limit=limit)})
+
+
+@app.route("/api/pricing/quote/<int:agent_id>")
+def api_pricing_quote(agent_id):
+    """
+    Surge-adjusted quote for a single agent. Callers can pass explicit
+    utilization/demand; otherwise the latest simulated PricePoint is used.
+    """
+    from models import Agent as AgentModel, PricePoint
+    from simulation import current_price
+    agent_row = AgentModel.query.get(agent_id)
+    if not agent_row:
+        return jsonify({"error": "not found"}), 404
+    try:
+        util = float(request.args.get("utilization")) if request.args.get("utilization") else None
+        demand = float(request.args.get("demand")) if request.args.get("demand") else None
+    except ValueError:
+        util = demand = None
+    if util is None or demand is None:
+        latest = (
+            PricePoint.query.filter_by(agent_id=agent_id)
+            .order_by(PricePoint.ts.desc()).first()
+        )
+        if latest:
+            util = util if util is not None else latest.utilization
+            demand = demand if demand is not None else min(1.0, latest.utilization + 0.05)
+    util = util if util is not None else 0.4
+    demand = demand if demand is not None else 0.4
+    return jsonify(current_price(agent_row, utilization=util, demand=demand))
 
 
 # ── Escrow session management ───────────────────────────────────────────────────
@@ -1849,6 +1953,8 @@ with app.app_context():
     try:
         from models import seed_db
         seed_db(app)
+        from simulation import seed_simulation
+        seed_simulation(app)
         log.info("Database ready.")
     except Exception as _seed_err:
         log.warning("DB seed skipped: %s", _seed_err)

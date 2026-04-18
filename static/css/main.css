@@ -20,12 +20,14 @@
   --text-3:    #666666;
   --text-4:    #444444;
 
-  /* Brand red - primary actions, CTAs, logo accent */
-  --red:           #E84142;
-  --red-dark:      #A32D2D;
-  --red-darkest:   #501313;
-  --red-dim:       rgba(232,65,66,.12);
-  --red-border:    rgba(232,65,66,.30);
+  /* Brand red - primary actions, CTAs, logo accent.
+     Tuned to match the mascot mark: deep crimson, reads sinister on charcoal. */
+  --red:           #CE2E2E;
+  --red-hot:       #FF4A4A;  /* eye-glow / hover accent */
+  --red-dark:      #8A1E1E;
+  --red-darkest:   #420B0B;
+  --red-dim:       rgba(206,46,46,.12);
+  --red-border:    rgba(206,46,46,.30);
 
   /* Green - verified / trust / success only */
   --green:         #22C55E;
@@ -43,11 +45,11 @@
   --blue-border:   rgba(59,130,246,.22);
 
   /* Compatibility aliases */
-  --accent:    #E84142;
-  --accent-2:  #E84142;
+  --accent:    #CE2E2E;
+  --accent-2:  #CE2E2E;
   --success:   #22C55E;
   --warning:   #F59E0B;
-  --error:     #E84142;
+  --error:     #CE2E2E;
 
   /* Geometry */
   --radius:    6px;
@@ -207,7 +209,7 @@ p  { color: var(--text-2); }
   -webkit-backdrop-filter: blur(20px);
   border-bottom: 1px solid var(--border);
   padding: 0 40px;
-  height: 68px;
+  height: 80px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -227,10 +229,11 @@ p  { color: var(--text-2); }
 /* ── Logo SVGs ─────────────────────────────────────────────────────────── */
 .logo-lockup {
   display: block;
-  height: 52px;
+  height: 60px;
   width: auto;
   flex-shrink: 0;
 }
+@media (max-width: 720px) { .logo-lockup { height: 44px; } }
 
 .logo-mark-svg {
   display: block;

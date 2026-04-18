@@ -181,7 +181,9 @@ function startLivePriceTicker(agentId) {
 // deselect the verification tier on multi-step forms like /seller/create.
 document.querySelectorAll('.tier-card').forEach(card => {
   card.addEventListener('click', () => {
-    const group = card.closest('.form-step') || card.closest('.grid-2') || document;
+    // Scope selection to the closest grid so sibling groups (billing / verify /
+    // stake) don't clear each other's selection inside the same form step.
+    const group = card.closest('.grid-2, .grid-3, .grid-4') || card.closest('.form-step') || document;
     group.querySelectorAll('.tier-card').forEach(c => c.classList.remove('selected'));
     card.classList.add('selected');
     const tier = card.dataset.tier;
@@ -191,6 +193,12 @@ document.querySelectorAll('.tier-card').forEach(card => {
       if (hidden) hidden.value = tier;
       const priceEl = document.getElementById('verification-price');
       if (priceEl) priceEl.textContent = tier === 'thorough' ? '$50.00 USDC' : '$10.00 USDC';
+    }
+    // Stake tier selection — writes to #selected-stake for the create form.
+    const stake = card.dataset.stake;
+    if (stake) {
+      const hidden = document.getElementById('selected-stake');
+      if (hidden) hidden.value = stake;
     }
   });
 });

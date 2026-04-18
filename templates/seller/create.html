@@ -211,6 +211,63 @@
         <p class="text-xs text-muted mt-8">Paid in USDC via your connected wallet. Non-refundable.</p>
       </div>
     </div>
+
+    <!-- Required Stake -->
+    <div class="card" style="border-color: var(--red-border);">
+      <div class="flex-between mb-12">
+        <h3 style="margin:0;">Required Stake</h3>
+        <span class="badge" style="background:var(--red-dim); color:var(--red); border:1px solid var(--red-border);">StakingSlashing.sol</span>
+      </div>
+      <p class="text-sm mb-20">Post USDC capital before your listing goes live. Severe buyer disputes (gatekeeper-signed) slash this stake. The stake amount you choose determines the highest <b style="color:var(--text);">auction tier</b> you can serve.</p>
+
+      <input type="hidden" id="selected-stake" name="stake_tier" value="">
+      <div class="grid-3 gap-12 mb-16">
+        <label class="tier-card" data-stake="1" for="stake-t1">
+          <input type="radio" name="stake-radio" id="stake-t1" value="1" style="display:none;">
+          <div style="font-family:var(--font-mono); font-size:.625rem; letter-spacing:.1em; text-transform:uppercase; color:var(--red);">Tier 1</div>
+          <div class="tier-price" style="margin-top:8px;">100 <span style="font-size:.875rem; font-weight:400; color:var(--text-2);">USDC</span></div>
+          <div class="font-bold mb-8" style="margin-top:6px;">Baseline</div>
+          <div class="tier-feature">Accept bids with minTier = 1</div>
+          <div class="tier-feature">All categories</div>
+          <div class="tier-feature">Slash cap: 100 USDC total</div>
+        </label>
+        <label class="tier-card" data-stake="2" for="stake-t2">
+          <input type="radio" name="stake-radio" id="stake-t2" value="2" style="display:none;">
+          <div style="font-family:var(--font-mono); font-size:.625rem; letter-spacing:.1em; text-transform:uppercase; color:var(--red);">Tier 2</div>
+          <div class="tier-price" style="margin-top:8px;">500 <span style="font-size:.875rem; font-weight:400; color:var(--text-2);">USDC</span></div>
+          <div class="font-bold mb-8" style="margin-top:6px;">Skilled</div>
+          <div class="tier-feature">Gated: score ≥ 700 · 50+ tasks</div>
+          <div class="tier-feature">Accept bids with minTier ≤ 2</div>
+          <div class="tier-feature">Higher deposit caps</div>
+        </label>
+        <label class="tier-card" data-stake="3" for="stake-t3">
+          <input type="radio" name="stake-radio" id="stake-t3" value="3" style="display:none;">
+          <div style="font-family:var(--font-mono); font-size:.625rem; letter-spacing:.1em; text-transform:uppercase; color:var(--red);">Tier 3</div>
+          <div class="tier-price" style="margin-top:8px;">2,000 <span style="font-size:.875rem; font-weight:400; color:var(--text-2);">USDC</span></div>
+          <div class="font-bold mb-8" style="margin-top:6px;">Elite</div>
+          <div class="tier-feature">Gated: score ≥ 900 · 200+ tasks</div>
+          <div class="tier-feature">Accept every bid · unlimited cap</div>
+          <div class="tier-feature">Priority in UI ranking</div>
+        </label>
+      </div>
+
+      <div class="card card-sm" style="background:var(--card-2);">
+        <div class="flex-between mb-8 text-sm">
+          <span class="text-muted">Slash schedule per severe incident</span>
+          <span class="font-mono" style="color:var(--red);">25% → 75% → 100% + ban</span>
+        </div>
+        <div class="flex-between mb-8 text-sm">
+          <span class="text-muted">Distribution</span>
+          <span class="font-mono">60% buyer · 40% insurance</span>
+        </div>
+        <div class="flex-between text-sm">
+          <span class="text-muted">Unstake delay</span>
+          <span class="font-mono">7 days</span>
+        </div>
+      </div>
+
+      <p class="text-xs text-muted mt-12">Stake is held by <span class="font-mono">StakingSlashing</span>. You recover unspent stake anytime after the 7-day unstake window — never by AgentHire or the buyer.</p>
+    </div>
   </div>
 
   <!-- Step 4: Review -->
@@ -220,22 +277,32 @@
       <div class="flex-col gap-16">
         <div class="card card-sm" style="background:var(--card-2);">
           <div class="font-bold mb-12">Agent Summary</div>
-          <div class="flex-between mb-8 text-sm"><span class="text-muted">Name</span><span>Your Agent Name</span></div>
-          <div class="flex-between mb-8 text-sm"><span class="text-muted">Category</span><span>Development</span></div>
-          <div class="flex-between mb-8 text-sm"><span class="text-muted">Billing</span><span>Per Token</span></div>
-          <div class="flex-between mb-8 text-sm"><span class="text-muted">Price Range</span><span>$0.002 - $0.010</span></div>
-          <div class="flex-between text-sm"><span class="text-muted">Verification</span><span>Basic ($10 USDC)</span></div>
+          <div class="flex-between mb-8 text-sm"><span class="text-muted">Name</span><span id="review-name">Your Agent Name</span></div>
+          <div class="flex-between mb-8 text-sm"><span class="text-muted">Category</span><span id="review-category">Development</span></div>
+          <div class="flex-between mb-8 text-sm"><span class="text-muted">Billing</span><span id="review-billing">Per Token</span></div>
+          <div class="flex-between mb-8 text-sm"><span class="text-muted">Price Range</span><span id="review-range">$0.002 - $0.010</span></div>
+          <div class="flex-between mb-8 text-sm"><span class="text-muted">Verification</span><span id="review-verification">Basic ($10 USDC)</span></div>
+          <div class="flex-between text-sm"><span class="text-muted">Stake Tier</span><span id="review-stake">Tier 1 (100 USDC)</span></div>
         </div>
 
         <div class="escrow-notice">
           <span class="icon">ℹ</span>
-          <p>By submitting, you agree to AgentHire's terms. Your verification fee will be charged upon submission. Your listing will be live once verification passes.</p>
+          <p>By submitting, you agree to AgentHire's terms. The verification fee is spent. The stake is deposited into <span class="font-mono">StakingSlashing.sol</span> — slashable on severe incidents, otherwise refundable after a 7-day unstake delay.</p>
         </div>
 
         <div class="card card-sm" style="background: rgba(34,197,94,.04); border-color: rgba(34,197,94,.15);">
+          <div class="flex-between mb-8">
+            <span class="text-sm text-muted">Verification fee (non-refundable)</span>
+            <span class="font-mono" id="review-fee-val">$10.00 USDC</span>
+          </div>
+          <div class="flex-between mb-10">
+            <span class="text-sm text-muted">Stake deposit (refundable after 7d)</span>
+            <span class="font-mono" id="review-stake-val">$100.00 USDC</span>
+          </div>
+          <div class="divider"></div>
           <div class="flex-between">
             <span class="font-bold">Total Due Today</span>
-            <span class="font-bold text-success">$10.00 USDC</span>
+            <span class="font-bold text-success" id="review-total">$110.00 USDC</span>
           </div>
         </div>
       </div>
@@ -303,14 +370,41 @@
           return;
         }
       }
-      // Step 3: require verification tier selected
+      // Step 3: require verification tier AND stake tier
       if (activeStep && activeStep.id === 'step-3') {
-        const sel = activeStep.querySelector('.tier-card.selected');
-        if (!sel) {
+        const verifySel = activeStep.querySelector('.tier-card[data-tier].selected');
+        const stakeSel  = activeStep.querySelector('.tier-card[data-stake].selected');
+        if (!verifySel) {
           showToast('Choose a verification tier before continuing.', 'warning');
           e.stopImmediatePropagation();
           return;
         }
+        if (!stakeSel) {
+          showToast('Choose a stake tier before continuing.', 'warning');
+          e.stopImmediatePropagation();
+          return;
+        }
+        // Populate review summary now so it shows real values on step 4.
+        const name     = (document.getElementById('create-name')?.value || '').trim() || 'Unnamed agent';
+        const category = document.getElementById('create-category')?.value || '—';
+        const billing  = document.querySelector('#step-2 .tier-card.selected[data-tier="per_token"], #step-2 .tier-card.selected[data-tier="per_minute"]');
+        const billingLbl = billing && billing.dataset.tier === 'per_minute' ? 'Per Minute' : 'Per Token';
+        const minV = parseFloat(document.getElementById('create-min-price')?.value) || 0;
+        const maxV = parseFloat(document.getElementById('create-max-price')?.value) || 0;
+        const verifyKind = verifySel.dataset.tier === 'thorough' ? 'Thorough' : 'Basic';
+        const verifyFee  = verifySel.dataset.tier === 'thorough' ? 50 : 10;
+        const stakeUSDC  = stakeSel.dataset.stake === '3' ? 2000 : stakeSel.dataset.stake === '2' ? 500 : 100;
+
+        const set = (id, val) => { const e = document.getElementById(id); if (e) e.textContent = val; };
+        set('review-name', name);
+        set('review-category', category);
+        set('review-billing', billingLbl);
+        set('review-range', `$${minV.toFixed(5)} - $${maxV.toFixed(5)}`);
+        set('review-verification', `${verifyKind} ($${verifyFee} USDC)`);
+        set('review-stake', `Tier ${stakeSel.dataset.stake} (${stakeUSDC.toLocaleString()} USDC)`);
+        set('review-fee-val', `$${verifyFee.toFixed(2)} USDC`);
+        set('review-stake-val', `$${stakeUSDC.toFixed(2)} USDC`);
+        set('review-total', `$${(verifyFee + stakeUSDC).toFixed(2)} USDC`);
       }
     }, true); // capture phase - runs before main.js's bubble listener
   })();
@@ -325,7 +419,8 @@
     const step2 = document.getElementById('step-2');
     const step3 = document.getElementById('step-3');
     const billingEl = step2 ? step2.querySelector('[data-tier].selected') : null;
-    const tierEl = step3 ? step3.querySelector('[data-tier].selected') : null;
+    const verifyEl = step3 ? step3.querySelector('.tier-card[data-tier].selected') : null;
+    const stakeEl  = step3 ? step3.querySelector('.tier-card[data-stake].selected') : null;
 
     const payload = {
       name:              byId('create-name'),
@@ -338,7 +433,8 @@
       billing:           billingEl ? billingEl.dataset.tier : 'per_token',
       min_price:         byId('create-min-price') || '0.002',
       max_price:         byId('create-max-price') || '0.010',
-      verification_tier: tierEl ? tierEl.dataset.tier : 'basic',
+      verification_tier: verifyEl ? verifyEl.dataset.tier : 'basic',
+      stake_tier:        stakeEl  ? Number(stakeEl.dataset.stake) : 1,
       seller:            (window.AgentHire && window.AgentHire.address) ? window.AgentHire.address : 'Unknown Seller',
     };
 

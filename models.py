@@ -296,6 +296,106 @@ class Review(db.Model):
         return f"<Review agent={self.agent_id} {self.rating}*>"
 
 
+# ── OnchainProfile ────────────────────────────────────────────────────────────
+# Mirrors what lives in ReputationContract + StakingSlashing for each agent.
+# When the real on-chain backend is configured, reads fall through to it;
+# otherwise the simulation layer reads/writes these rows as ground truth.
+
+class OnchainProfile(db.Model):
+    __tablename__ = "onchain_profiles"
+
+    agent_id          = db.Column(db.Integer, db.ForeignKey("agents.id"), primary_key=True)
+    wallet_address    = db.Column(db.String(64), nullable=False, default="")
+    # Reputation side
+    score             = db.Column(db.Integer, nullable=False, default=500)    # 0–1000
+    tier              = db.Column(db.Integer, nullable=False, default=1)      # 1/2/3
+    tasks_completed   = db.Column(db.Integer, nullable=False, default=0)
+    rep_incident_count= db.Column(db.Integer, nullable=False, default=0)
+    last_decay_ts     = db.Column(db.BigInteger, nullable=False, default=0)
+    # Staking side (USDC micro-units, 6 decimals)
+    staked_amount     = db.Column(db.BigInteger, nullable=False, default=0)
+    stake_incident_count = db.Column(db.Integer, nullable=False, default=0)
+    banned            = db.Column(db.Boolean, nullable=False, default=False)
+    # Listing side
+    accepting_work    = db.Column(db.Boolean, nullable=False, default=True)
+    created_at        = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    def to_dict(self) -> dict:
+        return {
+            "agentId": self.agent_id,
+            "wallet": self.wallet_address,
+            "score": self.score,
+            "tier": self.tier,
+            "tasksCompleted": self.tasks_completed,
+            "repIncidentCount": self.rep_incident_count,
+            "lastDecayTs": self.last_decay_ts,
+            "stakedUSDC": str(self.staked_amount),
+            "stakedUSDCDisplay": round(self.staked_amount / 1_000_000, 2),
+            "stakeIncidentCount": self.stake_incident_count,
+            "banned": self.banned,
+            "acceptingWork": self.accepting_work,
+        }
+
+
+# ── Transaction ───────────────────────────────────────────────────────────────
+# Full on-chain activity log. Populated from real chain events when a node
+# listener is wired up, or by the simulator for demo data.
+
+class ChainTransaction(db.Model):
+    __tablename__ = "chain_transactions"
+
+    id           = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    tx_hash      = db.Column(db.String(80), nullable=False, index=True)
+    block_number = db.Column(db.BigInteger, nullable=False, default=0)
+    ts           = db.Column(db.BigInteger, nullable=False, index=True)   # unix seconds
+    kind         = db.Column(db.String(24), nullable=False, index=True)
+    # deposit | settle | refund | stake | unstake | slash | register |
+    # listing_update | incident | bid_post | bid_claim | bid_cancel
+    agent_id     = db.Column(db.Integer, db.ForeignKey("agents.id"), nullable=True, index=True)
+    from_addr    = db.Column(db.String(64), nullable=False, default="")
+    to_addr      = db.Column(db.String(64), nullable=False, default="")
+    amount_usdc  = db.Column(db.BigInteger, nullable=False, default=0)    # micro-units
+    meta         = db.Column(db.Text, nullable=False, default="{}")        # JSON blob
+    created_at   = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    def to_dict(self) -> dict:
+        return {
+            "txHash": self.tx_hash,
+            "blockNumber": self.block_number,
+            "ts": self.ts,
+            "kind": self.kind,
+            "agentId": self.agent_id,
+            "from": self.from_addr,
+            "to": self.to_addr,
+            "amountUSDC": str(self.amount_usdc),
+            "amountUSDCDisplay": round(self.amount_usdc / 1_000_000, 4),
+            "meta": json.loads(self.meta or "{}"),
+        }
+
+
+# ── PricePoint ────────────────────────────────────────────────────────────────
+# One sample per agent per minute-ish. Drives the price-history chart and
+# the surge-pricing engine's rolling-window lookups.
+
+class PricePoint(db.Model):
+    __tablename__ = "price_points"
+
+    id              = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    agent_id        = db.Column(db.Integer, db.ForeignKey("agents.id"), nullable=False, index=True)
+    ts              = db.Column(db.BigInteger, nullable=False, index=True)
+    price_per_token = db.Column(db.Float, nullable=False)         # USDC
+    utilization     = db.Column(db.Float, nullable=False, default=0.0)
+    surge           = db.Column(db.Float, nullable=False, default=1.0)
+
+    def to_dict(self) -> dict:
+        return {
+            "ts": self.ts,
+            "price": self.price_per_token,
+            "utilization": self.utilization,
+            "surge": self.surge,
+        }
+
+
 # ── Seed helper ───────────────────────────────────────────────────────────────
 
 def seed_db(app) -> None:

@@ -112,7 +112,8 @@
   {% set cat_codes = {'Development':'DEV','Data & Analytics':'DAT','Content':'CON','Finance':'FIN','Research':'RES','Security':'SEC','Automation':'AUT'} %}
   <div class="mkt-grid">
     {% for agent in agents %}
-    <a href="/agent/{{ agent.id }}" class="mkt-card {{ 'is-verified' if agent.verified else 'is-unverified' }} {{ 'is-featured' if agent.featured }}">
+    <a href="/agent/{{ agent.id }}" class="mkt-card {{ 'is-verified' if agent.verified else 'is-unverified' }} {{ 'is-featured' if agent.featured }}"
+       data-agent-id="{{ agent.id }}">
 
       {# header #}
       <div class="mkt-card-head">
@@ -130,16 +131,15 @@
           <span class="mkt-tag mkt-tag-unverified">Unverified</span>
           {% endif %}
           {% if agent.featured %}<span class="mkt-tag mkt-tag-featured">★ Featured</span>{% endif %}
+          <span class="mkt-tag mkt-tag-tier" data-tier-badge style="display:none; background:var(--surface-1); color:var(--text-2); border:1px solid var(--border-2);"></span>
         </div>
       </div>
 
-      {# surge line — inline, compact, no heavy banner #}
-      {% if agent.surge_active %}
-      <div class="mkt-card-surge">
+      {# surge line — rendered by the updater below so it stays fresh #}
+      <div class="mkt-card-surge" data-surge-row style="display:none;">
         <span class="mkt-card-surge-dot"></span>
-        Surge · {{ agent.surge_multiplier }}×
+        Surge · <span data-surge-val>1.0</span>×
       </div>
-      {% endif %}
 
       {# description — fixed 2-line height #}
       <p class="mkt-card-desc">{{ agent.description }}</p>
@@ -159,7 +159,7 @@
       {# footer — price + rating, pinned to the bottom via grid template #}
       <div class="mkt-card-foot">
         <div class="mkt-card-price">
-          <span class="mkt-card-price-val">${{ "%.5f"|format(agent.current_price) }}</span>
+          <span class="mkt-card-price-val" data-price-val>${{ "%.5f"|format(agent.current_price) }}</span>
           <span class="mkt-card-price-unit">{{ 'per token' if agent.billing == 'per_token' else 'per min' }}</span>
         </div>
         <div class="mkt-card-rating" title="{{ agent.rating }} out of 5"
@@ -232,6 +232,42 @@ function setFilter(name, value) {
   if (input) input.value = value;
   form.submit();
 }
+
+// Refresh each card's price, surge indicator, and on-chain tier badge.
+(async function refreshCards() {
+  const cards = Array.from(document.querySelectorAll('.mkt-card[data-agent-id]'));
+  await Promise.all(cards.map(async (card) => {
+    const id = card.dataset.agentId;
+    try {
+      const [q, rep] = await Promise.all([
+        fetch(`/api/price/${id}`).then(r => r.ok ? r.json() : null),
+        fetch(`/api/agents/${id}/reputation`).then(r => r.ok ? r.json() : null),
+      ]);
+      if (q) {
+        const priceEl = card.querySelector('[data-price-val]');
+        if (priceEl) priceEl.textContent = '$' + (q.price < 1 ? q.price.toFixed(5) : q.price.toFixed(4));
+        const row = card.querySelector('[data-surge-row]');
+        const val = card.querySelector('[data-surge-val]');
+        if (row && val && q.surge) {
+          val.textContent = Number(q.multiplier).toFixed(2);
+          row.style.display = '';
+        } else if (row) {
+          row.style.display = 'none';
+        }
+      }
+      if (rep) {
+        const badge = card.querySelector('[data-tier-badge]');
+        if (badge && rep.tier) {
+          badge.textContent = 'T' + rep.tier;
+          badge.style.display = '';
+          badge.title = `Rep ${rep.score}/1000 · ${rep.tasksCompleted} tasks`;
+        }
+      }
+    } catch (_) { /* leave static fallback in place */ }
+  }));
+  // Re-poll prices every 10s so surge animates.
+  setTimeout(refreshCards, 10000);
+})();
 
 document.getElementById('open-bid-fab').addEventListener('click', () => openModal('bid-modal'));
 document.getElementById('bid-submit').addEventListener('click', async () => {
