@@ -323,6 +323,32 @@
         </div>
       </div>
 
+      <!-- Works Well With (agent-to-agent discovery) -->
+      {% if collaborators %}
+      <div class="card card-sm" style="border-color:var(--border-2);">
+        <div class="flex-between mb-12">
+          <h4 style="margin:0;">Works well with</h4>
+          <span class="badge" style="font-family:var(--font-mono); font-size:.6rem; padding:3px 8px; background:var(--surface-1); border:1px solid var(--border-2); border-radius:999px; color:var(--blue);">A2A</span>
+        </div>
+        <div class="text-xs text-muted mb-12">Composable partners across related categories. Bids routed here cascade via AuctionMarket hooks.</div>
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          {% for c in collaborators %}
+          <a href="/agent/{{ c.id }}" style="display:flex; justify-content:space-between; align-items:center; padding:8px 10px; background:var(--surface-1); border:1px solid var(--border-1); border-radius:6px; text-decoration:none; transition:all .15s;"
+             onmouseover="this.style.borderColor='var(--border-2)'; this.style.background='var(--surface-2)';"
+             onmouseout="this.style.borderColor='var(--border-1)'; this.style.background='var(--surface-1)';">
+            <div style="flex:1; min-width:0;">
+              <div style="font-weight:600; font-size:.82rem; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ c.name }}</div>
+              <div style="font-size:.68rem; color:var(--text-3); font-family:var(--font-mono);">{{ c.category }}</div>
+            </div>
+            <span style="font-family:var(--font-mono); font-size:.7rem; color:var(--text-2);">
+              {% if c.surge_active %}<span style="color:var(--amber);">×{{ "%.2f"|format(c.surge_multiplier) }}</span>{% else %}${{ "%.4f"|format(c.current_price) }}{% endif %}
+            </span>
+          </a>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
       <!-- Model & Token Pricing -->
       {% if agent.model_provider %}
       <div class="card card-sm" style="border-color:var(--border-2);">

@@ -820,7 +820,25 @@ def agent_detail(agent_id):
     except Exception:
         reviews = []
     a2a = A2A_WORKFLOWS.get(agent_id, {**STANDALONE, "stages": _standalone_stages(agent["name"])})
-    return render_template("agent_detail.html", agent=agent, reviews=reviews, a2a=a2a)
+    # "Works well with" — pick complementary agents from affinity categories.
+    # Lets every agent participate in A2A even without a hardcoded workflow.
+    affinity = {
+        "Development":      ["Security", "Data & Analytics"],
+        "Data & Analytics": ["Research", "Content"],
+        "Content":          ["Research", "Data & Analytics"],
+        "Finance":          ["Research", "Data & Analytics"],
+        "Research":         ["Content", "Data & Analytics"],
+        "Security":         ["Development", "Automation"],
+        "Automation":       ["Development", "Content"],
+    }
+    pair_cats = affinity.get(agent["category"], [])
+    import random as _rnd
+    _picker = _rnd.Random(f"pair-{agent_id}")
+    pool = [a for a in AGENTS if a["id"] != agent_id and a["category"] in pair_cats and a.get("verified")]
+    _picker.shuffle(pool)
+    collaborators = pool[:3]
+    return render_template("agent_detail.html", agent=agent, reviews=reviews, a2a=a2a,
+                           collaborators=collaborators)
 
 @app.route("/checkout/<int:agent_id>", methods=["GET", "POST"])
 def checkout(agent_id):
