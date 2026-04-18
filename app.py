@@ -1947,6 +1947,53 @@ def server_error(e):
     return render_template("500.html"), 500
 
 
+# ── Live simulation engine ─────────────────────────────────────────────────────
+
+@app.route("/sim")
+def sim_dashboard():
+    return render_template("sim.html")
+
+
+@app.route("/api/sim/status")
+def api_sim_status():
+    from sim_engine import get_engine
+    return jsonify(get_engine(app).status())
+
+
+@app.route("/api/sim/start", methods=["POST"])
+def api_sim_start():
+    from sim_engine import get_engine
+    started = get_engine(app).start()
+    return jsonify({"started": started, **get_engine(app).status()})
+
+
+@app.route("/api/sim/stop", methods=["POST"])
+def api_sim_stop():
+    from sim_engine import get_engine
+    stopped = get_engine(app).stop()
+    return jsonify({"stopped": stopped, **get_engine(app).status()})
+
+
+@app.route("/api/sim/speed", methods=["POST"])
+def api_sim_speed():
+    from sim_engine import get_engine
+    data = request.get_json(silent=True) or {}
+    tick_s = float(data.get("tickRealSeconds", 2.0))
+    get_engine(app).set_speed(tick_s)
+    return jsonify(get_engine(app).status())
+
+
+@app.route("/api/sim/events")
+def api_sim_events():
+    from sim_engine import get_engine
+    since = int(request.args.get("since", 0))
+    limit = int(request.args.get("limit", 100))
+    return jsonify({
+        "events": get_engine(app).events_since(since, limit),
+        "status": get_engine(app).status(),
+    })
+
+
 # ── DB init + seed ─────────────────────────────────────────────────────────────────
 
 with app.app_context():
@@ -1958,6 +2005,15 @@ with app.app_context():
         log.info("Database ready.")
     except Exception as _seed_err:
         log.warning("DB seed skipped: %s", _seed_err)
+
+
+if os.environ.get("WERKZEUG_RUN_MAIN") == "true" or not app.debug:
+    try:
+        from sim_engine import get_engine
+        get_engine(app).start()
+        log.info("Live simulation engine running.")
+    except Exception as _sim_err:
+        log.warning("Live sim autostart failed: %s", _sim_err)
 
 
 if __name__ == "__main__":
