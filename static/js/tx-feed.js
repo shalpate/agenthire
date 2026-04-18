@@ -5,7 +5,7 @@
   const POLL_INTERVAL = 12000;
   const MAX_EVENTS = 8;
 
-  function short(a) { return a ? a.slice(0,6) + '…' + a.slice(-4) : ''; }
+  function short(a) { return a ? a.slice(0,6) + '...' + a.slice(-4) : ''; }
   function usdc(n) { return (Number(n)/1e6).toFixed(2); }
   function snowtraceTx(hash) { return window.AGENTHIRE_CHAIN.explorer + '/tx/' + hash; }
 

@@ -1,6 +1,6 @@
-/* ── AgentHire — Main JS ────────────────────────────────────────────────────── */
+/* ── AgentHire - Main JS ────────────────────────────────────────────────────── */
 
-// ── AgentHireAPI — shared fetch utility ──────────────────────────────────────
+// ── AgentHireAPI - shared fetch utility ──────────────────────────────────────
 // Usage:
 //   AgentHireAPI.get('/api/agents')           → Promise<Object>
 //   AgentHireAPI.post('/api/x402/pay', body)  → Promise<Object>
@@ -48,7 +48,7 @@ function showToast(message, type = 'info', duration = 3500) {
   }, duration);
 }
 
-// ── Modals ────────────────────────────────────────────────────────────────────
+// ── Modals ─────────────────────────────────────────────────────────────────────
 function openModal(id) {
   const overlay = document.getElementById(id);
   if (overlay) { overlay.classList.add('open'); document.body.style.overflow = 'hidden'; }
@@ -57,6 +57,14 @@ function closeModal(id) {
   const overlay = document.getElementById(id);
   if (overlay) { overlay.classList.remove('open'); document.body.style.overflow = ''; }
 }
+
+// Defensive: if no modal is currently open on page load, make sure body scroll
+// is not stuck in the hidden state from a stale session/back-button restore.
+document.addEventListener('DOMContentLoaded', () => {
+  if (!document.querySelector('.modal-overlay.open')) {
+    document.body.style.overflow = '';
+  }
+});
 
 document.addEventListener('click', (e) => {
   if (e.target.classList.contains('modal-overlay')) {
@@ -134,55 +142,56 @@ function startLivePriceTicker(agentId) {
   setInterval(tick, 4000);
 }
 
-// ── Live Ticker Strip (base nav) ──────────────────────────────────────────────
-// Polls /api/price/<id> for each agent in the top ticker strip and updates
-// their price span. IDs are inlined as data-agent-id on each ticker-item.
+// ── Live Ticker Strip (base nav) ───────────────────────────────────────────
+// Polls /api/price/<id> for each agent referenced by the ticker and fills in
+// the price. IDs come from data-agent-id which is set in the Jinja template.
 (function initTickerStripPolling() {
-  const TICKER_AGENT_IDS = [1, 4, 2, 7, 3, 9, 11, 6];
   const POLL_MS = 15000;
 
+  function uniqueIds() {
+    return [...new Set([...document.querySelectorAll('.ticker-item[data-agent-id]')]
+      .map(el => el.dataset.agentId).filter(Boolean))];
+  }
+
   async function pollTicker() {
-    for (const id of TICKER_AGENT_IDS) {
+    const ids = uniqueIds();
+    if (!ids.length) return;
+    for (const id of ids) {
       try {
-        const data = await AgentHireAPI.get(`/api/price/${id}`);
-        // Update all .ticker-price spans inside items whose name matches the id
-        document.querySelectorAll(`.ticker-item[data-agent-id="${id}"] .ticker-price`).forEach(el => {
-          el.textContent = '$' + (data.price < 1 ? data.price.toFixed(5) : data.price.toFixed(4));
-        });
-        // Update hero market panel if present
-        const panelPrice = document.getElementById(`panel-price-${id}`);
-        if (panelPrice) panelPrice.textContent = '$' + (data.price < 1 ? data.price.toFixed(5) : data.price.toFixed(4));
-      } catch (_) {}
+        const data = await AgentHireAPI.get('/api/price/' + id);
+        const display = '$' + (data.price < 1 ? data.price.toFixed(5) : data.price.toFixed(4));
+        document.querySelectorAll('.ticker-item[data-agent-id="' + id + '"] .ticker-price')
+          .forEach(el => { el.textContent = display; });
+        const panelPrice = document.getElementById('panel-price-' + id);
+        if (panelPrice) panelPrice.textContent = display;
+      } catch (_) { /* ignore single-agent failures */ }
     }
   }
 
   document.addEventListener('DOMContentLoaded', () => {
-    // Add data-agent-id to ticker items so the poller can target them.
-    // The ticker renders 2 sets (duplicate for seamless scroll); map by position.
-    const items = document.querySelectorAll('.ticker-item');
-    if (items.length) {
-      TICKER_AGENT_IDS.forEach((id, i) => {
-        if (items[i]) items[i].setAttribute('data-agent-id', id);
-        // duplicate set
-        if (items[i + TICKER_AGENT_IDS.length]) items[i + TICKER_AGENT_IDS.length].setAttribute('data-agent-id', id);
-      });
-      pollTicker();
-      setInterval(pollTicker, POLL_MS);
-    }
+    if (!document.querySelector('.ticker-item[data-agent-id]')) return;
+    pollTicker();
+    setInterval(pollTicker, POLL_MS);
   });
 })();
 
 // ── Tier Selection ────────────────────────────────────────────────────────────
+// Scope selection clearing to the card's own group (.form-step if present,
+// otherwise the containing .grid-2) so clicking a billing card doesn't
+// deselect the verification tier on multi-step forms like /seller/create.
 document.querySelectorAll('.tier-card').forEach(card => {
   card.addEventListener('click', () => {
-    document.querySelectorAll('.tier-card').forEach(c => c.classList.remove('selected'));
+    const group = card.closest('.form-step') || card.closest('.grid-2') || document;
+    group.querySelectorAll('.tier-card').forEach(c => c.classList.remove('selected'));
     card.classList.add('selected');
     const tier = card.dataset.tier;
-    const hidden = document.getElementById('selected-tier');
-    if (hidden) hidden.value = tier;
-    // update price preview
-    const priceEl = document.getElementById('verification-price');
-    if (priceEl) priceEl.textContent = tier === 'thorough' ? '$50.00 USDC' : '$10.00 USDC';
+    // Only write to the hidden tier field for verification tiers, never billing.
+    if (tier === 'basic' || tier === 'thorough') {
+      const hidden = document.getElementById('selected-tier');
+      if (hidden) hidden.value = tier;
+      const priceEl = document.getElementById('verification-price');
+      if (priceEl) priceEl.textContent = tier === 'thorough' ? '$50.00 USDC' : '$10.00 USDC';
+    }
   });
 });
 
@@ -245,27 +254,113 @@ if (prevBtn) prevBtn.addEventListener('click', () => goToStep(currentStep - 1));
 
 // Note: #confirm-pay click is handled by the real x402 handler in checkout.html.
 
-// ── Admin: Approve / Reject ────────────────────────────────────────────────────
+// ── Admin action buttons ───────────────────────────────────────────────────
+// Each button carries a data-* attribute with the entity id (data-vrf-id,
+// data-payout-id, data-report-id). We POST to the matching Flask route and
+// update the row in place on success.
+async function _adminAction(btn, url, successMsg, errorMsg, onSuccess) {
+  const original = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = 'Working...';
+  try {
+    const res = await AgentHireAPI.post(url, {});
+    showToast(successMsg, 'success');
+    if (typeof onSuccess === 'function') onSuccess(btn, res);
+  } catch (err) {
+    showToast(errorMsg + ': ' + err.message, 'error');
+    btn.disabled = false;
+    btn.innerHTML = original;
+  }
+}
+
+function _disableCard(btn) {
+  const card = btn.closest('.card');
+  if (card) {
+    card.querySelectorAll('button').forEach(b => b.disabled = true);
+    card.style.opacity = '0.6';
+  }
+}
+
 document.addEventListener('click', (e) => {
-  if (e.target.closest('.approve-btn')) {
-    const row = e.target.closest('tr');
-    const name = row?.querySelector('td')?.textContent?.trim() || 'Agent';
-    showToast(`${name} approved ✓`, 'success');
-    e.target.closest('.approve-btn').closest('.action-group')?.querySelectorAll('button').forEach(b => b.disabled = true);
-  }
-  if (e.target.closest('.reject-btn')) {
-    const row = e.target.closest('tr');
-    const name = row?.querySelector('td')?.textContent?.trim() || 'Agent';
-    showToast(`${name} rejected`, 'error');
-  }
-  if (e.target.closest('.release-btn')) {
-    showToast('Payout released', 'success');
-  }
-  if (e.target.closest('.hold-btn')) {
-    showToast('Payment held', 'warning');
-  }
-  if (e.target.closest('.refund-btn')) {
-    showToast('Refund issued', 'info');
+  const approve     = e.target.closest('.approve-btn[data-vrf-id]');
+  const reject      = e.target.closest('.reject-btn[data-vrf-id]');
+  const startTest   = e.target.closest('.start-testing-btn[data-vrf-id]');
+  const escalate    = e.target.closest('.escalate-btn[data-vrf-id]');
+  const release     = e.target.closest('.release-btn[data-payout-id]');
+  const hold        = e.target.closest('.hold-btn[data-payout-id]');
+  const refund      = e.target.closest('.refund-btn[data-payout-id]');
+  const releaseAll  = e.target.closest('#release-all-btn');
+  const investigate = e.target.closest('.investigate-btn[data-report-id]');
+  const suspend     = e.target.closest('.suspend-btn[data-report-id]');
+  const resolve     = e.target.closest('.resolve-btn[data-report-id]');
+
+  if (approve) {
+    const id = approve.dataset.vrfId;
+    _adminAction(approve, '/admin/verification-queue/' + id + '/approve',
+      id + ' approved', 'Approve failed', _disableCard);
+  } else if (reject) {
+    const id = reject.dataset.vrfId;
+    _adminAction(reject, '/admin/verification-queue/' + id + '/reject',
+      id + ' rejected', 'Reject failed', _disableCard);
+  } else if (startTest) {
+    const id = startTest.dataset.vrfId;
+    _adminAction(startTest, '/admin/verification-queue/' + id + '/test-start',
+      'Testing started for ' + id, 'Could not start testing',
+      () => setTimeout(() => window.location.reload(), 900));
+  } else if (escalate) {
+    const id = escalate.dataset.vrfId;
+    _adminAction(escalate, '/admin/verification-queue/' + id + '/escalate',
+      id + ' escalated to human review', 'Escalate failed',
+      () => setTimeout(() => window.location.reload(), 900));
+  } else if (release) {
+    const id = release.dataset.payoutId;
+    _adminAction(release, '/admin/payouts/' + id + '/release',
+      'Payout ' + id + ' released', 'Release failed', (btn) => {
+        const row = btn.closest('tr');
+        const statusCell = row && row.querySelector('td:nth-child(6)');
+        if (statusCell) statusCell.innerHTML = '<span class="badge badge-approved">Released</span>';
+        const actionCell = btn.closest('td');
+        if (actionCell) actionCell.innerHTML = '<span class="text-xs text-muted">Complete</span>';
+      });
+  } else if (hold) {
+    const id = hold.dataset.payoutId;
+    _adminAction(hold, '/admin/payouts/' + id + '/hold',
+      'Payout ' + id + ' held', 'Hold failed', (btn) => {
+        const row = btn.closest('tr');
+        const statusCell = row && row.querySelector('td:nth-child(6)');
+        if (statusCell) statusCell.innerHTML = '<span class="badge badge-rejected">On Hold</span>';
+        const actionCell = btn.closest('td');
+        if (actionCell) actionCell.innerHTML = '<span class="text-xs text-muted">Held</span>';
+      });
+  } else if (refund) {
+    if (!confirm('Refund this payout to the buyer? This cannot be undone.')) return;
+    const id = refund.dataset.payoutId;
+    _adminAction(refund, '/admin/payouts/' + id + '/refund',
+      'Refund issued for ' + id, 'Refund failed', (btn) => {
+        const actionCell = btn.closest('td');
+        if (actionCell) actionCell.innerHTML = '<span class="text-xs text-muted">Refunded</span>';
+      });
+  } else if (releaseAll) {
+    if (!confirm('Release all pending payouts? This cannot be undone.')) return;
+    _adminAction(releaseAll, '/admin/payouts/release-all',
+      'Bulk release complete', 'Bulk release failed',
+      () => setTimeout(() => window.location.reload(), 900));
+  } else if (investigate) {
+    const id = investigate.dataset.reportId;
+    _adminAction(investigate, '/admin/moderation/' + id + '/investigate',
+      id + ' now investigating', 'Could not update',
+      () => setTimeout(() => window.location.reload(), 900));
+  } else if (suspend) {
+    if (!confirm('Suspend this agent pending review?')) return;
+    const id = suspend.dataset.reportId;
+    _adminAction(suspend, '/admin/moderation/' + id + '/suspend',
+      'Agent suspended on ' + id, 'Suspend failed',
+      () => setTimeout(() => window.location.reload(), 900));
+  } else if (resolve) {
+    const id = resolve.dataset.reportId;
+    _adminAction(resolve, '/admin/moderation/' + id + '/resolve',
+      id + ' resolved', 'Resolve failed',
+      () => setTimeout(() => window.location.reload(), 900));
   }
 });
 
@@ -288,26 +383,12 @@ document.querySelectorAll('.badge-surge').forEach(badge => {
 });
 
 // ── Order completion + rating ──────────────────────────────────────────────────
-const markCompleteBtn = document.getElementById('mark-complete');
-if (markCompleteBtn) {
-  markCompleteBtn.addEventListener('click', () => {
-    showToast('Task marked as complete. Payment will be released.', 'success');
-    setTimeout(() => openModal('rating-modal'), 1500);
-  });
-}
+// Real handlers live in templates/order.html (#mark-complete calls
+// /api/orders/<id>/complete with a confirm dialog) and templates/base.html
+// (#submit-rating posts to /api/agents/<id>/rate). We intentionally skip
+// registering anything here to avoid duplicate toasts and premature modal opens.
 
-// ── Submit rating ──────────────────────────────────────────────────────────────
-const submitRatingBtn = document.getElementById('submit-rating');
-if (submitRatingBtn) {
-  submitRatingBtn.addEventListener('click', () => {
-    const val = document.getElementById('rating-value')?.value || 0;
-    if (!val || val === '0') { showToast('Please select a rating', 'warning'); return; }
-    showToast(`Rating submitted: ${val}/5 ★`, 'success');
-    closeModal('rating-modal');
-  });
-}
-
-// ── SubagentWorkflow — stage expand/collapse ──────────────────────────────────
+// ── SubagentWorkflow - stage expand/collapse ──────────────────────────────────
 document.addEventListener('click', (e) => {
   const trigger = e.target.closest('.stage-trigger');
   if (!trigger) return;
@@ -372,7 +453,7 @@ function addStage(name = '', purpose = '', type = 'internal') {
       </div>
       <div class="form-group">
         <label class="form-label">Purpose</label>
-        <input type="text" class="form-input stage-purpose-input" value="${purpose}" placeholder="What this stage does…" oninput="updateEditorPreview()">
+        <input type="text" class="form-input stage-purpose-input" value="${purpose}" placeholder="What this stage does..." oninput="updateEditorPreview()">
       </div>
       <div class="form-group">
         <label class="form-label">Type</label>
@@ -420,7 +501,7 @@ function updateEditorPreview() {
   if (!items.length) { preview.innerHTML = '<div style="font-size:.8125rem;color:var(--text-3);padding:12px 16px;">No stages defined.</div>'; return; }
   preview.innerHTML = [...items].map((el, i) => {
     const name    = el.querySelector('.stage-name-input')?.value || 'Unnamed Stage';
-    const purpose = el.querySelector('.stage-purpose-input')?.value || '—';
+    const purpose = el.querySelector('.stage-purpose-input')?.value || ' - ';
     const isSubagent = el.querySelector('.stage-type-btn.active.subagent');
     const dot = isSubagent
       ? `<div style="width:7px;height:7px;border-radius:50%;background:var(--green);flex-shrink:0;"></div>`
@@ -429,7 +510,7 @@ function updateEditorPreview() {
   }).join('');
 }
 
-// ── ExecutionProgress — state machine ─────────────────────────────────────────
+// ── ExecutionProgress - state machine ─────────────────────────────────────────
 function runExecutionProgress(stages, containerId) {
   const container = document.getElementById(containerId);
   if (!container) return;
@@ -467,7 +548,7 @@ function runExecutionProgress(stages, containerId) {
       if (currentIdx < rows.length) {
         setTimeout(advance, 400);
       } else {
-        showToast('All stages complete — awaiting delivery', 'success');
+        showToast('All stages complete - awaiting delivery', 'success');
       }
     }, duration);
   }

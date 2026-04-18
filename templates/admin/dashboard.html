@@ -146,14 +146,9 @@
                 {% endif %}
               </td>
               <td>
-                <div class="rating">
-                  <span class="stars">
-                    {% set r = agent.rating | int %}
-                    {% for i in range(5) %}
-                    <span class="{{ 'star-filled' if i < r else 'star-empty' }}">&#9733;</span>
-                    {% endfor %}
-                  </span>
-                  <span class="rating-value">{{ agent.rating }}</span>
+                <div class="rating" title="{{ agent.rating }} out of 5">
+                  <span class="rating-stars" style="--star-fill:{{ ((agent.rating / 5) * 100) | round(1) }}%;" aria-label="{{ agent.rating }} out of 5">★★★★★</span>
+                  <span class="rating-value">{{ "%.1f"|format(agent.rating) }}</span>
                 </div>
               </td>
               <td>{{ "{:,}".format(agent.tasks_completed) }}</td>

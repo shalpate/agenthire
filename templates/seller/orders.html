@@ -54,7 +54,7 @@
             <div class="flex-center gap-8">
               <a href="/order/{{ order.id }}" class="btn btn-ghost btn-sm">View</a>
               {% if order.status == 'in_escrow' %}
-              <button class="btn btn-primary btn-sm" onclick="showToast('Payment received in escrow — task is ready to start', 'info')">Start</button>
+              <button class="btn btn-primary btn-sm order-start-btn" data-order-id="{{ order.id }}">Start</button>
               {% endif %}
             </div>
           </td>
@@ -73,5 +73,24 @@ function filterOrders(status) {
     row.style.display = (!status || row.dataset.status === status) ? '' : 'none';
   });
 }
+
+// Seller starts an in-escrow order -> moves it to in_progress.
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.order-start-btn');
+  if (!btn) return;
+  const orderId = btn.dataset.orderId;
+  if (!orderId) return;
+  btn.disabled = true;
+  btn.textContent = 'Starting...';
+  try {
+    await AgentHireAPI.post('/api/orders/' + orderId + '/start', {});
+    showToast(orderId + ' is now in progress.', 'success');
+    setTimeout(() => window.location.reload(), 900);
+  } catch (err) {
+    showToast('Could not start order: ' + err.message, 'error');
+    btn.disabled = false;
+    btn.textContent = 'Start';
+  }
+});
 </script>
 {% endblock %}

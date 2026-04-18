@@ -1,5 +1,5 @@
 """
-onchain.py — Python-native on-chain layer for AgentHire.
+onchain.py - Python-native on-chain layer for AgentHire.
 
 Lets the Flask app talk to Avalanche Fuji without a separate Node service.
 Requires: pip install web3 eth-account requests
@@ -13,8 +13,19 @@ Usage from app.py:
 
 Env variables:
     RPC_URL                  (default Fuji)
+    CHAIN_ID                 (default 43113 Fuji)
+    CHAIN_NAME               human-readable chain label
+    EXPLORER_URL             block explorer base URL
     FACILITATOR_PRIVATE_KEY  (pays gas for x402 flow)
-    GATEKEEPER_PRIVATE_KEY   (signs incidents — must match on-chain GATEKEEPER_ADDRESS)
+    GATEKEEPER_PRIVATE_KEY   (signs incidents - must match on-chain GATEKEEPER_ADDRESS)
+
+    <CONTRACT>_ADDRESS       per-contract override for any redeploy:
+                             MOCK_USDC_ADDRESS, AGENT_REGISTRY_ADDRESS,
+                             REPUTATION_ADDRESS, STAKING_ADDRESS,
+                             ESCROW_ADDRESS, AUCTION_ADDRESS.
+                             Any unset value falls back to the Fuji defaults
+                             below - so redeploying one contract doesn't
+                             force you to re-set the rest.
 
 This module is stateless and safe to import multiple times.
 """
@@ -31,10 +42,16 @@ try:
 except ImportError:
     Web3 = None  # Flask can still boot; onchain routes will 503.
 
+# Default values - Avalanche Fuji testnet with the hackathon deployment.
+# Every single one of these is overridable via env vars; new deployers only
+# need to export the contract addresses they redeployed + (optionally) a
+# different RPC / chain id.
 FUJI_RPC = "https://api.avax-test.network/ext/C/rpc"
-CHAIN_ID = 43113
+_DEFAULT_CHAIN_ID = 43113
+_DEFAULT_CHAIN_NAME = "Avalanche Fuji"
+_DEFAULT_EXPLORER = "https://testnet.snowtrace.io"
 
-ADDRESSES = {
+_DEFAULT_ADDRESSES = {
     "MockUSDC":           "0x9C49D730Dfb82B7663aBE6069B5bFe867fa34c9f",
     "AgentRegistry":      "0x6B71b84Fa3C313ccC43D63A400Ab47e6A0d4BCbB",
     "ReputationContract": "0x40ef89Ce1E248Df00AF6Dc37f96BBf92A9Bf603A",
@@ -43,7 +60,49 @@ ADDRESSES = {
     "AuctionMarket":      "0xa7AEEca5a76bd5Cd38B15dfcC2c288d3645E53E3",
 }
 
-# Minimal ABIs — only what this module calls.
+# Map from ADDRESSES key → canonical env var name. Keep this in sync with
+# .env.example and docs so redeploys stay self-service.
+_ADDRESS_ENV = {
+    "MockUSDC":           "MOCK_USDC_ADDRESS",
+    "AgentRegistry":      "AGENT_REGISTRY_ADDRESS",
+    "ReputationContract": "REPUTATION_ADDRESS",
+    "StakingSlashing":    "STAKING_ADDRESS",
+    "EscrowPayment":      "ESCROW_ADDRESS",
+    "AuctionMarket":      "AUCTION_ADDRESS",
+}
+
+# Resolve every address once at import, allowing env overrides per-contract.
+ADDRESSES = {
+    name: (os.environ.get(_ADDRESS_ENV[name]) or _DEFAULT_ADDRESSES[name]).strip()
+    for name in _DEFAULT_ADDRESSES
+}
+
+CHAIN_ID = int(os.environ.get("CHAIN_ID", _DEFAULT_CHAIN_ID))
+CHAIN_NAME = os.environ.get("CHAIN_NAME", _DEFAULT_CHAIN_NAME)
+EXPLORER_URL = os.environ.get("EXPLORER_URL", _DEFAULT_EXPLORER).rstrip("/")
+
+
+def get_deployment() -> dict:
+    """Return the active on-chain deployment config.
+
+    All values reflect the current process environment at call time so tests
+    (and `/api/onchain/info`) can override via monkey-patching ``os.environ``
+    between requests.
+    """
+    chain_id = int(os.environ.get("CHAIN_ID", _DEFAULT_CHAIN_ID))
+    return {
+        "chainId": chain_id,
+        "chainIdHex": hex(chain_id),
+        "chain": os.environ.get("CHAIN_NAME", _DEFAULT_CHAIN_NAME),
+        "rpcUrl": os.environ.get("RPC_URL", FUJI_RPC),
+        "explorer": os.environ.get("EXPLORER_URL", _DEFAULT_EXPLORER).rstrip("/"),
+        "contracts": {
+            name: (os.environ.get(_ADDRESS_ENV[name]) or _DEFAULT_ADDRESSES[name]).strip()
+            for name in _DEFAULT_ADDRESSES
+        },
+    }
+
+# Minimal ABIs - only what this module calls.
 ABI = {
     "MockUSDC": [
         {"type":"function","name":"transferWithAuthorization","stateMutability":"nonpayable",
@@ -312,7 +371,7 @@ class OnChain:
         category_id = int(p.get("categoryId", 0))
         expires_at = int(time.time()) + 3600
 
-        # Manually track nonce across 3 sequential txs — RPC won't bump until mined.
+        # Manually track nonce across 3 sequential txs - RPC won't bump until mined.
         base_nonce = self.w3.eth.get_transaction_count(self.facilitator.address)
 
         # 1. EIP-3009 transferWithAuthorization

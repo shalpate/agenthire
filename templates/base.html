@@ -6,113 +6,35 @@
   <title>{% block title %}AgentHire{% endblock %} | AI Agent Marketplace</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}?v=20260418b">
   {% block head %}{% endblock %}
 </head>
 <body>
 
-<!-- ── Live Ticker Strip ─────────────────────────────────────────────────── -->
+<!-- Live Ticker Strip. Each item carries its matching agent id; main.js polls
+     /api/price/<id> and fills in live prices. Rendered twice for seamless loop. -->
 <div class="ticker-strip">
   <div class="ticker-label">LIVE</div>
   <div class="ticker-track">
-    <!-- Set 1 -->
-    <div class="ticker-item">
-      <div class="ticker-dot" style="background:var(--green);"></div>
-      <span class="ticker-name">CodeReview Pro</span>
-      <span class="ticker-price">$0.00600</span>
-      <span class="ticker-up">+8.4%</span>
+    {% set ticker_rows = [
+      (1, 'CodeReview Pro',     'var(--green)'),
+      (4, 'AlphaTrader AI',     'var(--amber)'),
+      (2, 'TranslateFlow',      'var(--green)'),
+      (7, 'SecureAudit AI',     'var(--green)'),
+      (3, 'DataSift Analytics', 'var(--amber)'),
+      (9, 'ImageGen Studio',    'var(--green)'),
+      (11, 'FinanceGPT',        'var(--green)'),
+      (6, 'ResearchBot Pro',    'var(--green)'),
+    ] %}
+    {% for pass_no in [1, 2] %}
+    {% for aid, aname, dot in ticker_rows %}
+    <div class="ticker-item" data-agent-id="{{ aid }}">
+      <div class="ticker-dot" style="background:{{ dot }};"></div>
+      <span class="ticker-name">{{ aname }}</span>
+      <span class="ticker-price">...</span>
     </div>
-    <div class="ticker-item">
-      <div class="ticker-dot" style="background:var(--amber);"></div>
-      <span class="ticker-name">AlphaTrader AI</span>
-      <span class="ticker-price">$0.45000</span>
-      <span class="ticker-surge">SURGE x2.1</span>
-    </div>
-    <div class="ticker-item">
-      <div class="ticker-dot" style="background:var(--green);"></div>
-      <span class="ticker-name">TranslateFlow</span>
-      <span class="ticker-price">$0.00150</span>
-      <span class="ticker-flat">0.0%</span>
-    </div>
-    <div class="ticker-item">
-      <div class="ticker-dot" style="background:var(--amber);"></div>
-      <span class="ticker-name">DataSift Analytics</span>
-      <span class="ticker-price">$0.18000</span>
-      <span class="ticker-surge">SURGE x1.8</span>
-    </div>
-    <div class="ticker-item">
-      <div class="ticker-dot" style="background:var(--green);"></div>
-      <span class="ticker-name">SecureAudit AI</span>
-      <span class="ticker-price">$0.01500</span>
-      <span class="ticker-up">+2.1%</span>
-    </div>
-    <div class="ticker-item">
-      <div class="ticker-dot" style="background:var(--green);"></div>
-      <span class="ticker-name">ImageGen Studio</span>
-      <span class="ticker-price">$0.00800</span>
-      <span class="ticker-surge">SURGE x1.3</span>
-    </div>
-    <div class="ticker-item">
-      <div class="ticker-dot" style="background:var(--green);"></div>
-      <span class="ticker-name">FinanceGPT</span>
-      <span class="ticker-price">$0.20000</span>
-      <span class="ticker-up">+5.3%</span>
-    </div>
-    <div class="ticker-item">
-      <div class="ticker-dot" style="background:var(--green);"></div>
-      <span class="ticker-name">ResearchBot Pro</span>
-      <span class="ticker-price">$0.00500</span>
-      <span class="ticker-flat">0.0%</span>
-    </div>
-    <!-- Set 2 — duplicate for seamless loop -->
-    <div class="ticker-item">
-      <div class="ticker-dot" style="background:var(--green);"></div>
-      <span class="ticker-name">CodeReview Pro</span>
-      <span class="ticker-price">$0.00600</span>
-      <span class="ticker-up">+8.4%</span>
-    </div>
-    <div class="ticker-item">
-      <div class="ticker-dot" style="background:var(--amber);"></div>
-      <span class="ticker-name">AlphaTrader AI</span>
-      <span class="ticker-price">$0.45000</span>
-      <span class="ticker-surge">SURGE x2.1</span>
-    </div>
-    <div class="ticker-item">
-      <div class="ticker-dot" style="background:var(--green);"></div>
-      <span class="ticker-name">TranslateFlow</span>
-      <span class="ticker-price">$0.00150</span>
-      <span class="ticker-flat">0.0%</span>
-    </div>
-    <div class="ticker-item">
-      <div class="ticker-dot" style="background:var(--amber);"></div>
-      <span class="ticker-name">DataSift Analytics</span>
-      <span class="ticker-price">$0.18000</span>
-      <span class="ticker-surge">SURGE x1.8</span>
-    </div>
-    <div class="ticker-item">
-      <div class="ticker-dot" style="background:var(--green);"></div>
-      <span class="ticker-name">SecureAudit AI</span>
-      <span class="ticker-price">$0.01500</span>
-      <span class="ticker-up">+2.1%</span>
-    </div>
-    <div class="ticker-item">
-      <div class="ticker-dot" style="background:var(--green);"></div>
-      <span class="ticker-name">ImageGen Studio</span>
-      <span class="ticker-price">$0.00800</span>
-      <span class="ticker-surge">SURGE x1.3</span>
-    </div>
-    <div class="ticker-item">
-      <div class="ticker-dot" style="background:var(--green);"></div>
-      <span class="ticker-name">FinanceGPT</span>
-      <span class="ticker-price">$0.20000</span>
-      <span class="ticker-up">+5.3%</span>
-    </div>
-    <div class="ticker-item">
-      <div class="ticker-dot" style="background:var(--green);"></div>
-      <span class="ticker-name">ResearchBot Pro</span>
-      <span class="ticker-price">$0.00500</span>
-      <span class="ticker-flat">0.0%</span>
-    </div>
+    {% endfor %}
+    {% endfor %}
   </div>
 </div>
 
@@ -135,7 +57,6 @@
       <li><a href="/seller/verification" class="{{ 'active' if request.path == '/seller/verification' }}">Verification</a></li>
       <li><a href="/seller/earnings"     class="{{ 'active' if request.path == '/seller/earnings' }}">Earnings</a></li>
     {% else %}
-      <li><a href="/"             class="{{ 'active' if request.path == '/' }}">Home</a></li>
       <li><a href="/marketplace"  class="{{ 'active' if request.path == '/marketplace' }}">Marketplace</a></li>
       <li><a href="/how-it-works" class="{{ 'active' if request.path == '/how-it-works' }}">How It Works</a></li>
       <li><a href="/list-your-agent">List Your Agent</a></li>
@@ -185,17 +106,17 @@
       </div>
       <div class="footer-col">
         <h5>Protocol</h5>
-        <a href="#">x402 Payments</a>
-        <a href="#">ERC-8004 Identity</a>
-        <a href="#">Escrow System</a>
-        <a href="#">Verification</a>
+        <a href="/how-it-works#x402" class="footer-link">x402 Payments</a>
+        <a href="/how-it-works#erc8004" class="footer-link">ERC-8004 Identity</a>
+        <a href="/how-it-works#escrow" class="footer-link">Escrow System</a>
+        <a href="/seller/verification" class="footer-link">Verification</a>
       </div>
       <div class="footer-col">
         <h5>Resources</h5>
-        <a href="#">Documentation</a>
-        <a href="#">API Reference</a>
-        <a href="#">Status</a>
-        <a href="#">Contact</a>
+        <a href="/how-it-works" class="footer-link">Documentation</a>
+        <a href="https://github.com/shalpate/agenthire" target="_blank" rel="noopener" class="footer-link">API Reference</a>
+        <a href="/api/health" target="_blank" rel="noopener" class="footer-link">Status</a>
+        <a href="mailto:hello@agenthire.xyz" class="footer-link">Contact</a>
       </div>
     </div>
     <div class="footer-bottom">
@@ -232,7 +153,7 @@
       </div>
       <div class="flex-between mb-16">
         <span class="text-muted text-sm">Price range</span>
-        <span class="font-mono text-sm" id="modal-range">$0.002 – $0.008</span>
+        <span class="font-mono text-sm" id="modal-range">$0.002 - $0.008</span>
       </div>
       <div id="modal-surge-row" class="surge-banner mb-16">
         SURGE · peak demand pricing active
@@ -267,7 +188,7 @@
     </div>
     <div class="modal-body">
       <div class="flex-center gap-12 mb-24">
-        <span class="badge badge-verified" style="font-size:.75rem; padding:4px 10px;">Verified — Thorough Audit</span>
+        <span class="badge badge-verified" style="font-size:.75rem; padding:4px 10px;">Verified - Thorough Audit</span>
       </div>
       <p class="mb-16">This agent has passed <strong style="color:var(--text);">Thorough Audit</strong> verification:</p>
       <div class="tier-feature">Human review by AgentHire protocol team</div>
@@ -301,7 +222,7 @@
       <input type="hidden" id="rating-value" value="0">
       <div class="form-group">
         <label class="form-label">Feedback (optional)</label>
-        <textarea class="form-textarea" placeholder="Share your experience…" style="min-height:80px;"></textarea>
+        <textarea class="form-textarea" placeholder="Share your experience..." style="min-height:80px;"></textarea>
       </div>
     </div>
     <div class="modal-footer">
@@ -324,13 +245,13 @@
           <div class="timeline-dot done">1</div>
           <div class="timeline-content" style="padding-top:2px;">
             <h4>Browse & Choose an Agent</h4>
-            <p>Search verified AI agents by category, use case, or price. Filter by billing model — per token or per minute.</p>
+            <p>Search verified AI agents by category, use case, or price. Filter by billing model - per token or per minute.</p>
           </div>
         </div>
         <div class="timeline-item">
           <div class="timeline-dot done">2</div>
           <div class="timeline-content" style="padding-top:2px;">
-            <h4>Pay in USDC — Held in Escrow</h4>
+            <h4>Pay in USDC - Held in Escrow</h4>
             <p>Connect your wallet. Funds are locked in a smart contract on Avalanche C-Chain. No one can touch them until the task is done.</p>
           </div>
         </div>
@@ -338,7 +259,7 @@
           <div class="timeline-dot done">3</div>
           <div class="timeline-content" style="padding-top:2px;">
             <h4>Agent Executes Your Task</h4>
-            <p>Watch real-time execution progress. Multi-stage agents may call sub-agents — all within your approved spend cap.</p>
+            <p>Watch real-time execution progress. Multi-stage agents may call sub-agents - all within your approved spend cap.</p>
           </div>
         </div>
         <div class="timeline-item" style="padding-bottom:0;">
@@ -376,16 +297,16 @@ document.addEventListener('DOMContentLoaded', () => {
     // Get agent ID from page context (set by order page or agent detail page)
     const agentId = window._ratingAgentId;
     if (!agentId) {
-      showToast('Rating submitted — thank you!', 'success');
+      showToast('Rating submitted - thank you!', 'success');
       closeModal('rating-modal');
       return;
     }
     const feedback = document.querySelector('#rating-modal textarea')?.value || '';
     try {
       submitBtn.disabled = true;
-      submitBtn.textContent = 'Submitting…';
+      submitBtn.textContent = 'Submitting...';
       await AgentHireAPI.post(`/api/agents/${agentId}/rate`, { rating: ratingVal, feedback });
-      showToast('Rating submitted — thank you!', 'success');
+      showToast('Rating submitted - thank you!', 'success');
       closeModal('rating-modal');
     } catch (e) {
       showToast('Failed to submit rating: ' + e.message, 'error');
@@ -397,6 +318,8 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.2/dist/ethers.umd.min.js"></script>
+<!-- /config.js is server-rendered from env; must load BEFORE contracts.js -->
+<script src="{{ url_for('config_js') }}"></script>
 <script src="{{ url_for('static', filename='js/contracts.js') }}"></script>
 <script src="{{ url_for('static', filename='js/web3.js') }}"></script>
 <script src="{{ url_for('static', filename='js/tx-feed.js') }}"></script>

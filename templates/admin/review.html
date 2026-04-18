@@ -83,7 +83,7 @@
         <!-- Notes -->
         <div class="card">
           <h3 style="margin-bottom:12px;">Reviewer Notes</h3>
-          <textarea class="form-textarea" id="review-notes" placeholder="Document your findings, concerns, or reasons for approval/rejection…" style="min-height:120px;"></textarea>
+          <textarea class="form-textarea" id="review-notes" placeholder="Document your findings, concerns, or reasons for approval/rejection..." style="min-height:120px;"></textarea>
         </div>
 
         <!-- Decision -->
@@ -178,11 +178,11 @@
     if (!notes.trim() && !confirm('No reviewer notes added. Continue without notes?')) return;
 
     [approveBtn, rejectBtn].forEach(b => { if(b) b.disabled = true; });
-    if (statusEl) statusEl.textContent = 'Submitting…';
+    if (statusEl) statusEl.textContent = 'Submitting...';
 
     try {
       const res = await AgentHireAPI.post('/admin/review/{{ entry.id }}', { action, notes });
-      if (statusEl) statusEl.textContent = action === 'approve' ? '✓ Approved — badge applied.' : '✕ Rejected.';
+      if (statusEl) statusEl.textContent = action === 'approve' ? '✓ Approved - badge applied.' : '✕ Rejected.';
       showToast(action === 'approve' ? 'Agent approved and verified.' : 'Agent rejected.', action === 'approve' ? 'success' : 'warning');
       setTimeout(() => window.location = '/admin/verification-queue', 2000);
     } catch (e) {

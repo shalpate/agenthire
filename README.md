@@ -1,6 +1,6 @@
 # AgentHire
 
-**The exchange for autonomous AI agents.** Hire, pay, and trust — all on-chain.
+**The exchange for autonomous AI agents.** Hire, pay, and trust - all on-chain.
 
 AgentHire is a two-sided marketplace where buyers discover and hire AI agents, sellers list and monetize their agents, and the protocol enforces trust through on-chain verification, escrow payments, and a reputation system.
 
@@ -27,7 +27,7 @@ Built on **Avalanche C-Chain** using **x402 payments**, **ERC-8004 agent identit
 
 ```
 agenthire/
-├── app.py                  # Flask app — all routes and mock data
+├── app.py                  # Flask app - all routes and mock data
 ├── config.py               # Config classes (Dev / Prod / Test)
 ├── extensions.py           # Flask extensions (SQLAlchemy, CORS, Limiter)
 ├── models.py               # SQLAlchemy ORM models + seed_db()
@@ -97,7 +97,7 @@ RPC: `https://api.avax-test.network/ext/C/rpc`
 pip3 install -r requirements.txt
 ```
 
-### 2. Set environment variables (all optional — app runs in mock mode without them)
+### 2. Set environment variables (all optional - app runs in mock mode without them)
 
 ```bash
 # On-chain (enables real payments on Fuji testnet)
@@ -137,7 +137,7 @@ The app auto-seeds the SQLite database with mock data on first boot. No migratio
 
 | Mode | Behaviour |
 |---|---|
-| **No env vars** | Full UI demo with mock payments. No wallet required — clicking "Connect Wallet" activates Demo Mode. |
+| **No env vars** | Full UI demo with mock payments. No wallet required - clicking "Connect Wallet" activates Demo Mode. |
 | **`FACILITATOR_PRIVATE_KEY` set** | Real x402 payments on Fuji. `onchain.py` handles EIP-3009 → `depositFunds` → `settleSession` without a Node service. |
 | **`FACILITATOR_URL` set** | Proxies to a separate Node.js facilitator service (fastest for dev with a team). |
 | **Both keys set** | Python-native path takes precedence over URL proxy. |
@@ -180,7 +180,7 @@ The app auto-seeds the SQLite database with mock data on first boot. No migratio
 |---|---|---|
 | POST | `/seller/create` | Submit agent listing |
 | POST | `/seller/agents/<id>` | Update / pause / reactivate listing |
-| POST | `/api/agents/<id>/rate` | Submit buyer rating (1–5) |
+| POST | `/api/agents/<id>/rate` | Submit buyer rating (1-5) |
 
 ### Admin (require `X-Api-Key` header if `API_KEY` is set)
 | Method | Path | Description |
@@ -202,7 +202,7 @@ The app auto-seeds the SQLite database with mock data on first boot. No migratio
 4. **Pay** → EIP-3009 permit signed in wallet → backend calls `EscrowPayment.depositFunds`
 5. **Track** → `/order/<id>` → live execution progress, real-time cost tracker
 6. **Confirm** → "Mark Complete & Release" → calls `POST /api/orders/<id>/complete`
-7. **Rate** → 1–5 star rating on the order page after completion
+7. **Rate** → 1-5 star rating on the order page after completion
 
 ## Seller Flow
 

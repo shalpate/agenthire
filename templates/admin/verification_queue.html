@@ -34,14 +34,14 @@
       } %}
       {% for item in queue %}
       {% set meta = status_meta[item.status] %}
-      <div class="card">
+      <div class="card" data-vrf-row="{{ item.id }}">
         <!-- Header -->
-        <div class="flex-between mb-20">
-          <div class="flex-center gap-16">
-            <div class="agent-avatar" style="width:48px; height:48px; border-radius:10px; font-size:.75rem; background:var(--card-2); color:var(--text-2);">AGT</div>
-            <div>
-              <div class="flex-center gap-10 mb-4">
-                <span class="font-bold" style="font-size:1.0625rem;">{{ item.agent }}</span>
+        <div class="flex-between mb-20" style="gap:16px; flex-wrap:wrap;">
+          <div class="flex-center gap-16" style="min-width:0;">
+            <div class="agent-avatar" style="width:48px; height:48px; border-radius:10px; font-size:.75rem; background:var(--card-2); color:var(--text-2); flex-shrink:0;">AGT</div>
+            <div style="min-width:0;">
+              <div class="font-bold mb-6" style="font-size:1.0625rem;">{{ item.agent }}</div>
+              <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:8px;">
                 <span class="badge {{ meta[0] }}">{{ meta[1] }} {{ meta[2] }}</span>
                 <span class="badge {{ 'badge-testing' if item.tier == 'thorough' else 'badge-pending' }}">{{ item.tier.title() }} Audit</span>
                 {% if loop.index0 % 2 == 0 %}
@@ -53,7 +53,7 @@
               <div class="text-sm text-muted">{{ item.id }} · by <strong style="color:var(--text);">{{ item.seller }}</strong> · Submitted {{ item.submitted }}</div>
             </div>
           </div>
-          <div class="text-sm font-bold text-accent">{{ '$50' if item.tier == 'thorough' else '$10' }} USDC</div>
+          <div class="text-sm font-bold text-accent" style="flex-shrink:0;">{{ '$50' if item.tier == 'thorough' else '$10' }} USDC</div>
         </div>
 
         <!-- Subagent workflow summary for admin -->
@@ -121,21 +121,23 @@
         {% if item.status in ['human_review', 'testing'] %}
         <div class="form-group mb-16">
           <label class="form-label">Reviewer Notes</label>
-          <textarea class="form-textarea" placeholder="Add notes for this review…" style="min-height:70px;"></textarea>
+          <textarea class="form-textarea" placeholder="Add notes for this review..." style="min-height:70px;"></textarea>
         </div>
         {% endif %}
 
         <!-- Actions -->
         {% if item.status not in ['approved', 'rejected'] %}
-        <div class="flex-between">
+        <div class="flex-between" data-action-row="{{ item.id }}">
           <div class="action-group flex-center gap-10">
-            <button class="btn btn-success btn-sm approve-btn">✓ Approve</button>
-            <button class="btn btn-danger btn-sm reject-btn">✕ Reject</button>
+            <button class="btn btn-success btn-sm approve-btn" data-vrf-id="{{ item.id }}" data-agent-name="{{ item.agent }}">Approve</button>
+            <button class="btn btn-danger btn-sm reject-btn" data-vrf-id="{{ item.id }}" data-agent-name="{{ item.agent }}">Reject</button>
           </div>
           {% if item.status == 'pending' %}
-          <button class="btn btn-secondary btn-sm" onclick="showToast('Tests started for {{ item.agent }}', 'info')">Start Testing</button>
+          <button class="btn btn-secondary btn-sm start-testing-btn" data-vrf-id="{{ item.id }}" data-agent-name="{{ item.agent }}">Start Testing</button>
           {% elif item.status == 'testing' %}
-          <button class="btn btn-secondary btn-sm" onclick="showToast('Escalated to human review', 'info')">Escalate to Human Review</button>
+          <button class="btn btn-secondary btn-sm escalate-btn" data-vrf-id="{{ item.id }}" data-agent-name="{{ item.agent }}">Escalate to Human Review</button>
+          {% elif item.status == 'human_review' %}
+          <a class="btn btn-secondary btn-sm" href="/admin/review/{{ item.id }}">Open Review Panel</a>
           {% endif %}
         </div>
         {% else %}
@@ -150,3 +152,5 @@
   </main>
 </div>
 {% endblock %}
+
+{% block scripts %}{% endblock %}
