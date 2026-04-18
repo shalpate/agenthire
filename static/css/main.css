@@ -60,8 +60,38 @@
   --transition: 0.14s ease;
 
   /* Fonts */
-  --font-body: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-mono: 'IBM Plex Mono', 'Courier New', monospace;
+
+  /* Compatibility alias used in badge pills */
+  --surface-1: var(--card-2);
+}
+
+/* ── Light Mode ────────────────────────────────────────────────────────────── */
+[data-theme="light"] {
+  --bg:        #FFFFFF;
+  --card:      #FAFAFA;
+  --card-2:    #F4F4F5;
+  --card-3:    #EBEBEC;
+  --border:    #E4E4E7;
+  --border-2:  #D4D4D8;
+
+  --text:      #09090B;
+  --text-2:    #52525B;
+  --text-3:    #A1A1AA;
+  --text-4:    #D4D4D8;
+
+  --red-dim:      rgba(232,65,66,.07);
+  --red-border:   rgba(232,65,66,.20);
+  --green-dim:    rgba(34,197,94,.07);
+  --green-border: rgba(34,197,94,.18);
+  --amber-dim:    rgba(245,158,11,.07);
+  --amber-border: rgba(245,158,11,.18);
+  --blue-dim:     rgba(59,130,246,.07);
+  --blue-border:  rgba(59,130,246,.18);
+
+  --shadow:    0 2px 12px rgba(0,0,0,.07);
+  --shadow-lg: 0 4px 28px rgba(0,0,0,.10);
 }
 
 /* ── Reset & Base ──────────────────────────────────────────────────────────── */
@@ -199,15 +229,12 @@ p  { color: var(--text-2); }
 
 /* ── Navigation ────────────────────────────────────────────────────────────── */
 .nav {
-  position: sticky;
-  top: 0;
+  position: relative;
   z-index: 100;
-  background: rgba(10,10,10,.97);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  background: var(--bg);
   border-bottom: 1px solid var(--border);
   padding: 0 40px;
-  height: 68px;
+  height: 148px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -227,7 +254,7 @@ p  { color: var(--text-2); }
 /* ── Logo SVGs ─────────────────────────────────────────────────────────── */
 .logo-lockup {
   display: block;
-  height: 52px;
+  height: 140px;
   width: auto;
   flex-shrink: 0;
 }
@@ -2674,4 +2701,243 @@ tbody tr:hover { background: var(--card-2); }
   .mkt-wrap { padding: 20px 16px 72px; }
   .mkt-grid { grid-template-columns: 1fr; }
   .mkt-fab { bottom: 16px; right: 16px; padding: 12px 18px; }
+}
+
+/* ── Marketplace card model tag ────────────────────────────────────────────── */
+.mkt-card-model {
+  font-family: var(--font-mono);
+  font-size: .5625rem;
+  font-weight: 500;
+  letter-spacing: .06em;
+  color: var(--text-3);
+  margin-top: 3px;
+}
+.mkt-tag-oss {
+  color: var(--blue);
+  background: var(--blue-dim);
+  border: 1px solid var(--blue-border);
+}
+
+/* Hire count in rating row */
+.mkt-card-hired {
+  font-family: var(--font-mono);
+  font-size: .6rem;
+  color: var(--text-3);
+  letter-spacing: .04em;
+}
+
+/* ── Theme Toggle Button ───────────────────────────────────────────────────── */
+.theme-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-2);
+  cursor: pointer;
+  transition: all var(--transition);
+  flex-shrink: 0;
+  padding: 0;
+}
+.theme-toggle:hover { border-color: var(--border-2); color: var(--text); background: var(--card-3); }
+.theme-toggle svg { display: block; width: 15px; height: 15px; }
+.theme-toggle .icon-moon { display: block; }
+.theme-toggle .icon-sun  { display: none;  }
+[data-theme="light"] .theme-toggle .icon-moon { display: none; }
+[data-theme="light"] .theme-toggle .icon-sun  { display: block; }
+
+/* Light mode nav */
+[data-theme="light"] .nav {
+  background: var(--bg);
+  border-bottom-color: var(--border);
+}
+[data-theme="light"] .ticker-strip {
+  background: var(--card);
+  border-bottom-color: var(--border);
+}
+[data-theme="light"] .ticker-strip::before {
+  background: linear-gradient(to right, var(--card), transparent);
+}
+[data-theme="light"] .ticker-strip::after {
+  background: linear-gradient(to left, var(--card), transparent);
+}
+[data-theme="light"] .ticker-label {
+  background: var(--card);
+  border-right-color: var(--border);
+}
+
+/* ── Entry Modal ───────────────────────────────────────────────────────────── */
+.entry-modal .modal {
+  max-width: 540px;
+  text-align: center;
+}
+.entry-modal-eyebrow {
+  font-family: var(--font-mono);
+  font-size: .6875rem;
+  font-weight: 600;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  margin-bottom: 14px;
+}
+.entry-modal-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: -.02em;
+  margin-bottom: 10px;
+}
+.entry-modal-sub {
+  font-size: .9375rem;
+  color: var(--text-2);
+  margin-bottom: 32px;
+  line-height: 1.55;
+}
+.entry-choices {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.entry-choice {
+  display: block;
+  padding: 24px 20px;
+  background: var(--card-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  text-decoration: none;
+  text-align: left;
+  transition: border-color var(--transition), background var(--transition), transform var(--transition);
+  cursor: pointer;
+}
+.entry-choice:hover {
+  border-color: var(--red);
+  background: var(--card);
+  transform: translateY(-2px);
+}
+.entry-choice-label {
+  font-family: var(--font-mono);
+  font-size: .5625rem;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--red);
+  margin-bottom: 10px;
+}
+.entry-choice-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 6px;
+  letter-spacing: -.01em;
+}
+.entry-choice-desc {
+  font-size: .8125rem;
+  color: var(--text-2);
+  line-height: 1.5;
+}
+.entry-hiw-btn {
+  display: block;
+  width: 100%;
+  margin-top: 12px;
+  padding: 13px 20px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-2);
+  font-family: var(--font-body);
+  font-size: .875rem;
+  font-weight: 500;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color .15s, color .15s, background .15s;
+}
+.entry-hiw-btn:hover {
+  border-color: var(--border-2);
+  color: var(--text);
+  background: var(--card-2);
+}
+
+/* ── Page entrance ─────────────────────────────────────────────────────────── */
+@keyframes page-in {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: none; }
+}
+body { animation: page-in .32s cubic-bezier(.22,.68,0,1.2) both; }
+
+/* ── Button press (active state) ───────────────────────────────────────────── */
+.btn:active,
+.btn-gradient:active,
+.btn-ghost:active,
+.btn-primary:active,
+.btn-secondary:active,
+.btn-primary-lg:active,
+.btn-ghost-lg:active,
+.nav-cta:active,
+.entry-choice:active,
+.entry-hiw-btn:active {
+  transform: scale(0.93) translateY(2px) !important;
+  transition: transform .08s ease !important;
+  box-shadow: none !important;
+}
+
+/* ── Card press ────────────────────────────────────────────────────────────── */
+.card-hover:active,
+.feat-card:active {
+  transform: translateY(1px) scale(0.98) !important;
+  transition: transform .08s ease !important;
+}
+
+/* ── Ripple ────────────────────────────────────────────────────────────────── */
+.btn-ripple {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  transform: scale(0);
+  animation: ripple-out .6s cubic-bezier(.4,0,.2,1) forwards;
+  background: rgba(255,255,255,0.28);
+}
+@keyframes ripple-out {
+  to { transform: scale(4.5); opacity: 0; }
+}
+
+/* ── Shimmer sweep on primary buttons ─────────────────────────────────────── */
+.btn-gradient,
+.btn.btn-primary,
+.btn-primary-lg,
+.nav-cta {
+  position: relative;
+  overflow: hidden;
+}
+.btn-gradient::after,
+.btn.btn-primary::after,
+.btn-primary-lg::after,
+.nav-cta::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -75%;
+  width: 50%;
+  height: 200%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.22), transparent);
+  transform: skewX(-18deg);
+  pointer-events: none;
+}
+.btn-gradient:hover::after,
+.btn.btn-primary:hover::after,
+.btn-primary-lg:hover::after,
+.nav-cta:hover::after {
+  animation: shimmer-slide .55s ease-out forwards;
+}
+@keyframes shimmer-slide {
+  to { left: 145%; }
+}
+
+/* ── 3D card tilt — base state smoothing ──────────────────────────────────── */
+.card-hover,
+.feat-card {
+  will-change: transform;
+  transform-style: flat;
 }

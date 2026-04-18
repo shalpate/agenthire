@@ -726,13 +726,17 @@ def index():
     _agent_ids = {a["id"] for a in AGENTS[:12]}
     viz_agents = [
         {
-            "id":       a["id"],
-            "name":     a["name"],
-            "cat":      _CAT_CODES.get(a["category"], "AGT"),
-            "verified": a["verified"],
-            "featured": a["featured"],
-            "price":    a["current_price"],
-            "unit":     "tok" if a["billing"] == "per_token" else "min",
+            "id":         a["id"],
+            "name":       a["name"],
+            "cat":        _CAT_CODES.get(a["category"], "AGT"),
+            "verified":   a["verified"],
+            "featured":   a["featured"],
+            "price":      a["current_price"],
+            "unit":       "tok" if a["billing"] == "per_token" else "min",
+            "surge":      a.get("surge_active", False),
+            "surge_mult": a.get("surge_multiplier", 1.0),
+            "rating":     a.get("rating", 4.0),
+            "tasks":      a.get("tasks_completed", 0),
         }
         for a in AGENTS[:12]
     ]

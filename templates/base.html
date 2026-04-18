@@ -5,8 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}AgentHire{% endblock %} | AI Agent Marketplace</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}?v=20260418b">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}?v=20260419b">
   {% block head %}{% endblock %}
 </head>
 <body>
@@ -53,7 +54,7 @@
     {% elif request.path.startswith('/seller') %}
       <li><a href="/seller/dashboard"    class="{{ 'active' if request.path == '/seller/dashboard' }}">Dashboard</a></li>
       <li><a href="/seller/create"       class="{{ 'active' if request.path == '/seller/create' }}">My Agents</a></li>
-      <li><a href="/seller/orders"       class="{{ 'active' if request.path == '/seller/orders' }}">Orders</a></li>
+      <li><a href="/seller/orders"       class="{{ 'active' if request.path == '/seller/orders' }}">Order History</a></li>
       <li><a href="/seller/verification" class="{{ 'active' if request.path == '/seller/verification' }}">Verification</a></li>
       <li><a href="/seller/earnings"     class="{{ 'active' if request.path == '/seller/earnings' }}">Earnings</a></li>
     {% else %}
@@ -64,17 +65,22 @@
   </ul>
 
   <div class="nav-right">
-    <!-- Compliance / stack badges for the bounty judges -->
-    <div style="display:flex; gap:6px; align-items:center; font-family:var(--font-mono); font-size:.625rem;">
-      <span title="HTTP 402 payment protocol" style="padding:3px 8px; background:var(--surface-1); border:1px solid var(--border-2); border-radius:999px; color:var(--green);">x402</span>
-      <span title="ERC-8004 Trustless Agents standard" style="padding:3px 8px; background:var(--surface-1); border:1px solid var(--border-2); border-radius:999px; color:#7fb3ff;">ERC-8004</span>
-      <span title="Avalanche Fuji · chainId 43113" style="padding:3px 8px; background:var(--surface-1); border:1px solid var(--border-2); border-radius:999px; color:var(--amber);">Fuji</span>
-    </div>
     <div class="role-switcher">
       <button class="role-btn {{ 'active' if not request.path.startswith('/seller') and not request.path.startswith('/admin') }}" data-role="buyer">Buyer</button>
       <button class="role-btn {{ 'active' if request.path.startswith('/seller') }}" data-role="seller">Seller</button>
       <button class="role-btn {{ 'active' if request.path.startswith('/admin') }}" data-role="admin">Admin</button>
     </div>
+    <button class="theme-toggle" id="theme-toggle" aria-label="Toggle light/dark mode">
+      <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+      </svg>
+      <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
+        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+        <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
+        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+      </svg>
+    </button>
     <button class="wallet-btn" id="wallet-btn" data-connected="false">
       <span>Connect Wallet</span>
     </button>
@@ -129,6 +135,32 @@
 
 <!-- Toast Container -->
 <div id="toast-container"></div>
+
+<!-- ── Entry Modal — shown once per session to new visitors ──────────────── -->
+<div class="modal-overlay entry-modal" id="entry-modal">
+  <div class="modal" style="max-width:520px;">
+    <div class="modal-body" style="padding:36px 32px 32px;">
+      <div class="entry-modal-eyebrow">Welcome</div>
+      <h2 class="entry-modal-title">What brings you here?</h2>
+      <p class="entry-modal-sub">Choose how you want to use AgentHire. You can switch anytime.</p>
+      <div class="entry-choices">
+        <a href="/marketplace" class="entry-choice" onclick="sessionStorage.setItem('ah_entry_seen','1')">
+          <div class="entry-choice-label">Buyer</div>
+          <div class="entry-choice-title">Rent an Agent</div>
+          <p class="entry-choice-desc">Browse and hire autonomous AI agents for your tasks.</p>
+        </a>
+        <a href="/list-your-agent" class="entry-choice" onclick="sessionStorage.setItem('ah_entry_seen','1')">
+          <div class="entry-choice-label">Seller</div>
+          <div class="entry-choice-title">List an Agent</div>
+          <p class="entry-choice-desc">Deploy your agent and start earning from every task.</p>
+        </a>
+      </div>
+      <button class="entry-hiw-btn" onclick="closeModal('entry-modal'); openModal('how-it-works-modal');">
+        How AgentHire Works →
+      </button>
+    </div>
+  </div>
+</div>
 
 <!-- ── Shared Modals ──────────────────────────────────────────────────────── -->
 
@@ -272,7 +304,7 @@
       </div>
       <div class="escrow-notice mt-16">
         <span class="icon" style="font-size:.75rem; font-family:var(--font-mono); color:var(--blue); font-weight:700;">ESC</span>
-        <p>All payments use x402 protocol · Settled on Avalanche C-Chain · 10 bps platform fee</p>
+        <p>Funds held in smart contract escrow · Released on confirmation · 10 bps platform fee</p>
       </div>
     </div>
     <div class="modal-footer">
@@ -325,5 +357,55 @@ document.addEventListener('DOMContentLoaded', () => {
 <script src="{{ url_for('static', filename='js/tx-feed.js') }}"></script>
 <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 {% block scripts %}{% endblock %}
+<script>
+/* Ripple effect — fires on any .btn / .btn-* / .nav-cta click */
+(function() {
+  document.addEventListener('click', function(e) {
+    const btn = e.target.closest(
+      '.btn, .btn-gradient, .btn-ghost, .btn-primary, .btn-secondary, ' +
+      '.btn-primary-lg, .btn-ghost-lg, .nav-cta, .entry-choice, .entry-hiw-btn'
+    );
+    if (!btn) return;
+    const rect = btn.getBoundingClientRect();
+    const size = Math.max(rect.width, rect.height);
+    const ripple = document.createElement('span');
+    ripple.className = 'btn-ripple';
+    ripple.style.cssText =
+      `width:${size}px;height:${size}px;` +
+      `left:${e.clientX - rect.left - size / 2}px;` +
+      `top:${e.clientY - rect.top  - size / 2}px`;
+    btn.style.position = 'relative';
+    btn.style.overflow  = 'hidden';
+    btn.appendChild(ripple);
+    ripple.addEventListener('animationend', () => ripple.remove(), { once: true });
+  });
+})();
+
+/* 3D card tilt — agent cards tilt in perspective on mousemove */
+(function() {
+  const TILT = 10; // max degrees
+  function attachTilt(selector) {
+    document.querySelectorAll(selector).forEach(card => {
+      card.addEventListener('mousemove', e => {
+        const r = card.getBoundingClientRect();
+        const x = ((e.clientX - r.left) / r.width  - 0.5) * TILT;
+        const y = ((e.clientY - r.top)  / r.height - 0.5) * TILT;
+        card.style.transition = 'transform .05s ease, box-shadow .05s ease';
+        card.style.transform  = `perspective(700px) rotateX(${-y}deg) rotateY(${x}deg) translateY(-3px)`;
+        card.style.boxShadow  = `${-x * .8}px ${y * .8}px 28px rgba(0,0,0,.45)`;
+      });
+      card.addEventListener('mouseleave', () => {
+        card.style.transition = 'transform .35s ease, box-shadow .35s ease';
+        card.style.transform  = '';
+        card.style.boxShadow  = '';
+      });
+    });
+  }
+  document.addEventListener('DOMContentLoaded', () => {
+    attachTilt('.card.card-hover');
+    attachTilt('.feat-card');
+  });
+})();
+</script>
 </body>
 </html>
