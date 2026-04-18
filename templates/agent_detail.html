@@ -323,9 +323,35 @@
         </div>
       </div>
 
+      <!-- Model & Token Pricing -->
+      {% if agent.model_provider %}
+      <div class="card card-sm" style="border-color:var(--border-2);">
+        <div class="flex-between mb-12">
+          <h4 style="margin:0;">Model</h4>
+          <span class="badge" style="font-family:var(--font-mono); font-size:.62rem; padding:3px 8px; background:var(--surface-1); border:1px solid var(--border-2); border-radius:999px; color:{{ 'var(--amber)' if agent.model_provider == 'Undisclosed' else 'var(--text)' }};">
+            {{ agent.model_provider }}
+          </span>
+        </div>
+        <div class="flex-between mb-8 text-sm">
+          <span class="text-muted">Underlying model</span>
+          <span class="font-mono" style="font-size:.78rem;">{{ agent.model_name or '—' }}</span>
+        </div>
+        {% if agent.input_price_per_1m %}
+        <div class="flex-between mb-8 text-sm">
+          <span class="text-muted">Input tokens</span>
+          <span class="font-mono" style="font-size:.78rem;">${{ "%.2f"|format(agent.input_price_per_1m / 1000000) }} / 1M</span>
+        </div>
+        <div class="flex-between text-sm">
+          <span class="text-muted">Output tokens</span>
+          <span class="font-mono" style="font-size:.78rem;">${{ "%.2f"|format(agent.output_price_per_1m / 1000000) }} / 1M</span>
+        </div>
+        {% endif %}
+      </div>
+      {% endif %}
+
       <!-- Seller Info -->
       <div class="card card-sm">
-        <h4 class="mb-12">About the Seller</h4>
+        <h4 class="mb-12">About the Deployer</h4>
         <div class="flex-between mb-8">
           <span class="text-sm font-bold">{{ agent.seller }}</span>
           <div class="rating" title="{{ agent.seller_rating }} out of 5">
@@ -333,6 +359,14 @@
             <span class="rating-value text-sm">{{ "%.1f"|format(agent.seller_rating) }}</span>
           </div>
         </div>
+        {% if agent.deployer_wallet %}
+        <div class="flex-between mb-8 text-xs">
+          <span class="text-muted">Deployer wallet</span>
+          <a href="https://testnet.snowtrace.io/address/{{ agent.deployer_wallet }}" target="_blank" rel="noopener"
+             class="font-mono" style="font-size:.7rem; color:var(--blue);"
+             title="View on Snowtrace">{{ agent.deployer_wallet[:6] }}…{{ agent.deployer_wallet[-4:] }}</a>
+        </div>
+        {% endif %}
         <div class="text-xs text-muted">{{ "{:,}".format(agent.tasks_completed) }} total tasks completed</div>
       </div>
     </div>

@@ -49,6 +49,13 @@ class Agent(db.Model):
     seller_rating       = db.Column(db.Float, nullable=False, default=0.0)
     tasks_completed     = db.Column(db.Integer, nullable=False, default=0)
     avg_completion_time = db.Column(db.String(20), nullable=False, default=" - ")
+    # On-chain identity (each agent is an independently-deployed entity)
+    model_provider      = db.Column(db.String(40), nullable=True)
+    model_name          = db.Column(db.String(80), nullable=True)
+    deployer_wallet     = db.Column(db.String(64), nullable=True)
+    # I/O token pricing in USDC micro-units per 1M tokens (0 = unset)
+    input_price_per_1m  = db.Column(db.Integer, nullable=False, default=0)
+    output_price_per_1m = db.Column(db.Integer, nullable=False, default=0)
     # JSON-encoded lists
     _tags               = db.Column("tags", db.Text, nullable=False, default="[]")
     _capabilities       = db.Column("capabilities", db.Text, nullable=False, default="[]")
@@ -93,6 +100,13 @@ class Agent(db.Model):
             "seller_rating": self.seller_rating,
             "tasks_completed": self.tasks_completed,
             "avg_completion_time": self.avg_completion_time,
+            "model_provider": self.model_provider,
+            "model_name": self.model_name,
+            "deployer_wallet": self.deployer_wallet,
+            "input_price_per_1m": self.input_price_per_1m,
+            "output_price_per_1m": self.output_price_per_1m,
+            "input_price_display": round((self.input_price_per_1m or 0) / 1_000_000, 2),
+            "output_price_display": round((self.output_price_per_1m or 0) / 1_000_000, 2),
             "tags": self.tags,
             "capabilities": self.capabilities,
         }

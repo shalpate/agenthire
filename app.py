@@ -2076,16 +2076,30 @@ def _sync_agents_from_db():
             "surge_multiplier": a.surge_multiplier, "seller": a.seller,
             "seller_rating": a.seller_rating, "tasks_completed": a.tasks_completed,
             "avg_completion_time": a.avg_completion_time,
+            "model_provider": a.model_provider,
+            "model_name": a.model_name,
+            "deployer_wallet": a.deployer_wallet,
+            "input_price_per_1m": a.input_price_per_1m or 0,
+            "output_price_per_1m": a.output_price_per_1m or 0,
             "tags": a.tags, "capabilities": a.capabilities,
         })
 
 
 with app.app_context():
     try:
+        # 1. Baseline schema (idempotent)
+        db.create_all()
+        # 2. Additive column migrations (SQLite can't add columns via create_all)
+        from agent_pack import _ensure_columns
+        _ensure_columns(app)
+        # 3. Original fixtures
         from models import seed_db
         seed_db(app)
-        from agent_pack import seed_bulk_agents
+        # 4. Bulk roster + backfill of new fields on older rows
+        from agent_pack import seed_bulk_agents, backfill_existing
         seed_bulk_agents(app)
+        backfill_existing(app)
+        # 5. On-chain profiles / sim seed data
         from simulation import seed_simulation
         seed_simulation(app)
         _sync_agents_from_db()
