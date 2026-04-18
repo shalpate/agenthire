@@ -302,6 +302,28 @@
           <span class="text-muted">Billing model</span>
           <span class="font-bold">{{ 'Per Token' if agent.billing == 'per_token' else 'Per Minute' }}</span>
         </div>
+
+        {% if agent.model_provider %}
+        <div style="border-top:1px solid var(--border-1); padding-top:12px; margin-bottom:12px;">
+          <div class="flex-between mb-8 text-sm">
+            <span class="text-muted">Model</span>
+            <span class="font-mono" style="font-size:.75rem; color:{{ 'var(--amber)' if agent.model_provider == 'Undisclosed' else 'var(--text)' }};">
+              {% if agent.model_provider == 'Undisclosed' %}Undisclosed{% else %}{{ agent.model_provider }} · {{ agent.model_name }}{% endif %}
+            </span>
+          </div>
+          {% if agent.input_price_per_1m %}
+          <div class="flex-between mb-6 text-sm">
+            <span class="text-muted">Input tokens</span>
+            <span class="font-mono" style="font-size:.78rem;">${{ "%.2f"|format(agent.input_price_per_1m / 1000000) }} / 1M</span>
+          </div>
+          <div class="flex-between mb-12 text-sm">
+            <span class="text-muted">Output tokens</span>
+            <span class="font-mono" style="font-size:.78rem;">${{ "%.2f"|format(agent.output_price_per_1m / 1000000) }} / 1M</span>
+          </div>
+          {% endif %}
+        </div>
+        {% endif %}
+
         <div class="flex-between mb-16 text-sm">
           <span class="text-muted">Platform fee</span>
           <span>10 bps</span>
@@ -320,35 +342,6 @@
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:10px;">
           <button class="btn btn-secondary btn-sm" onclick="openModal('pricing-modal')">Pricing Breakdown</button>
           <button class="btn btn-secondary btn-sm" onclick="openModal('verification-modal')">Verification Info</button>
-        </div>
-      </div>
-
-      <!-- On-Chain Stack — x402 / ERC-8004 / ICM -->
-      <div class="card card-sm" style="border-color:var(--border-2); background:linear-gradient(180deg, rgba(70,130,230,0.04), transparent);">
-        <div class="flex-between mb-12">
-          <h4 style="margin:0;">On-chain stack</h4>
-          <span class="badge" style="font-family:var(--font-mono); font-size:.6rem; padding:3px 8px; background:rgba(255,80,80,0.1); border:1px solid rgba(255,80,80,0.2); border-radius:999px; color:var(--red);">Fuji · 43113</span>
-        </div>
-        <div style="display:flex; flex-direction:column; gap:8px; font-size:.75rem;">
-          <div style="display:flex; justify-content:space-between; align-items:center;">
-            <span class="font-mono" style="color:var(--green);">x402</span>
-            <span class="text-muted" style="font-size:.7rem;">EIP-3009 pay, gasless for buyer</span>
-          </div>
-          <div style="display:flex; justify-content:space-between; align-items:center;">
-            <span class="font-mono" style="color:#7fb3ff;">ERC-8004</span>
-            <a href="/api/agents/{{ agent.id }}/erc8004" class="text-muted" style="font-size:.7rem; color:var(--blue); text-decoration:none;" target="_blank">getIdentity · getScore · getReputation →</a>
-          </div>
-          <div style="display:flex; justify-content:space-between; align-items:center;">
-            <span class="font-mono" style="color:var(--amber);">ICM</span>
-            <a href="/api/icm/info" class="text-muted" style="font-size:.7rem; color:var(--blue); text-decoration:none;" target="_blank">Teleporter cross-L1 →</a>
-          </div>
-          <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--border-1); padding-top:8px; margin-top:4px;">
-            <span class="text-muted">Snowtrace</span>
-            {% if agent.deployer_wallet %}
-            <a href="https://testnet.snowtrace.io/address/{{ agent.deployer_wallet }}" target="_blank" rel="noopener"
-               class="font-mono" style="font-size:.7rem; color:var(--blue);">{{ agent.deployer_wallet[:6] }}…{{ agent.deployer_wallet[-4:] }} ↗</a>
-            {% endif %}
-          </div>
         </div>
       </div>
 
@@ -375,32 +368,6 @@
           </a>
           {% endfor %}
         </div>
-      </div>
-      {% endif %}
-
-      <!-- Model & Token Pricing -->
-      {% if agent.model_provider %}
-      <div class="card card-sm" style="border-color:var(--border-2);">
-        <div class="flex-between mb-12">
-          <h4 style="margin:0;">Model</h4>
-          <span class="badge" style="font-family:var(--font-mono); font-size:.62rem; padding:3px 8px; background:var(--surface-1); border:1px solid var(--border-2); border-radius:999px; color:{{ 'var(--amber)' if agent.model_provider == 'Undisclosed' else 'var(--text)' }};">
-            {{ agent.model_provider }}
-          </span>
-        </div>
-        <div class="flex-between mb-8 text-sm">
-          <span class="text-muted">Underlying model</span>
-          <span class="font-mono" style="font-size:.78rem;">{{ agent.model_name or '—' }}</span>
-        </div>
-        {% if agent.input_price_per_1m %}
-        <div class="flex-between mb-8 text-sm">
-          <span class="text-muted">Input tokens</span>
-          <span class="font-mono" style="font-size:.78rem;">${{ "%.2f"|format(agent.input_price_per_1m / 1000000) }} / 1M</span>
-        </div>
-        <div class="flex-between text-sm">
-          <span class="text-muted">Output tokens</span>
-          <span class="font-mono" style="font-size:.78rem;">${{ "%.2f"|format(agent.output_price_per_1m / 1000000) }} / 1M</span>
-        </div>
-        {% endif %}
       </div>
       {% endif %}
 
