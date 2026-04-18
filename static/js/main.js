@@ -98,7 +98,7 @@ document.addEventListener('click', (e) => {
 
 // ── Role Switcher ─────────────────────────────────────────────────────────────
 const rolePaths = {
-  buyer:  '/',
+  buyer:  '/marketplace',
   seller: '/seller/dashboard',
   admin:  '/admin/dashboard',
 };
@@ -656,3 +656,42 @@ function makeDoughnutChart(id, labels, data, colors) {
     }
   });
 }
+
+// ── Theme Toggle ─────────────────────────────────────────────────────────────
+(function initTheme() {
+  const root  = document.documentElement;
+  const saved = localStorage.getItem('ah_theme') || 'dark';
+  root.setAttribute('data-theme', saved);
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const btn = document.getElementById('theme-toggle');
+    if (!btn) return;
+
+    btn.addEventListener('click', () => {
+      const next = root.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+      root.setAttribute('data-theme', next);
+      localStorage.setItem('ah_theme', next);
+    });
+  });
+})();
+
+// ── Entry Modal — show once per session on buyer-facing pages ─────────────────
+(function initEntryModal() {
+  document.addEventListener('DOMContentLoaded', () => {
+    const modal = document.getElementById('entry-modal');
+    if (!modal) return;
+
+    // Only show on the landing/root page, not on seller or admin pages
+    const path = window.location.pathname;
+    if (path !== '/' && path !== '') return;
+
+    // Skip if already seen this session
+    if (sessionStorage.getItem('ah_entry_seen')) return;
+
+    // Brief delay so the page paints first
+    setTimeout(() => {
+      openModal('entry-modal');
+      sessionStorage.setItem('ah_entry_seen', '1');
+    }, 600);
+  });
+})();

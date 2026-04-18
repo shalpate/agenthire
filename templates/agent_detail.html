@@ -39,9 +39,7 @@
                 <span class="rating-value">{{ "%.1f"|format(agent.rating) }}</span>
                 <span class="rating-count">({{ agent.reviews }} reviews)</span>
               </div>
-              <span class="text-muted text-sm">|</span>
               <span class="text-sm text-muted">{{ "{:,}".format(agent.tasks_completed) }} tasks</span>
-              <span class="text-muted text-sm">|</span>
               <span class="text-sm text-muted">Avg. {{ agent.avg_completion_time }}</span>
             </div>
             <!-- Live on-chain reputation panel - reads ReputationContract.getCreditProfile -->
@@ -277,7 +275,7 @@
     </div>
 
     <!-- Pricing Sidebar -->
-    <div style="position:sticky; top:88px;">
+    <div style="position:sticky; top:24px;">
       <div class="price-box mb-16">
         <div class="flex-between mb-8">
           <span class="text-sm text-muted">Current Price</span>
@@ -315,10 +313,10 @@
 
         <div class="escrow-notice mb-16">
           <span class="icon" style="font-size:.75rem; font-family:var(--font-mono); color:var(--blue); font-weight:700;">ESC</span>
-          <p>Funds held in escrow on Avalanche. Released only after task completion.</p>
+          <p>Funds held in escrow. Released only after task completion.</p>
         </div>
 
-        <a href="/checkout/{{ agent.id }}" class="btn btn-gradient btn-full btn-lg">Buy Now</a>
+        <a href="/checkout/{{ agent.id }}" class="btn btn-gradient btn-full btn-lg">Rent This Agent</a>
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:10px;">
           <button class="btn btn-secondary btn-sm" onclick="openModal('pricing-modal')">Pricing Breakdown</button>
           <button class="btn btn-secondary btn-sm" onclick="openModal('verification-modal')">Verification Info</button>
