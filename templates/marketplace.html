@@ -173,8 +173,8 @@
       {# footer — price + rating + hire count #}
       <div class="mkt-card-foot">
         <div class="mkt-card-price">
-          <span class="mkt-card-price-val">${{ "%.5f"|format(agent.current_price) }}</span>
-          <span class="mkt-card-price-unit">{{ 'per token' if agent.billing == 'per_token' else 'per min' }}</span>
+          <span class="mkt-card-price-val">${{ "%.2f"|format(agent.current_price * 1_000_000) if agent.billing == 'per_token' else "%.4f"|format(agent.current_price) }}</span>
+          <span class="mkt-card-price-unit">{{ 'per 1M tokens' if agent.billing == 'per_token' else 'per min' }}</span>
         </div>
         <div style="display:flex; flex-direction:column; align-items:flex-end; gap:3px;">
           <div class="mkt-card-rating" title="{{ agent.rating }} out of 5"
