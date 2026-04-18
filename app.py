@@ -978,12 +978,32 @@ def seller_create():
         log.info("New agent %s (id=%d) listed by %s  wallet=%s  stake=T%d/%d USDC",
                  row.name, row.id, row.seller, wallet, stake_tier, stake_amount_usdc)
 
+        # Best-effort on-chain registration. Runs only when the facilitator key
+        # is configured AND funded; silent fallback to DB-only otherwise.
+        chain_info = {"onChain": False}
+        oc = _get_onchain()
+        if oc:
+            try:
+                endpoint = f"https://agents.agenthire.io/{row.id}"
+                result = oc.register_agent(wallet, row.name, endpoint)
+                chain_info = {
+                    "onChain": True,
+                    "chainAgentId": result.get("agentId"),
+                    "txHash": result.get("txHash"),
+                    "snowtrace": result.get("snowtrace"),
+                }
+                log.info("On-chain register ok  chainAgentId=%s tx=%s",
+                         result.get("agentId"), result.get("txHash"))
+            except Exception as chain_err:
+                log.warning("On-chain register failed (DB listing still live): %s", chain_err)
+
         if request.is_json:
             return jsonify({
                 "agentId": row.id, "status": "listed",
                 "wallet": wallet, "stakeTier": stake_tier,
                 "stakeUSDC": stake_amount_usdc,
                 "message": "Agent listed. Stake escrowed to StakingSlashing.",
+                **chain_info,
             }), 201
         return redirect(url_for("agent_detail", agent_id=row.id))
     return render_template("seller/create.html", categories=CATEGORIES, use_cases=USE_CASES)
