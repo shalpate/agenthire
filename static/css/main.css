@@ -234,7 +234,7 @@ p  { color: var(--text-2); }
   background: var(--bg);
   border-bottom: 1px solid var(--border);
   padding: 0 40px;
-  height: 148px;
+  height: 64px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -254,7 +254,7 @@ p  { color: var(--text-2); }
 /* ── Logo SVGs ─────────────────────────────────────────────────────────── */
 .logo-lockup {
   display: block;
-  height: 140px;
+  height: 40px;
   width: auto;
   flex-shrink: 0;
 }
@@ -397,10 +397,11 @@ p  { color: var(--text-2); }
   padding: 22px;
 }
 .card-sm { padding: 14px 18px; }
-.card-hover { transition: border-color var(--transition), box-shadow var(--transition); }
+.card-hover { transition: border-color var(--transition), box-shadow var(--transition), transform var(--transition); }
 .card-hover:hover {
   border-color: var(--border-2);
-  box-shadow: 0 0 0 1px var(--border-2);
+  box-shadow: 0 4px 16px rgba(0,0,0,.35);
+  transform: translateY(-1px);
 }
 
 /* ── Agent Card — flex column with an explicit spacer div that absorbs all
@@ -892,10 +893,10 @@ tbody tr:hover { background: var(--card-2); }
 .modal {
   background: var(--card);
   border: 1px solid var(--border-2);
-  border-radius: var(--radius);
+  border-radius: var(--radius-lg);
   width: 100%;
   max-width: 500px;
-  box-shadow: var(--shadow-lg);
+  box-shadow: 0 24px 60px rgba(0,0,0,.75);
   transform: translateY(16px);
   transition: transform 0.2s ease;
 }
@@ -1507,7 +1508,7 @@ tbody tr:hover { background: var(--card-2); }
 }
 
 /* ── Admin Sidebar ─────────────────────────────────────────────────────────── */
-.admin-layout { display: flex; gap: 0; min-height: calc(100vh - 86px); }
+.admin-layout { display: flex; gap: 0; min-height: calc(100vh - 94px); }
 .admin-sidebar {
   width: 210px;
   flex-shrink: 0;
@@ -1515,8 +1516,8 @@ tbody tr:hover { background: var(--card-2); }
   border-right: 1px solid var(--border);
   padding: 20px 10px;
   position: sticky;
-  top: 86px;
-  height: calc(100vh - 86px);
+  top: 94px;
+  height: calc(100vh - 94px);
   overflow-y: auto;
 }
 .sidebar-section { margin-bottom: 22px; }
@@ -2859,6 +2860,14 @@ tbody tr:hover { background: var(--card-2); }
   color: var(--text);
   background: var(--card-2);
 }
+
+/* ── Focus ring ────────────────────────────────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid var(--red);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+:focus:not(:focus-visible) { outline: none; }
 
 /* ── Page entrance ─────────────────────────────────────────────────────────── */
 @keyframes page-in {
