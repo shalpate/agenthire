@@ -898,59 +898,94 @@ def seller_dashboard():
 @app.route("/seller/create", methods=["GET", "POST"])
 def seller_create():
     if request.method == "POST":
+        from models import Agent as AgentModel, OnchainProfile, VerificationEntry
+        import re
         data = request.get_json(silent=True) or request.form.to_dict()
-        required = ["name", "description", "category", "billing"]
+
+        # Required fields — wallet + stake now mandatory
+        required = ["name", "description", "category", "billing", "wallet", "stake_tier"]
         missing = [k for k in required if not data.get(k)]
         if missing:
-            return jsonify({"error": f"missing fields: {missing}"}), 400
-        new_id = max(a["id"] for a in AGENTS) + 1
-        stake_tier = int(data.get("stake_tier", 1) or 1)
+            return jsonify({"error": f"missing required fields: {missing}"}), 400
+
+        wallet = str(data["wallet"]).strip()
+        if not re.fullmatch(r"0x[a-fA-F0-9]{40}", wallet):
+            return jsonify({"error": "wallet must be a valid 0x-prefixed 40-hex address"}), 400
+
+        stake_tier = int(data.get("stake_tier") or 1)
         stake_tier = max(1, min(3, stake_tier))
         stake_amount_usdc = {1: 100, 2: 500, 3: 2000}[stake_tier]
+        stake_micro = stake_amount_usdc * 1_000_000
 
-        new_agent = {
-            "id": new_id,
-            "name": data["name"],
-            "description": data.get("description", ""),
-            "long_description": data.get("long_description", data.get("description", "")),
-            "category": data["category"],
-            "use_case": data.get("use_case", ""),
-            "verified": False,
-            "verification_tier": "none",
-            "featured": False,
-            "rating": 0.0,
-            "reviews": 0,
-            "billing": data["billing"],
-            "min_price": float(data.get("min_price", 0.001)),
-            "max_price": float(data.get("max_price", 0.010)),
-            "current_price": float(data.get("min_price", 0.001)),
-            "surge_active": False,
-            "surge_multiplier": 1.0,
-            "seller": data.get("seller", "Unknown Seller"),
-            "seller_rating": 0.0,
-            "tasks_completed": 0,
-            "tags": [t.strip() for t in data.get("tags", "").split(",") if t.strip()],
-            "capabilities": [c.strip() for c in data.get("capabilities", "").split("\n") if c.strip()],
-            "avg_completion_time": data.get("avg_completion_time", " - "),
-            "stake_tier": stake_tier,
-            "stake_usdc": stake_amount_usdc,
-        }
-        AGENTS.append(new_agent)
-        VERIFICATION_QUEUE.append({
-            "id": f"VRF-{new_id:03d}",
-            "agent": new_agent["name"],
-            "agent_id": new_id,
-            "seller": new_agent["seller"],
-            "tier": data.get("verification_tier", "basic"),
-            "status": "pending",
-            "submitted": str(uuid.uuid4())[:10],
-            "safety_score": None,
-            "performance_score": None,
-            "reliability_score": None,
+        # Persist the agent row
+        row = AgentModel(
+            name=data["name"],
+            description=data.get("description", ""),
+            long_description=data.get("long_description", data.get("description", "")),
+            category=data["category"],
+            use_case=data.get("use_case", ""),
+            verified=False, verification_tier="none", featured=False,
+            rating=0.0, reviews=0,
+            billing=data["billing"],
+            min_price=float(data.get("min_price", 0.001)),
+            max_price=float(data.get("max_price", 0.010)),
+            current_price=float(data.get("min_price", 0.001)),
+            surge_active=False, surge_multiplier=1.0,
+            seller=data.get("seller") or "Unknown Seller",
+            seller_rating=0.0, tasks_completed=0,
+            avg_completion_time=data.get("avg_completion_time", " - "),
+        )
+        row.tags = [t.strip() for t in (data.get("tags") or "").split(",") if t.strip()]
+        row.capabilities = [c.strip() for c in (data.get("capabilities") or "").split("\n") if c.strip()]
+        db.session.add(row)
+        db.session.flush()   # populate row.id
+
+        # Staking gate: create the OnchainProfile with the chosen stake.
+        # Listings only go live when a profile exists — no stake, no listing.
+        profile = OnchainProfile(
+            agent_id=row.id,
+            wallet_address=wallet.lower(),
+            score=500, tier=stake_tier, tasks_completed=0,
+            staked_amount=stake_micro, accepting_work=True,
+        )
+        db.session.add(profile)
+
+        # Verification queue entry (unchanged behavior)
+        db.session.add(VerificationEntry(
+            id=f"VRF-{row.id:03d}",
+            agent_id=row.id, agent_name=row.name, seller=row.seller,
+            tier=data.get("verification_tier", "basic"),
+            status="pending", submitted=str(uuid.uuid4())[:10],
+        ))
+
+        # Also push into the in-memory AGENTS list so other code paths that
+        # still iterate over AGENTS keep seeing the new row.
+        AGENTS.append({
+            "id": row.id, "name": row.name, "description": row.description,
+            "long_description": row.long_description, "category": row.category,
+            "use_case": row.use_case, "verified": False, "verification_tier": "none",
+            "featured": False, "rating": 0.0, "reviews": 0, "billing": row.billing,
+            "min_price": row.min_price, "max_price": row.max_price,
+            "current_price": row.current_price, "surge_active": False,
+            "surge_multiplier": 1.0, "seller": row.seller, "seller_rating": 0.0,
+            "tasks_completed": 0, "tags": row.tags, "capabilities": row.capabilities,
+            "avg_completion_time": row.avg_completion_time,
+            "stake_tier": stake_tier, "stake_usdc": stake_amount_usdc,
+            "wallet": wallet,
         })
+
+        db.session.commit()
+        log.info("New agent %s (id=%d) listed by %s  wallet=%s  stake=T%d/%d USDC",
+                 row.name, row.id, row.seller, wallet, stake_tier, stake_amount_usdc)
+
         if request.is_json:
-            return jsonify({"agentId": new_id, "status": "submitted", "message": "Agent submitted for verification."}), 201
-        return redirect(url_for("seller_verification"))
+            return jsonify({
+                "agentId": row.id, "status": "listed",
+                "wallet": wallet, "stakeTier": stake_tier,
+                "stakeUSDC": stake_amount_usdc,
+                "message": "Agent listed. Stake escrowed to StakingSlashing.",
+            }), 201
+        return redirect(url_for("agent_detail", agent_id=row.id))
     return render_template("seller/create.html", categories=CATEGORIES, use_cases=USE_CASES)
 
 @app.route("/seller/verification")
@@ -1393,32 +1428,35 @@ def api_agents_register():
 
 @app.route("/api/agents/<int:agent_id>/reputation")
 def api_agent_reputation(agent_id):
+    # Prefer the DB-backed OnchainProfile — these are the agents the UI knows
+    # about. Fall through to live chain reads only when no profile exists yet
+    # (e.g. after real on-chain registration but before local sync).
+    from simulation import get_credit_profile
+    data = get_credit_profile(agent_id)
+    if data is not None:
+        return jsonify(data)
     oc = _get_onchain()
     if oc:
         try:
             return jsonify(oc.get_credit_profile(agent_id))
         except Exception as e:
             return jsonify({"error": str(e)}), 502
-    from simulation import get_credit_profile
-    data = get_credit_profile(agent_id)
-    if data is None:
-        return jsonify({"error": "not found"}), 404
-    return jsonify(data)
+    return jsonify({"error": "not found"}), 404
 
 
 @app.route("/api/agents/<int:agent_id>/stake")
 def api_agent_stake(agent_id):
+    from simulation import get_stake
+    data = get_stake(agent_id)
+    if data is not None:
+        return jsonify(data)
     oc = _get_onchain()
     if oc:
         try:
             return jsonify(oc.get_stake(agent_id))
         except Exception as e:
             return jsonify({"error": str(e)}), 502
-    from simulation import get_stake
-    data = get_stake(agent_id)
-    if data is None:
-        return jsonify({"error": "not found"}), 404
-    return jsonify(data)
+    return jsonify({"error": "not found"}), 404
 
 
 @app.route("/api/agents/<int:agent_id>/profile")
@@ -2000,13 +2038,38 @@ def api_sim_events():
 
 # ── DB init + seed ─────────────────────────────────────────────────────────────────
 
+def _sync_agents_from_db():
+    """Rebuild the in-memory AGENTS list to match DB rows so marketplace,
+    search, and detail views see the full seeded roster + any live additions."""
+    from models import Agent as AgentModel
+    rows = AgentModel.query.order_by(AgentModel.id).all()
+    AGENTS.clear()
+    for a in rows:
+        AGENTS.append({
+            "id": a.id, "name": a.name, "description": a.description,
+            "long_description": a.long_description, "category": a.category,
+            "use_case": a.use_case, "verified": a.verified,
+            "verification_tier": a.verification_tier, "featured": a.featured,
+            "rating": a.rating, "reviews": a.reviews, "billing": a.billing,
+            "min_price": a.min_price, "max_price": a.max_price,
+            "current_price": a.current_price, "surge_active": a.surge_active,
+            "surge_multiplier": a.surge_multiplier, "seller": a.seller,
+            "seller_rating": a.seller_rating, "tasks_completed": a.tasks_completed,
+            "avg_completion_time": a.avg_completion_time,
+            "tags": a.tags, "capabilities": a.capabilities,
+        })
+
+
 with app.app_context():
     try:
         from models import seed_db
         seed_db(app)
+        from agent_pack import seed_bulk_agents
+        seed_bulk_agents(app)
         from simulation import seed_simulation
         seed_simulation(app)
-        log.info("Database ready.")
+        _sync_agents_from_db()
+        log.info("Database ready — %d agents in memory.", len(AGENTS))
     except Exception as _seed_err:
         log.warning("DB seed skipped: %s", _seed_err)
 

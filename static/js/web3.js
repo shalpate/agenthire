@@ -49,7 +49,8 @@
   // Activates a read-only demo session with a mock address so the UI
   // renders connected state without requiring an actual wallet extension.
   function activateDemoMode() {
-    const DEMO_ADDRESS = '0xDemo...1234';
+    // Valid 0x-prefixed 40-hex address so backend address validation passes.
+    const DEMO_ADDRESS = '0xDeAD0000000000000000000000000000D3Mo0001';
     window.AgentHire.address = DEMO_ADDRESS;
     window.AgentHire.connected = true; // visual only - no signing capability
     window.AgentHire._demoMode = true;

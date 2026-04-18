@@ -282,7 +282,8 @@
           <div class="flex-between mb-8 text-sm"><span class="text-muted">Billing</span><span id="review-billing">Per Token</span></div>
           <div class="flex-between mb-8 text-sm"><span class="text-muted">Price Range</span><span id="review-range">$0.002 - $0.010</span></div>
           <div class="flex-between mb-8 text-sm"><span class="text-muted">Verification</span><span id="review-verification">Basic ($10 USDC)</span></div>
-          <div class="flex-between text-sm"><span class="text-muted">Stake Tier</span><span id="review-stake">Tier 1 (100 USDC)</span></div>
+          <div class="flex-between mb-8 text-sm"><span class="text-muted">Stake Tier</span><span id="review-stake">Tier 1 (100 USDC)</span></div>
+          <div class="flex-between text-sm"><span class="text-muted">Staking Wallet</span><span class="font-mono" id="review-wallet" style="font-size:.72rem;">not connected</span></div>
         </div>
 
         <div class="escrow-notice">
@@ -405,9 +406,31 @@
         set('review-fee-val', `$${verifyFee.toFixed(2)} USDC`);
         set('review-stake-val', `$${stakeUSDC.toFixed(2)} USDC`);
         set('review-total', `$${(verifyFee + stakeUSDC).toFixed(2)} USDC`);
+        // Show the wallet that will stake
+        const w = (window.AgentHire && window.AgentHire.address) || null;
+        const wEl = document.getElementById('review-wallet');
+        if (wEl) {
+          if (w) {
+            wEl.textContent = w.slice(0, 6) + '…' + w.slice(-4);
+            wEl.style.color = 'var(--green)';
+          } else {
+            wEl.textContent = 'not connected — click Connect Wallet';
+            wEl.style.color = 'var(--red)';
+          }
+        }
       }
     }, true); // capture phase - runs before main.js's bubble listener
   })();
+
+  // Keep the review-wallet in sync with connect events
+  window.addEventListener('agenthire:connected', (e) => {
+    const w = e.detail && e.detail.address;
+    const el = document.getElementById('review-wallet');
+    if (el && w) {
+      el.textContent = w.slice(0, 6) + '…' + w.slice(-4);
+      el.style.color = 'var(--green)';
+    }
+  });
 
   // ── Submit handler ─────────────────────────────────────────────────────────
   document.getElementById('step-submit').addEventListener('click', async () => {
@@ -422,6 +445,17 @@
     const verifyEl = step3 ? step3.querySelector('.tier-card[data-tier].selected') : null;
     const stakeEl  = step3 ? step3.querySelector('.tier-card[data-stake].selected') : null;
 
+    // Wallet gate — must be connected to stake + list.
+    const walletAddr = (window.AgentHire && window.AgentHire.address) || null;
+    if (!walletAddr) {
+      showToast('Connect a wallet first — stake can\'t be posted without one.', 'error');
+      btn.disabled = false;
+      btn.textContent = 'Submit & Pay Verification Fee';
+      // Trigger the connect flow
+      document.getElementById('wallet-btn')?.click();
+      return;
+    }
+
     const payload = {
       name:              byId('create-name'),
       description:       byId('create-desc'),
@@ -435,7 +469,8 @@
       max_price:         byId('create-max-price') || '0.010',
       verification_tier: verifyEl ? verifyEl.dataset.tier : 'basic',
       stake_tier:        stakeEl  ? Number(stakeEl.dataset.stake) : 1,
-      seller:            (window.AgentHire && window.AgentHire.address) ? window.AgentHire.address : 'Unknown Seller',
+      wallet:            walletAddr,
+      seller:            walletAddr,
     };
 
     if (!payload.name || !payload.description || !payload.category) {
@@ -447,9 +482,11 @@
 
     try {
       const res = await AgentHireAPI.post('/seller/create', payload);
-      if (res.agentId || res.status === 'submitted') {
-        showToast('Listing submitted for verification!', 'success');
-        setTimeout(() => window.location = '/seller/verification', 1800);
+      if (res.agentId) {
+        showToast(`Listed! Stake of ${res.stakeUSDC} USDC escrowed.`, 'success');
+        // Route straight to the buyer-facing detail page so the seller sees
+        // their listing the way buyers will.
+        setTimeout(() => window.location = `/agent/${res.agentId}`, 1400);
       } else {
         throw new Error(res.error || 'Unexpected response');
       }
