@@ -44,6 +44,9 @@
   .tag.slash { background: #4a1515; color: #ff8787; }
   .tag.bid_cancel { background: #2a2a2a; color: var(--text-3); }
   .tag.system { background: #1a1a1a; color: var(--text-3); }
+  /* A2A — agent-to-agent payments get a prominent teal treatment */
+  .tag.a2a_hire, .tag.a2a_settle { background: #0a3a3a; color: #5fe3e3; font-weight: 700; }
+  .event.evt-a2a { background: linear-gradient(90deg, rgba(95,227,227,0.08), transparent 70%); border-left: 3px solid #5fe3e3; padding-left: 14px; }
 
   /* Agent profile cards */
   .roster-body { padding: 12px; display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 12px; max-height: 900px; overflow-y: auto; }
@@ -121,6 +124,10 @@
     <div class="stat-card"><div class="stat-label">Ticks</div><div class="stat-val" id="stat-ticks">0</div></div>
     <div class="stat-card"><div class="stat-label">Speed</div><div class="stat-val" id="stat-speed">—</div></div>
     <div class="stat-card"><div class="stat-label">Active Sessions</div><div class="stat-val" id="stat-active">0</div></div>
+    <div class="stat-card" style="background:linear-gradient(180deg, rgba(95,227,227,0.08), var(--surface-1)); border-color:rgba(95,227,227,0.25);">
+      <div class="stat-label" style="color:#5fe3e3;">A2A Payments</div>
+      <div class="stat-val" id="stat-a2a" style="color:#5fe3e3;">0</div>
+    </div>
     <div class="stat-card"><div class="stat-label">Events Logged</div><div class="stat-val" id="stat-events">0</div></div>
   </div>
 
@@ -147,6 +154,7 @@
 (function() {
   let lastEventId = 0;
   let totalEvents = 0;
+  let totalA2A = 0;
   const logEl = document.getElementById('event-log');
   const rosterEl = document.getElementById('agent-roster');
 
@@ -177,11 +185,13 @@
 
   function renderEvent(ev) {
     const el = document.createElement('div');
-    el.className = 'event';
+    const isA2A = ev.kind === 'a2a_hire' || ev.kind === 'a2a_settle';
+    el.className = 'event' + (isA2A ? ' evt-a2a' : '');
+    if (isA2A) totalA2A++;
     const amt = ev.amountUSDC ? `${ev.amountUSDC.toFixed(2)} USDC` : '';
     el.innerHTML = `
       <span class="ts">${fmtTs(ev.ts)}</span>
-      <span class="tag ${ev.kind}">${ev.kind}</span>
+      <span class="tag ${ev.kind}">${ev.kind.replace('_', ' ')}</span>
       <span class="msg">${ev.message}</span>
       <span class="amt">${amt}</span>
     `;
@@ -329,6 +339,7 @@
         totalEvents++;
       }
       document.getElementById('stat-events').textContent = totalEvents.toLocaleString();
+      document.getElementById('stat-a2a').textContent = totalA2A.toLocaleString();
       document.getElementById('event-count').textContent = `${totalEvents.toLocaleString()} events`;
     } catch (e) { /* noop */ }
   }

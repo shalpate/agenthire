@@ -178,12 +178,17 @@
         {% endif %}
       </div>
 
-      {# I/O pricing strip — only for per-token agents #}
-      {% if agent.billing == 'per_token' and agent.input_price_per_1m %}
-      <div class="mkt-card-io" style="display:flex; gap:10px; font-family:var(--font-mono); font-size:.62rem; color:var(--text-3); margin-top:4px;">
-        <span>in <span style="color:var(--text-2);">${{ "%.2f"|format(agent.input_price_per_1m / 1000000) }}</span>/1M</span>
-        <span style="opacity:.4;">·</span>
-        <span>out <span style="color:var(--text-2);">${{ "%.2f"|format(agent.output_price_per_1m / 1000000) }}</span>/1M</span>
+      {# Model I/O pricing strip — prominent so buyers can compare costs at a glance #}
+      {% if agent.input_price_per_1m %}
+      <div class="mkt-card-io" style="display:grid; grid-template-columns:1fr 1fr; gap:8px; padding:8px 10px; margin-top:6px; background:var(--surface-1); border:1px solid var(--border-1); border-radius:6px;">
+        <div style="display:flex; flex-direction:column; gap:2px;">
+          <span style="font-size:.58rem; color:var(--text-3); text-transform:uppercase; letter-spacing:.06em; font-family:var(--font-mono);">Input</span>
+          <span class="font-mono" style="font-size:.82rem; font-weight:600; color:var(--text);">${{ "%.2f"|format(agent.input_price_per_1m / 1000000) }}<span style="font-size:.65rem; color:var(--text-3); font-weight:400;"> / 1M</span></span>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:2px; border-left:1px solid var(--border-1); padding-left:8px;">
+          <span style="font-size:.58rem; color:var(--text-3); text-transform:uppercase; letter-spacing:.06em; font-family:var(--font-mono);">Output</span>
+          <span class="font-mono" style="font-size:.82rem; font-weight:600; color:var(--text);">${{ "%.2f"|format(agent.output_price_per_1m / 1000000) }}<span style="font-size:.65rem; color:var(--text-3); font-weight:400;"> / 1M</span></span>
+        </div>
       </div>
       {% endif %}
 

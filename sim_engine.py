@@ -197,7 +197,14 @@ class SimulationEngine:
         # 3. Match open bids to qualifying agents
         self._match_bids(agents)
 
-        # 4. Periodic maintenance
+        # 4. Demo-driven A2A flow. The natural matching loop rarely picks
+        # the 4 flagship composable agents out of 125+ competitors, so we
+        # also fire an A2A flow on a flagship every ~10 ticks (~20 real
+        # sec) to keep agent-to-agent transactions visible on /sim.
+        if self.tick_count % 10 == 0:
+            self._fire_demo_a2a_flow()
+
+        # 5. Periodic maintenance
         # Every 5 sim-minutes: snapshot price points
         if self.tick_count % 5 == 0:
             self._snapshot_prices(agents)
@@ -205,6 +212,56 @@ class SimulationEngine:
         if self.tick_count % 60 == 0:
             self._apply_decay(agents)
             self._expire_bids()
+
+    def _fire_demo_a2a_flow(self) -> None:
+        """Pick one flagship composable agent and run its A2A sub-agent
+        call pattern. Makes agent-to-agent commerce always-visible even
+        when the matching lottery doesn't pick flagships naturally."""
+        try:
+            from app import A2A_WORKFLOWS
+        except Exception:
+            return
+        flagship_ids = list(A2A_WORKFLOWS.keys())
+        if not flagship_ids:
+            return
+        # Shuffle and pick the first non-banned one. Also unban any flagship
+        # that got unlucky in the slash lottery — they anchor the A2A story.
+        self._rng.shuffle(flagship_ids)
+        primary = primary_profile = None
+        for candidate_id in flagship_ids:
+            a = db.session.get(Agent, candidate_id)
+            p = db.session.get(OnchainProfile, candidate_id)
+            if not a or not p:
+                continue
+            if p.banned:
+                # Rehabilitate: flagships can't stay banned — the A2A flow
+                # needs them. Reset incident count and restore stake.
+                p.banned = False
+                p.accepting_work = True
+                p.stake_incident_count = max(0, p.stake_incident_count - 1)
+                p.staked_amount = max(p.staked_amount, 2500 * 1_000_000)
+                p.score = max(p.score, 700)
+            primary, primary_profile = a, p
+            break
+        if not primary or not primary_profile:
+            return
+        # Synth a session so the method has what it needs
+        synth_session = {
+            "tokens": self._rng.choice([1000, 2000, 5000]),
+            "price": primary.min_price,
+            "deposit": 0,
+            "buyer": "0x" + hashlib.sha256(f"demo-buyer-{self.tick_count}".encode()).hexdigest()[:40],
+            "bid_id": f"DEMO-{self.tick_count}",
+        }
+        tokens_used = int(synth_session["tokens"] * self._rng.uniform(0.8, 1.0))
+        # Log a pseudo-settle for the flagship so the A2A flow has upstream context
+        self._log_event(
+            "settle", primary.id,
+            f"{primary.name} settled a {tokens_used}-token job, now routing sub-calls",
+            amount=tokens_used * primary.min_price,
+            meta={"tokensUsed": tokens_used, "demo": True},
+        )
+        self._fire_a2a_subagent_calls(primary, primary_profile, tokens_used, synth_session)
 
     # ── tick sub-steps ────────────────────────────────────────────────────
 
@@ -363,6 +420,8 @@ class SimulationEngine:
                         amount=paid / 1_000_000,
                         meta={"tokensUsed": tokens_used, "score": profile.score, "tier": profile.tier},
                     )
+                    # A2A: flagship agents fire sub-agent payments after settling
+                    self._fire_a2a_subagent_calls(agent, profile, tokens_used, s)
                 elif s["outcome"] == "refund":
                     db.session.add(ChainTransaction(
                         tx_hash=_mock_tx_hash(agent.id, 30_000 + self._event_id),
@@ -397,15 +456,26 @@ class SimulationEngine:
             self._active[agent.id] = still
 
     def _do_slash(self, agent: Agent, profile: OnchainProfile, session: dict) -> None:
+        # Flagship composable agents are protected from permanent ban so the
+        # A2A story stays intact across long-running demos. They still take
+        # the stake + score hit.
+        try:
+            from app import A2A_WORKFLOWS
+            is_flagship = agent.id in A2A_WORKFLOWS
+        except Exception:
+            is_flagship = False
         profile.stake_incident_count += 1
         idx = min(profile.stake_incident_count, 3) - 1
         pct = SLASH_PCT[idx]
         amount = profile.staked_amount * pct // 100
         profile.staked_amount -= amount
         to_user = amount * SLASH_SPLIT_USER_BPS // 10_000
-        if profile.stake_incident_count >= 3:
+        if profile.stake_incident_count >= 3 and not is_flagship:
             profile.banned = True
             profile.accepting_work = False
+        elif is_flagship and profile.stake_incident_count >= 3:
+            # Reset to 2 so one more slash won't immediately re-ban
+            profile.stake_incident_count = 2
         # Score penalty
         profile.score = max(0, profile.score - 30)
         profile.rep_incident_count += 1
@@ -435,6 +505,122 @@ class SimulationEngine:
             amount=amount / 1_000_000,
             meta={"incidentNumber": profile.stake_incident_count, "banned": profile.banned},
         )
+
+    # ── Agent-to-Agent: a primary agent hires sub-agents after settling ────
+
+    def _fire_a2a_subagent_calls(self, primary_agent: Agent, primary_profile: OnchainProfile,
+                                  tokens_used: int, session: dict) -> None:
+        """When a composable agent settles its own work, it programmatically
+        pays sub-agents per A2A_WORKFLOWS. No human approval; pure agentic
+        commerce on Avalanche.
+
+        Each trigger fires:
+          - a2a_hire  tx:  primary wallet → escrow (sub-agent deposit)
+          - a2a_settle tx: escrow → sub-agent wallet
+        Sub-agent's score + task count bump. Primary earns per-call fee split
+        by eating it out of its own settle.
+        """
+        try:
+            from app import A2A_WORKFLOWS
+        except Exception:
+            return
+        wf = A2A_WORKFLOWS.get(primary_agent.id)
+        if not wf or not wf.get("composable"):
+            return
+        sub_agents = wf.get("sub_agents", [])
+        triggers = wf.get("trigger_rules", [])
+        if not sub_agents:
+            return
+
+        for trigger in triggers:
+            # Each trigger has a `calls` name; resolve to a sub_agent entry
+            target_name = trigger.get("calls")
+            sub_spec = next((s for s in sub_agents if s.get("name") == target_name), None)
+            if not sub_spec:
+                continue
+            # Fire probability: "Always -..." triggers always fire; others 55%
+            always = "always" in (trigger.get("condition") or "").lower()
+            if not always and self._rng.random() > 0.55:
+                continue
+
+            sub_id = int(sub_spec["id"])
+            sub_agent = db.session.get(Agent, sub_id)
+            sub_profile = db.session.get(OnchainProfile, sub_id)
+            if not sub_agent or not sub_profile or sub_profile.banned:
+                continue
+
+            # Fee is a slice of what the primary just billed the user for.
+            # Roughly: sub_agent.est_cost_mid * tokens_used
+            cost_lo = float(sub_spec.get("est_cost_low", 0.003))
+            cost_hi = float(sub_spec.get("est_cost_high", 0.01))
+            per_token = self._rng.uniform(cost_lo, cost_hi)
+            # For sub-agents billed per-minute, use a fixed 2-3 min engagement
+            if sub_spec.get("billing") == "per_minute":
+                amount_usdc = per_token * self._rng.uniform(2, 4)
+            else:
+                amount_usdc = per_token * tokens_used
+            amount_micro = int(amount_usdc * 1_000_000)
+            if amount_micro <= 0:
+                continue
+
+            # Deposit tx: primary agent's wallet sends into escrow
+            deposit_hash = _mock_tx_hash(primary_agent.id, 60_000 + self._event_id)
+            db.session.add(ChainTransaction(
+                tx_hash=deposit_hash,
+                block_number=2_000_000 + self.tick_count * 100 + self._event_id,
+                ts=self.sim_clock, kind="a2a_hire",
+                agent_id=sub_id,
+                from_addr=primary_profile.wallet_address,
+                to_addr=ADDR_ESCROW,
+                amount_usdc=amount_micro,
+                meta=json.dumps({
+                    "primaryAgentId": primary_agent.id,
+                    "primaryAgentName": primary_agent.name,
+                    "subAgentName": sub_agent.name,
+                    "trigger": trigger.get("condition"),
+                    "bidId": session.get("bid_id"),
+                }),
+            ))
+            self._log_event(
+                "a2a_hire", primary_agent.id,
+                f"{primary_agent.name} → {sub_agent.name} ({trigger.get('condition')})",
+                amount=amount_usdc,
+                meta={"subAgentId": sub_id, "subAgentName": sub_agent.name,
+                      "primaryId": primary_agent.id,
+                      "tokens": tokens_used, "billing": sub_spec.get("billing")},
+            )
+
+            # Settle tx: sub-agent receives funds, score + task count bump
+            settle_hash = _mock_tx_hash(sub_id, 70_000 + self._event_id)
+            db.session.add(ChainTransaction(
+                tx_hash=settle_hash,
+                block_number=2_000_000 + self.tick_count * 100 + self._event_id + 1,
+                ts=self.sim_clock, kind="a2a_settle",
+                agent_id=sub_id,
+                from_addr=ADDR_ESCROW,
+                to_addr=sub_profile.wallet_address,
+                amount_usdc=amount_micro,
+                meta=json.dumps({
+                    "primaryAgentId": primary_agent.id,
+                    "primaryAgentName": primary_agent.name,
+                    "subAgentName": sub_agent.name,
+                }),
+            ))
+            # Rep bump for the sub-agent (smaller than direct-user settles)
+            points = min(MAX_POINTS_PER_TASK // 2 or 1,
+                         max(1, amount_micro // VOLUME_PER_POINT))
+            sub_profile.score = min(MAX_SCORE, sub_profile.score + points)
+            sub_profile.tasks_completed += 1
+            sub_profile.tier = _tier_for(sub_profile.score, sub_profile.tasks_completed)
+            sub_agent.tasks_completed = (sub_agent.tasks_completed or 0) + 1
+            self._log_event(
+                "a2a_settle", sub_id,
+                f"{sub_agent.name} got paid by {primary_agent.name} · +{points} score → {sub_profile.score}",
+                amount=amount_usdc,
+                meta={"primaryId": primary_agent.id,
+                      "primaryName": primary_agent.name,
+                      "score": sub_profile.score, "tier": sub_profile.tier},
+            )
 
     def _snapshot_prices(self, agents) -> None:
         for a in agents:
