@@ -1497,6 +1497,99 @@ def api_agent_stake(agent_id):
     return jsonify({"error": "not found"}), 404
 
 
+@app.route("/api/icm/info")
+def api_icm_info():
+    """Static info about ICM/Teleporter wiring — for the UI + bounty judges."""
+    from icm import TELEPORTER_MESSENGER, BLOCKCHAIN_IDS
+    return jsonify({
+        "teleporter": TELEPORTER_MESSENGER,
+        "sourceBlockchain": "fuji-c",
+        "sourceBlockchainId": BLOCKCHAIN_IDS["fuji-c"],
+        "destinations": {k: v for k, v in BLOCKCHAIN_IDS.items() if k != "fuji-c"},
+        "snowtrace": f"https://testnet.snowtrace.io/address/{TELEPORTER_MESSENGER}",
+    })
+
+
+@app.route("/api/icm/send", methods=["POST"])
+def api_icm_send():
+    """Send a cross-L1 bid via Teleporter. Requires FACILITATOR funding."""
+    data = request.get_json(silent=True) or {}
+    dest = data.get("destinationBlockchain", "dispatch")
+    dest_addr = data.get("destinationAddress")
+    if not dest_addr:
+        return jsonify({"error": "destinationAddress required"}), 400
+    try:
+        from icm import ICM
+        icm_client = ICM.from_env()
+        payload = icm_client.encode_bid_message(
+            buyer=data.get("buyer", "0x" + "0" * 40),
+            agent_id=int(data.get("agentId", 0)),
+            token_budget=int(data.get("tokenBudget", 1000)),
+            max_price_per_token=int(data.get("maxPricePerToken", 1_000_000)),
+            category_id=int(data.get("categoryId", 0)),
+        )
+        result = icm_client.send_message(dest, dest_addr, payload)
+        return jsonify({"ok": True, **result})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 502
+
+
+@app.route("/api/stack")
+def api_stack():
+    """One-shot: everything the bounty judges need to verify compliance."""
+    from icm import TELEPORTER_MESSENGER, BLOCKCHAIN_IDS
+    from erc8004 import INTERFACE_ID
+    from onchain import ADDRESSES, CHAIN_ID, CHAIN_NAME, EXPLORER_URL
+    return jsonify({
+        "chain": {"name": CHAIN_NAME, "chainId": CHAIN_ID, "explorer": EXPLORER_URL},
+        "contracts": {name: {"address": addr,
+                             "snowtrace": f"{EXPLORER_URL}/address/{addr}"}
+                      for name, addr in ADDRESSES.items()},
+        "x402": {
+            "endpoint": "/api/x402/pay",
+            "flow": "EIP-3009 transferWithAuthorization → approve → EscrowPayment.depositFunds",
+            "gasFreeForBuyer": True,
+        },
+        "erc8004": {
+            "interfaceId": "0x" + INTERFACE_ID.hex(),
+            "methods": ["getIdentity", "getScore", "getReputation"],
+            "endpoint": "/api/agents/<id>/erc8004",
+            "note": "Python SDK adapter over AgentRegistry.getAgent + ReputationContract.getCreditProfile",
+        },
+        "icm": {
+            "teleporter": TELEPORTER_MESSENGER,
+            "sourceBlockchain": BLOCKCHAIN_IDS["fuji-c"],
+            "endpoints": ["/api/icm/info", "/api/icm/send"],
+        },
+        "a2a": {
+            "workflows": "A2A_WORKFLOWS (hardcoded flagships: CodeReview, AlphaTrader, DataSift, SecureAudit)",
+            "discovery": "every agent detail page shows 3 affinity-matched collaborators",
+        },
+    })
+
+
+@app.route("/api/agents/<int:agent_id>/erc8004")
+def api_agent_erc8004(agent_id):
+    """ERC-8004 Trustless Agents adapter. Returns identity + score + reputation
+    in the shape defined by the EIP-8004 draft, delegating to the deployed
+    AgentRegistry and ReputationContract under the hood."""
+    oc = _get_onchain()
+    if not oc:
+        return jsonify({"error": "on-chain not configured",
+                        "hint": "set FACILITATOR_PRIVATE_KEY and fund the wallet"}), 503
+    try:
+        from erc8004 import ERC8004Adapter
+        std = ERC8004Adapter(oc)
+        return jsonify({
+            "interfaceId":  std.interface_id,
+            "identity":     std.get_identity(agent_id),
+            "score":        std.get_score(agent_id),
+            "reputation":   std.get_reputation(agent_id),
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 502
+
+
 @app.route("/api/agents/<int:agent_id>/profile")
 def api_agent_profile(agent_id):
     """Full on-chain profile — rep + stake + recent activity in one call."""
