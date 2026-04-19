@@ -1183,7 +1183,7 @@ def admin_payouts():
 # ── API (mock) ─────────────────────────────────────────────────────────────────
 
 @app.route("/api/price/<int:agent_id>")
-@limiter.limit("60/minute")
+@limiter.limit("600/minute")   # base template ticker polls this 16×/cycle
 def api_price(agent_id):
     from models import Agent as AgentModel, PricePoint
     from simulation import current_price

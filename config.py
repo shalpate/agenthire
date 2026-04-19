@@ -45,7 +45,10 @@ class Config:
     ]
 
     # ── Rate limiting ──────────────────────────────────────────────────────
-    RATELIMIT_DEFAULT: str = os.environ.get("RATELIMIT_DEFAULT", "120/minute")
+    # Demo mode runs lots of client-side polling (ticker, sim status, agent
+    # metadata); 120/min hits the wall fast. 600/min = 10/sec still protects
+    # against abuse while letting the demo breathe.
+    RATELIMIT_DEFAULT: str = os.environ.get("RATELIMIT_DEFAULT", "600/minute")
     RATELIMIT_STORAGE_URI: str = "memory://"  # swap to redis:// in production
     RATELIMIT_HEADERS_ENABLED: bool = True
 
