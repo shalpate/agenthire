@@ -657,8 +657,16 @@ class SimulationEngine:
             sub_id = int(sub_spec["id"])
             sub_agent = db.session.get(Agent, sub_id)
             sub_profile = db.session.get(OnchainProfile, sub_id)
-            if not sub_agent or not sub_profile or sub_profile.banned:
+            if not sub_agent or not sub_profile:
                 continue
+            if sub_profile.banned:
+                # Sub-agents in A2A_WORKFLOWS are first-class demo citizens;
+                # auto-rehab them so the pipeline never goes dark.
+                sub_profile.banned = False
+                sub_profile.accepting_work = True
+                sub_profile.stake_incident_count = max(0, sub_profile.stake_incident_count - 1)
+                sub_profile.staked_amount = max(sub_profile.staked_amount, 750 * 1_000_000)
+                sub_profile.score = max(sub_profile.score, 700)
 
             # Fee: caller-driven price-per-token when provided, otherwise
             # a random draw from this sub-agent's published cost band.

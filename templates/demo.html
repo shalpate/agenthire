@@ -211,8 +211,8 @@
           <span class="a-tier tier-1" id="f-tier">—</span>
         </div>
         <div class="a-row"><span class="k">Wallet</span><a class="wlink" id="f-wallet" href="#" target="_blank">—</a></div>
-        <div class="a-row"><span class="k">Score</span><span class="v" id="f-score">—</span></div>
-        <div class="a-row"><span class="k">Upstream</span><span class="v" id="f-up">—</span></div>
+        <div class="a-row"><span class="k">Score / Tier</span><span class="v" id="f-score">—</span></div>
+        <div class="a-row"><span class="k">Task size</span><span class="v" id="f-up">—</span></div>
       </div>
 
       <div class="arrow-col">
@@ -222,7 +222,7 @@
       </div>
 
       <div class="subs" id="subs">
-        <div class="agent empty">Receiver appears here after Run or Send.</div>
+        <div class="agent empty" id="subs-empty">Receiver will populate here when a payment lands.</div>
       </div>
     </div>
     <div class="prog"><div class="prog-fill"></div></div>
@@ -521,6 +521,8 @@
       const m = b.dataset.mode;
       $('form-workflow').style.display = m === 'workflow' ? 'grid' : 'none';
       $('form-direct').style.display   = m === 'direct'   ? 'grid' : 'none';
+      // Reset the stage so chips from the previous mode don't stick around
+      resetStage();
     });
   });
   $('btn-workflow').onclick = runWorkflow;

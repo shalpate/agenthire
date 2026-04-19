@@ -2178,17 +2178,33 @@ def api_sim_trigger_direct():
         if k not in data:
             return jsonify({"error": f"missing field: {k}"}), 400
     try:
+        from_id = int(data["fromId"])
+        to_id = int(data["toId"])
+    except (TypeError, ValueError):
+        return jsonify({"error": "fromId and toId must be integers"}), 400
+    try:
+        amount = float(data["amountUSDC"])
+    except (TypeError, ValueError):
+        return jsonify({"error": "amountUSDC must be a number"}), 400
+    if from_id == to_id:
+        return jsonify({"error": "sender and receiver must be different agents"}), 400
+    if amount <= 0:
+        return jsonify({"error": "amountUSDC must be greater than 0"}), 400
+    try:
+        tokens = int(data.get("tokens", 1000))
+        if tokens < 1 or tokens > 10_000_000:
+            return jsonify({"error": "tokens must be between 1 and 10,000,000"}), 400
+    except (TypeError, ValueError):
+        return jsonify({"error": "tokens must be an integer"}), 400
+    try:
         eng = get_engine(app)
         if not eng.is_running():
             eng.start()
         before_id = eng._event_id
         with app.app_context():
             r = eng.fire_direct_a2a(
-                from_id=int(data["fromId"]),
-                to_id=int(data["toId"]),
-                amount_usdc=float(data["amountUSDC"]),
-                tokens=int(data.get("tokens", 1000)),
-                reason=data.get("reason"),
+                from_id=from_id, to_id=to_id, amount_usdc=amount,
+                tokens=tokens, reason=data.get("reason"),
             )
             db.session.commit()
         if not r.get("ok"):
@@ -2241,13 +2257,39 @@ def api_sim_trigger_a2a():
     primary_id = data.get("primaryId")
     token_budget = data.get("tokenBudget")
     price_per_token = data.get("pricePerToken")
+
+    # Type + range validation so we never 500 on a bad payload
+    try:
+        primary_id_int = int(primary_id) if primary_id not in (None, "", 0) else None
+    except (TypeError, ValueError):
+        return jsonify({"error": "primaryId must be an integer"}), 400
+    try:
+        token_budget_int = int(token_budget) if token_budget not in (None, "", 0) else None
+        if token_budget_int is not None and (token_budget_int < 1 or token_budget_int > 10_000_000):
+            return jsonify({"error": "tokenBudget must be between 1 and 10,000,000"}), 400
+    except (TypeError, ValueError):
+        return jsonify({"error": "tokenBudget must be an integer"}), 400
+    try:
+        price_f = float(price_per_token) if price_per_token not in (None, "", 0) else None
+        if price_f is not None and price_f < 0:
+            return jsonify({"error": "pricePerToken must be non-negative"}), 400
+    except (TypeError, ValueError):
+        return jsonify({"error": "pricePerToken must be a number"}), 400
+
+    # If the caller specified a primary, it must be a known flagship
+    if primary_id_int is not None and primary_id_int not in A2A_WORKFLOWS:
+        return jsonify({
+            "error": "primaryId must be a composable flagship agent",
+            "validFlagships": list(A2A_WORKFLOWS.keys()),
+        }), 400
+
     before_id = eng._event_id
     with app.app_context():
         try:
             eng._fire_demo_a2a_flow(
-                primary_id=int(primary_id) if primary_id else None,
-                token_budget=int(token_budget) if token_budget else None,
-                price_per_token=float(price_per_token) if price_per_token else None,
+                primary_id=primary_id_int,
+                token_budget=token_budget_int,
+                price_per_token=price_f,
             )
             db.session.commit()
         except Exception as e:
@@ -2333,6 +2375,7 @@ def api_sim_event_contract_map():
         "bid_post":       "AuctionMarket",
         "bid_claim":      "AuctionMarket",
         "bid_cancel":     "AuctionMarket",
+        "registerAgent":  "AgentRegistry",  # live on-chain writes from the demo
     }
     return jsonify({
         "explorer": EXPLORER_URL,
