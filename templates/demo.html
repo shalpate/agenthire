@@ -3,246 +3,174 @@
 
 {% block head %}
 <style>
-  :root { --teal: #5fe3e3; --ink: var(--text); }
-  .d-wrap { max-width: 1180px; margin: 0 auto; padding: 20px 24px 80px; }
+  :root { --teal: #5fe3e3; }
+  .d { max-width: 1180px; margin: 0 auto; padding: 20px 24px 80px; }
 
-  /* Header */
-  .d-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-  .d-title { font-size: 1.5rem; font-weight: 700; display: flex; align-items: center; gap: 10px; }
-  .d-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--teal); box-shadow: 0 0 0 0 var(--teal); animation: pulse 1.8s infinite; }
-  .d-dot.stopped { background: #666; animation: none; }
-  @keyframes pulse {
-    0%   { box-shadow: 0 0 0 0 rgba(95,227,227,.5); }
-    70%  { box-shadow: 0 0 0 10px rgba(95,227,227,0); }
-    100% { box-shadow: 0 0 0 0 rgba(95,227,227,0); }
-  }
-  .d-sub { color: var(--text-3); font-size: .8rem; font-family: var(--font-mono); }
-  .d-sub a { color: var(--text-2); text-decoration: none; }
-  .d-sub a:hover { color: var(--teal); }
+  .d-head { display:flex; justify-content:space-between; align-items:flex-end; margin-bottom: 16px; }
+  .d-title { font-size: 1.7rem; font-weight: 800; display:flex; align-items:center; gap: 12px; }
+  .d-pulse { width: 9px; height: 9px; border-radius: 50%; background: var(--teal); animation: pulse 1.6s infinite; }
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(95,227,227,.5); } 70% { box-shadow: 0 0 0 10px rgba(95,227,227,0); } 100% { box-shadow: 0 0 0 0 rgba(95,227,227,0); } }
+  .d-sub { color: var(--text-3); font-size: .9rem; margin-top: 4px; max-width: 700px; line-height: 1.5; }
 
-  /* Top row */
-  .d-row-top { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; padding: 10px 14px; background: var(--surface-1); border: 1px solid var(--border-2); border-radius: 10px; margin-bottom: 14px; }
-  .mode-tabs { display: flex; gap: 4px; padding: 3px; background: var(--surface-2); border-radius: 8px; }
-  .mode-tab { padding: 6px 12px; font-size: .78rem; font-weight: 600; font-family: var(--font-mono); border: none; border-radius: 6px; background: transparent; color: var(--text-3); cursor: pointer; }
-  .mode-tab.active { background: var(--ink); color: var(--bg); }
-  .right-stats { display: flex; gap: 16px; align-items: center; font-family: var(--font-mono); font-size: .75rem; }
-  .right-stats .k { color: var(--text-3); }
-  .right-stats .v { color: var(--ink); font-weight: 700; margin-left: 4px; }
-  .right-stats .v.teal { color: var(--teal); }
-  .btn-reset-sm { padding: 5px 10px; background: transparent; color: var(--text-3); border: 1px solid var(--border-2); border-radius: 6px; font-family: var(--font-mono); font-size: .7rem; cursor: pointer; }
-  .btn-reset-sm:hover { color: #ff8787; border-color: #ff8787; }
+  /* Side-by-side card */
+  .card { background: var(--surface-1); border: 1px solid var(--border-2); border-radius: 12px; padding: 18px; margin-bottom: 14px; }
+  .card h3 { margin: 0 0 12px; font-size: 1rem; font-weight: 700; }
+  .hint { color: var(--text-3); font-size: .8rem; margin-bottom: 10px; line-height: 1.5; }
 
-  /* Controls */
-  .controls { background: var(--surface-1); border: 1px solid var(--border-2); border-radius: 10px; padding: 14px; margin-bottom: 14px; }
-  .ctl-grid { display: grid; gap: 10px; align-items: end; }
-  .ctl-grid.workflow { grid-template-columns: 1.4fr 1fr 1fr .6fr auto; }
-  .ctl-grid.direct   { grid-template-columns: 1.3fr 1.3fr .8fr .8fr 1.2fr auto; }
-  .ctl-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-  .ctl-label { font-size: .6rem; color: var(--text-3); font-family: var(--font-mono); text-transform: uppercase; letter-spacing: .08em; }
-  .ctl-input { padding: 9px 10px; background: var(--surface-2); border: 1px solid var(--border-2); border-radius: 7px; color: var(--text); font-family: var(--font-mono); font-size: .8rem; width: 100%; }
-  .btn-run { padding: 10px 18px; font-size: .85rem; font-weight: 700; border-radius: 7px; cursor: pointer; border: none; background: var(--teal); color: #001818; transition: transform .12s; white-space: nowrap; }
-  .btn-run:hover:not(:disabled) { transform: translateY(-1px); }
-  .btn-run:disabled { opacity: .5; cursor: not-allowed; }
+  /* Form */
+  .form { display: grid; grid-template-columns: 1fr 1fr 140px 140px 140px; gap: 10px; align-items: end; }
+  .f { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .f label { font-size: .62rem; color: var(--text-3); font-family: var(--font-mono); text-transform: uppercase; letter-spacing: .08em; }
+  .f input, .f select { padding: 10px 11px; background: var(--surface-2); border: 1px solid var(--border-2); border-radius: 7px; color: var(--text); font-family: var(--font-mono); font-size: .85rem; }
+  .btn { padding: 11px 20px; border: none; border-radius: 8px; font-weight: 700; font-size: .9rem; cursor: pointer; font-family: inherit; }
+  .btn.primary { background: var(--teal); color: #001818; }
+  .btn.primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(95,227,227,.3); }
+  .btn.primary:disabled { opacity: .55; cursor: not-allowed; }
+  .btn.ghost { background: var(--surface-2); color: var(--text-2); border: 1px solid var(--border-2); }
+  .btn.ghost:hover { border-color: #ff8787; color: #ff8787; }
+
+  .cascade-toggle { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: .82rem; color: var(--text-2); font-family: var(--font-mono); }
+  .cascade-toggle input { accent-color: var(--teal); }
+  .cascade-toggle .note { color: var(--text-3); font-size: .72rem; }
 
   /* Stage */
-  .stage { background: linear-gradient(135deg, rgba(95,227,227,.03), transparent 70%); border: 1px solid var(--border-2); border-radius: 12px; padding: 22px; margin-bottom: 14px; min-height: 280px; }
+  .stage { background: linear-gradient(135deg, rgba(95,227,227,.03), transparent 70%); border: 1px solid var(--border-2); border-radius: 12px; padding: 22px; margin-bottom: 14px; }
   .stage.firing { border-color: var(--teal); }
-  .pipe { display: grid; grid-template-columns: 1fr 130px 1fr; gap: 16px; align-items: stretch; min-height: 220px; }
-  .pipe.fan { grid-template-columns: 1fr 130px 1.2fr; }
+  .labels { display: grid; grid-template-columns: 1fr 140px 1fr; gap: 10px; font-family: var(--font-mono); font-size: .56rem; color: var(--text-3); text-transform: uppercase; letter-spacing: .1em; margin-bottom: 8px; }
+  .labels span:nth-child(2) { text-align: center; }
+  .labels span:nth-child(3) { text-align: right; }
+  .pipe { display: grid; grid-template-columns: 1fr 140px 1fr; gap: 14px; align-items: stretch; min-height: 210px; }
 
-  .agent { background: var(--surface-2); border: 1px solid var(--border-2); border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 8px; transition: border-color .2s, box-shadow .2s, transform .2s; }
-  .agent.on { border-color: var(--green); box-shadow: 0 0 0 2px rgba(57,211,83,.2); }
-  .agent.paid { border-color: var(--teal); box-shadow: 0 0 0 2px rgba(95,227,227,.22); transform: translateY(-2px); }
-  .agent.empty { border: 1px dashed var(--border-2); background: transparent; color: var(--text-3); justify-content: center; align-items: center; font-family: var(--font-mono); font-size: .8rem; text-align: center; }
-  .a-head { display: flex; align-items: center; gap: 10px; }
-  .avatar { width: 42px; height: 42px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: .95rem; color: #000; flex-shrink: 0; }
-  .a-name { font-weight: 700; font-size: .92rem; line-height: 1.1; }
-  .a-cat { font-size: .6rem; color: var(--text-3); font-family: var(--font-mono); text-transform: uppercase; letter-spacing: .06em; }
-  .a-tier { font-family: var(--font-mono); font-size: .58rem; padding: 2px 7px; border-radius: 999px; font-weight: 700; margin-left: auto; }
+  .chip { background: var(--surface-2); border: 1px solid var(--border-2); border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 6px; transition: border-color .25s, box-shadow .25s, transform .25s; }
+  .chip.sent { border-color: var(--green); box-shadow: 0 0 0 2px rgba(57,211,83,.2); }
+  .chip.got  { border-color: var(--teal); box-shadow: 0 0 0 2px rgba(95,227,227,.22); transform: translateY(-2px); }
+  .chip.empty { border-style: dashed; background: transparent; color: var(--text-3); justify-content: center; align-items: center; font-family: var(--font-mono); font-size: .82rem; text-align: center; padding: 30px; }
+  .chip-head { display:flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+  .av { width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: .95rem; color: #000; flex-shrink: 0; }
+  .c-name { font-weight: 700; font-size: .95rem; line-height: 1.1; }
+  .c-cat { font-size: .6rem; color: var(--text-3); font-family: var(--font-mono); text-transform: uppercase; letter-spacing: .06em; }
+  .c-tier { font-family: var(--font-mono); font-size: .58rem; padding: 2px 7px; border-radius: 999px; font-weight: 700; margin-left: auto; }
   .tier-1 { background: #2a2a2a; color: var(--text-2); }
   .tier-2 { background: #1a2b4a; color: #7fb3ff; }
   .tier-3 { background: linear-gradient(135deg, #2a1f4a, #4a1f8a); color: #c19aff; }
-  .a-row { display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: .66rem; }
-  .a-row .k { color: var(--text-3); }
-  .a-row .v { color: var(--ink); text-align: right; }
-  .wlink { color: var(--blue); text-decoration: none; font-size: .62rem; }
+  .r { display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: .7rem; }
+  .r .k { color: var(--text-3); }
+  .r .v { color: var(--text); text-align: right; }
+  .wlink { color: var(--blue); text-decoration: none; font-size: .66rem; }
   .wlink:hover { color: var(--teal); text-decoration: underline; }
-  .delta { color: var(--green); font-weight: 700; margin-left: 4px; animation: pop .7s; }
-  @keyframes pop { 0% { opacity:0; transform:scale(.7); } 50% { transform:scale(1.25); } 100% { opacity:1; transform:scale(1); } }
+  .delta { color: var(--green); font-weight: 700; margin-left: 4px; }
 
-  .arrow-col { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; }
-  .arrow { font-size: 1.6rem; color: var(--text-3); transition: color .2s, transform .2s; }
+  .mid { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; }
+  .arrow { font-size: 1.7rem; color: var(--text-3); transition: color .2s, transform .2s; }
   .arrow.on { color: var(--teal); transform: scaleX(1.3); }
-  .flight { font-family: var(--font-mono); font-weight: 800; font-size: 1.05rem; color: var(--teal); opacity: 0; transition: opacity .3s; }
-  .flight.on { opacity: 1; }
+  .flight { font-family: var(--font-mono); font-weight: 800; font-size: 1.1rem; color: var(--teal); }
   .via { font-family: var(--font-mono); font-size: .6rem; color: var(--text-3); text-align: center; }
   .via a { color: var(--teal); text-decoration: none; }
 
-  .subs { display: grid; grid-template-columns: 1fr; gap: 10px; }
-  .subs.two { grid-template-columns: 1fr 1fr; }
-
-  /* Progress (replaces the 5-step strip — single subtle bar below stage) */
-  .prog { height: 2px; background: var(--surface-2); border-radius: 2px; margin-top: 14px; overflow: hidden; }
-  .prog-fill { height: 100%; background: var(--teal); width: 0%; transition: width .5s ease; }
-  .stage.firing .prog-fill { width: 100%; }
-
-  /* Chain banner — slim, only when meaningful */
-  .chain-bar { padding: 8px 12px; border-radius: 8px; font-family: var(--font-mono); font-size: .72rem; margin-bottom: 12px; display: none; align-items: center; gap: 10px; }
-  .chain-bar.read { background: rgba(255,170,0,.05); border: 1px solid rgba(255,170,0,.25); color: var(--amber); }
-  .chain-bar.write { background: rgba(57,211,83,.05); border: 1px solid rgba(57,211,83,.3); color: var(--green); }
-  .chain-bar a { color: inherit; text-decoration: underline; }
+  /* Chain banner */
+  .chain { padding: 9px 13px; border-radius: 7px; font-family: var(--font-mono); font-size: .74rem; margin-bottom: 12px; display: none; gap: 10px; align-items: center; }
+  .chain.read  { background: rgba(255,170,0,.05); border: 1px solid rgba(255,170,0,.25); color: var(--amber); }
+  .chain.write { background: rgba(57,211,83,.06); border: 1px solid rgba(57,211,83,.32); color: var(--green); }
+  .chain a { color: inherit; text-decoration: underline; }
 
   /* History */
-  .hist { background: var(--surface-1); border: 1px solid var(--border-2); border-radius: 10px; overflow: hidden; }
-  .hist-head { padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-2); font-family: var(--font-mono); font-size: .7rem; color: var(--text-3); text-transform: uppercase; letter-spacing: .08em; }
-  .hist-cols { padding: 6px 14px; display: grid; grid-template-columns: 62px 90px 1.4fr 90px 110px 100px; gap: 10px; font-family: var(--font-mono); font-size: .56rem; color: var(--text-3); text-transform: uppercase; letter-spacing: .06em; border-bottom: 1px solid var(--border-1); }
-  .hist-body { max-height: 320px; overflow-y: auto; }
-  .hist-row { padding: 7px 14px; display: grid; grid-template-columns: 62px 90px 1.4fr 90px 110px 100px; gap: 10px; align-items: center; font-family: var(--font-mono); font-size: .7rem; border-bottom: 1px solid var(--border-1); animation: slidein .3s; }
-  @keyframes slidein { from { opacity:0; transform: translateY(-3px); } to { opacity:1; } }
-  .hist-row .ts { color: var(--text-3); }
-  .hist-row .tag { padding: 2px 6px; border-radius: 4px; font-size: .56rem; font-weight: 700; text-transform: uppercase; text-align: center; background: var(--surface-2); color: var(--text-2); }
-  .hist-row .tag.a2a_hire, .hist-row .tag.a2a_settle { background: #0a3a3a; color: var(--teal); }
-  .hist-row .tag.settle { background: #0d3a1d; color: var(--green); }
-  .hist-row .tag.registerAgent { background: rgba(57,211,83,.15); color: var(--green); font-weight: 800; }
-  .hist-row .amt { color: var(--green); font-weight: 700; text-align: right; }
-  .hist-row .tx, .hist-row .ctr { color: var(--blue); text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .hist-row .tx:hover, .hist-row .ctr:hover { color: var(--teal); text-decoration: underline; }
-  .hist-row .tx.live { color: var(--green); font-weight: 700; }
+  .hist-head { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--border-2); }
+  .hist-head-title { font-family: var(--font-mono); font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; color: var(--text-3); }
+  .hist-stats { display: flex; gap: 14px; font-family: var(--font-mono); font-size: .75rem; }
+  .hist-stats .k { color: var(--text-3); }
+  .hist-stats .v { color: var(--text); font-weight: 700; margin-left: 4px; }
+  .hist-stats .v.teal { color: var(--teal); }
+  .hist-body { max-height: 380px; overflow-y: auto; }
+  .hist-cols { padding: 6px 14px; display: grid; grid-template-columns: 62px 92px 1.3fr 90px 110px 110px; gap: 8px; font-family: var(--font-mono); font-size: .56rem; color: var(--text-3); text-transform: uppercase; letter-spacing: .08em; border-bottom: 1px solid var(--border-1); }
+  .row { padding: 8px 14px; display: grid; grid-template-columns: 62px 92px 1.3fr 90px 110px 110px; gap: 8px; align-items: center; font-family: var(--font-mono); font-size: .72rem; border-bottom: 1px solid var(--border-1); animation: slidein .4s; }
+  @keyframes slidein { from { opacity: 0; transform: translateY(-4px); background: rgba(95,227,227,.06); } to { opacity: 1; } }
+  .row .ts { color: var(--text-3); }
+  .row .tag { padding: 2px 7px; border-radius: 4px; font-size: .56rem; font-weight: 700; text-transform: uppercase; text-align: center; }
+  .tag.settle { background: #0d3a1d; color: var(--green); }
+  .tag.a2a_hire, .tag.a2a_settle { background: #0a3a3a; color: var(--teal); }
+  .tag.registerAgent { background: rgba(57,211,83,.18); color: var(--green); font-weight: 800; }
+  .row .amt { color: var(--green); font-weight: 700; text-align: right; }
+  .row .tx, .row .ctr { color: var(--blue); text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .tx:hover, .row .ctr:hover { color: var(--teal); text-decoration: underline; }
+  .row .tx.live { color: var(--green); font-weight: 700; }
   .hist-empty { padding: 50px; text-align: center; color: var(--text-3); font-family: var(--font-mono); font-size: .8rem; }
 
-  .err { position: fixed; bottom: 20px; right: 20px; padding: 10px 14px; background: #3a0d0d; border: 1px solid #ff8787; border-radius: 7px; color: #ff8787; font-family: var(--font-mono); font-size: .75rem; z-index: 100; display: none; max-width: 340px; }
-
-  @media (max-width: 880px) {
-    .d-row-top { grid-template-columns: 1fr; }
-    .ctl-grid.workflow, .ctl-grid.direct { grid-template-columns: 1fr 1fr; }
-    .pipe, .pipe.fan { grid-template-columns: 1fr; }
-    .hist-cols, .hist-row { grid-template-columns: 50px 70px 1fr 90px; }
-    .hist-cols > :nth-child(5), .hist-cols > :nth-child(6),
-    .hist-row > :nth-child(5), .hist-row > :nth-child(6) { display: none; }
-  }
+  .err { position: fixed; bottom: 20px; right: 20px; padding: 11px 14px; background: #3a0d0d; border: 1px solid #ff8787; border-radius: 7px; color: #ff8787; font-family: var(--font-mono); font-size: .78rem; z-index: 100; display: none; max-width: 360px; }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="d-wrap">
+<div class="d">
   <div class="d-head">
     <div>
-      <div class="d-title"><span class="d-dot" id="dot"></span> A2A Demo</div>
-      <div class="d-sub">Any agent paying any other agent, Fuji C-Chain · <a href="/sim">full sim</a> · <a href="/api/stack" target="_blank">audit</a></div>
+      <div class="d-title"><span class="d-pulse"></span> Agent-to-Agent Payment Demo</div>
+      <div class="d-sub">Pick any two agents, set an amount, click Send. The sender's wallet pays USDC through EscrowPayment on Avalanche Fuji, the receiver's on-chain reputation goes up. Every transaction persists in the history below.</div>
     </div>
-    <button class="btn-reset-sm" id="btn-reset">Reset Session</button>
+    <button class="btn ghost" id="btn-reset">Reset History</button>
   </div>
 
-  <div class="d-row-top">
-    <div class="mode-tabs">
-      <button class="mode-tab active" data-mode="workflow" id="mt-workflow">Workflow Pipeline</button>
-      <button class="mode-tab" data-mode="direct" id="mt-direct">Direct A → B</button>
+  <div class="card">
+    <h3>New Payment</h3>
+    <div class="hint">Choose sender and receiver from the 125 agents, enter an amount in USDC, and click Send. Cascade mode: when a flagship composable agent is the sender, pay its full sub-agent pipeline in one click (SecureAudit AI + TestingMaster, etc.).</div>
+    <div class="form">
+      <div class="f">
+        <label>From (sender)</label>
+        <select id="from"><option value="">Choose sender…</option></select>
+      </div>
+      <div class="f">
+        <label>To (receiver)</label>
+        <select id="to"><option value="">Choose receiver…</option></select>
+      </div>
+      <div class="f">
+        <label>Amount (USDC)</label>
+        <input type="number" id="amount" min="0.01" step="0.01" value="5.00">
+      </div>
+      <div class="f">
+        <label>Tokens</label>
+        <input type="number" id="tokens" min="1" step="100" value="1000">
+      </div>
+      <button class="btn primary" id="btn-send">Send Payment ▸</button>
     </div>
-    <div></div>
-    <div class="right-stats">
-      <span><span class="k">status</span><span class="v" id="st-status">—</span></span>
-      <span><span class="k">tx</span><span class="v teal" id="st-count">0</span></span>
-      <span><span class="k">moved</span><span class="v" id="st-usdc">$0.00</span></span>
-    </div>
-  </div>
-
-  <div class="controls">
-    <div class="ctl-grid workflow" id="form-workflow">
-      <div class="ctl-field">
-        <label class="ctl-label">Primary (sender)</label>
-        <select id="w-primary" class="ctl-input"><option value="">Random flagship</option></select>
-      </div>
-      <div class="ctl-field">
-        <label class="ctl-label">Token Budget</label>
-        <input type="number" id="w-tokens" class="ctl-input" min="100" step="100" placeholder="random">
-      </div>
-      <div class="ctl-field">
-        <label class="ctl-label">Price / Token USDC</label>
-        <input type="number" id="w-price" class="ctl-input" min="0.0001" step="0.0001" placeholder="from cost band">
-      </div>
-      <div class="ctl-field">
-        <label class="ctl-label">Runs</label>
-        <input type="number" id="w-runs" class="ctl-input" min="1" max="10" value="1">
-      </div>
-      <button class="btn-run" id="btn-workflow">Run ▸</button>
-    </div>
-
-    <div class="ctl-grid direct" id="form-direct" style="display:none;">
-      <div class="ctl-field">
-        <label class="ctl-label">From</label>
-        <select id="d-from" class="ctl-input"><option value="">Sender…</option></select>
-      </div>
-      <div class="ctl-field">
-        <label class="ctl-label">To</label>
-        <select id="d-to" class="ctl-input"><option value="">Receiver…</option></select>
-      </div>
-      <div class="ctl-field">
-        <label class="ctl-label">USDC</label>
-        <input type="number" id="d-amount" class="ctl-input" min="0.01" step="0.01" value="5.00">
-      </div>
-      <div class="ctl-field">
-        <label class="ctl-label">Tokens</label>
-        <input type="number" id="d-tokens" class="ctl-input" min="1" step="100" value="1000">
-      </div>
-      <div class="ctl-field">
-        <label class="ctl-label">Reason (optional)</label>
-        <input type="text" id="d-reason" class="ctl-input" placeholder="routed subtask">
-      </div>
-      <button class="btn-run" id="btn-direct">Send ▸</button>
+    <div class="cascade-toggle">
+      <input type="checkbox" id="cascade">
+      <label for="cascade">Cascade (workflow mode)</label>
+      <span class="note">when the sender is a flagship composable agent, auto-pay its full sub-agent workflow</span>
     </div>
   </div>
 
-  <div class="chain-bar" id="chain-bar"></div>
+  <div class="chain" id="chain"></div>
 
   <div class="stage" id="stage">
-    <div style="display:grid; grid-template-columns: 1fr 130px 1fr; gap: 10px; font-family: var(--font-mono); font-size: .58rem; color: var(--text-3); text-transform: uppercase; letter-spacing: .1em; margin-bottom: 8px;">
+    <div class="labels">
       <span>◀ Sender (paying)</span>
-      <span style="text-align:center;">USDC flow</span>
-      <span style="text-align:right;">Receiver (earning) ▶</span>
+      <span>USDC flow</span>
+      <span>Receiver (earning) ▶</span>
     </div>
-    <div class="pipe" id="pipe">
-      <div class="agent" id="a-from">
-        <div class="a-head">
-          <div class="avatar" id="f-avatar" style="background:#444;">?</div>
-          <div style="flex:1; min-width:0;">
-            <div class="a-name" id="f-name">—</div>
-            <div class="a-cat" id="f-cat">pick sender and run</div>
-          </div>
-          <span class="a-tier tier-1" id="f-tier">—</span>
-        </div>
-        <div class="a-row"><span class="k">Wallet</span><a class="wlink" id="f-wallet" href="#" target="_blank">—</a></div>
-        <div class="a-row"><span class="k">Score / Tier</span><span class="v" id="f-score">—</span></div>
-        <div class="a-row"><span class="k">Task size</span><span class="v" id="f-up">—</span></div>
-      </div>
-
-      <div class="arrow-col">
+    <div class="pipe">
+      <div class="chip empty" id="c-from">Sender appears here after Send.</div>
+      <div class="mid">
         <div class="arrow" id="arrow">▶</div>
-        <div class="flight" id="flight">— USDC</div>
+        <div class="flight" id="flight">—</div>
         <div class="via">via <a href="#" id="via-link" target="_blank">EscrowPayment</a></div>
       </div>
-
-      <div class="subs" id="subs">
-        <div class="agent empty" id="subs-empty">Receiver will populate here when a payment lands.</div>
-      </div>
+      <div class="chip empty" id="c-to">Receiver appears here after Send.</div>
     </div>
-    <div class="prog"><div class="prog-fill"></div></div>
   </div>
 
-  <div class="hist">
+  <div class="card" style="padding: 0; overflow: hidden;">
     <div class="hist-head">
-      <span>Transaction History (this session)</span>
-      <span id="h-count">0</span>
+      <span class="hist-head-title">Transaction History (this session)</span>
+      <div class="hist-stats">
+        <span><span class="k">tx</span><span class="v teal" id="s-count">0</span></span>
+        <span><span class="k">USDC</span><span class="v" id="s-usdc">$0.00</span></span>
+        <span><span class="k">engine</span><span class="v" id="s-engine">—</span></span>
+      </div>
     </div>
     <div class="hist-cols">
-      <span>Time</span>
-      <span>Kind</span>
-      <span>Event</span>
-      <span>Block</span>
-      <span>Tx</span>
-      <span style="text-align:right;">USDC</span>
+      <span>Time</span><span>Kind</span><span>Event</span><span>Block</span><span>Tx</span><span>Contract</span>
     </div>
-    <div class="hist-body" id="hbody">
-      <div class="hist-empty">Click Run (or Send) to add your first transaction.</div>
+    <div class="hist-body" id="hist">
+      <div class="hist-empty">Click Send Payment to add your first transaction.</div>
     </div>
   </div>
 
@@ -251,284 +179,223 @@
 
 <script>
 (function() {
-  // State
-  let sessionTx = 0;
-  let sessionUSDC = 0;
-  let emptyShown = true;
-  let contractMap = {};
-  const catColors = {
+  const $ = id => document.getElementById(id);
+  let sessionTx = 0, sessionUSDC = 0, emptyShown = true, contractMap = {};
+
+  const cats = {
     'Development':'#7fb3ff','Security':'#ff8787','Data & Analytics':'#c19aff',
     'Finance':'#87e887','Research':'#7feaea','Content':'#ffcb7f','Automation':'#ffaebf',
   };
-  const initials = n => n.split(/\s+/).slice(0,2).map(w => w[0]).join('').toUpperCase();
+  const FLAGSHIPS = new Set(); // filled from /api/sim/a2a-candidates
+
+  const initials = n => (n || '').split(/\s+/).slice(0,2).map(w => w[0]).join('').toUpperCase();
   const shorten = a => a ? a.slice(0,8) + '…' + a.slice(-4) : '—';
   const fmtTs = u => new Date(u * 1000).toISOString().slice(11,19);
-  const mockTx = id => '0x' + [...Array(10)].map((_,i) => ((id*31 + i*7) % 16).toString(16)).join('');
+  const mockTx = id => '0x' + [...Array(10)].map((_,i) => ((id * 31 + i * 7) % 16).toString(16)).join('');
   const sleep = ms => new Promise(r => setTimeout(r, ms));
-  const $ = id => document.getElementById(id);
-  const showErr = msg => { const e = $('err'); e.textContent = msg; e.style.display = 'block'; setTimeout(() => e.style.display = 'none', 4000); };
+  const showErr = m => { $('err').textContent = m; $('err').style.display = 'block'; setTimeout(() => $('err').style.display = 'none', 4500); };
 
-  // API
-  async function fetchAgent(id) { const r = await fetch(`/api/agents/${id}`); return r.ok ? r.json() : null; }
-  async function fetchProfile(id) { const r = await fetch(`/api/agents/${id}/profile`); return r.ok ? r.json() : null; }
+  async function fetchAgent(id)  { const r = await fetch(`/api/agents/${id}`);        return r.ok ? r.json() : null; }
+  async function fetchProfile(id){ const r = await fetch(`/api/agents/${id}/profile`);return r.ok ? r.json() : null; }
 
-  // Chain banner
-  function setChain(chain) {
-    const bar = $('chain-bar');
-    if (!chain || chain.mode === 'simulation') { bar.style.display = 'none'; return; }
-    bar.style.display = 'flex';
-    bar.className = 'chain-bar ' + (chain.mode === 'live-write' ? 'write' : 'read');
-    const label = chain.mode === 'live-write' ? 'LIVE WRITE' : 'READ-ONLY';
-    const rep = chain.onChainReputation;
-    bar.innerHTML = `<b>${label}</b> · Fuji block <a href="${chain.explorer}" target="_blank">#${chain.block?.toLocaleString()}</a>${rep ? ' · agent ' + rep.agentId + ' score ' + rep.score + ' T' + rep.tier : ''} · <span style="opacity:.75;">${chain.note || ''}</span>`;
-  }
-
-  // History
-  function contractInfo(kind) {
+  function contractLink(kind) {
     const c = contractMap[kind];
-    return c ? { label: c.contract, link: c.explorer } : { label: '—', link: '#' };
+    return c ? { label: c.contract, link: c.explorer, address: c.address } : { label: '—', link: '#' };
   }
+
   function addRow(ev, liveTx, liveSnow) {
-    if (emptyShown) { $('hbody').innerHTML = ''; emptyShown = false; }
+    if (emptyShown) { $('hist').innerHTML = ''; emptyShown = false; }
     const row = document.createElement('div');
-    row.className = 'hist-row';
+    row.className = 'row';
     const txHash = liveTx || mockTx(typeof ev.id === 'number' ? ev.id : Date.now());
-    const block = 2_000_000 + Math.floor((ev.ts || Date.now()/1000) / 60);
-    const snow = liveSnow || `https://testnet.snowtrace.io/tx/${txHash}`;
-    const ci = contractInfo(ev.kind);
+    const block  = 2_000_000 + Math.floor((ev.ts || Date.now()/1000) / 60);
+    const snow   = liveSnow || `https://testnet.snowtrace.io/tx/${txHash}`;
+    const ci     = contractLink(ev.kind);
     row.innerHTML = `
       <span class="ts">${fmtTs(ev.ts || Date.now()/1000)}</span>
       <span class="tag ${ev.kind}">${ev.kind.replace('_',' ')}</span>
       <span title="${(ev.message || '').replace(/"/g,'&quot;')}">${ev.message || ''}</span>
       <span style="color:var(--text-3);">#${block.toLocaleString()}</span>
-      <a href="${snow}" target="_blank" class="tx ${liveTx ? 'live' : ''}" title="${txHash}">${txHash.slice(0,10)}${liveTx ? '… ✓' : '…'}</a>
-      <span class="amt">${(ev.amountUSDC || 0).toFixed(4)}</span>
+      <a href="${snow}" target="_blank" class="tx ${liveTx ? 'live' : ''}">${txHash.slice(0,10)}${liveTx ? '…✓' : '…'}</a>
+      <a href="${ci.link}" target="_blank" class="ctr">${ci.label}</a>
     `;
-    $('hbody').prepend(row);
-    while ($('hbody').children.length > 100) $('hbody').removeChild($('hbody').lastChild);
+    // Prepend so newest is top
+    $('hist').prepend(row);
     sessionTx++;
-    sessionUSDC += (ev.kind === 'a2a_hire' || ev.kind === 'a2a_settle') ? 0 : 0; // count USDC via hires only below
-    $('h-count').textContent = sessionTx;
-  }
-
-  // Primary chip
-  async function fillFrom(settleEv, labelName) {
-    if (!settleEv) return;
-    const agent = await fetchAgent(settleEv.agentId);
-    const profile = await fetchProfile(settleEv.agentId);
-    if (!agent || !profile) return;
-    $('f-avatar').textContent = initials(agent.name);
-    $('f-avatar').style.background = catColors[agent.category] || '#666';
-    $('f-name').textContent = agent.name;
-    $('f-cat').textContent = agent.category;
-    $('f-tier').textContent = 'T' + profile.tier;
-    $('f-tier').className = 'a-tier tier-' + profile.tier;
-    const w = $('f-wallet'); w.textContent = shorten(profile.wallet);
-    w.href = `https://testnet.snowtrace.io/address/${profile.wallet}`;
-    $('f-score').textContent = `${profile.score} / T${profile.tier}`;
-    $('f-up').textContent = settleEv.meta?.tokensUsed ? `${settleEv.meta.tokensUsed} tok · $${(settleEv.amountUSDC || 0).toFixed(2)}` : '—';
-    $('a-from').classList.add('on');
-  }
-
-  async function addSub(hire, settle) {
-    const subId = hire.meta?.subAgentId || (settle && settle.agentId);
-    if (!subId) return;
-    const agent = await fetchAgent(subId);
-    const profile = await fetchProfile(subId);
-    if (!agent || !profile) return;
-    const postScore = settle?.meta?.score || profile.score;
-    const delta = hire.amountUSDC > 2 ? 5 : (hire.amountUSDC > 0.5 ? 3 : 1);
-    const preScore = postScore - delta;
-    const chip = document.createElement('div');
-    chip.className = 'agent paid';
-    chip.innerHTML = `
-      <div class="a-head">
-        <div class="avatar" style="background:${catColors[agent.category] || '#666'};">${initials(agent.name)}</div>
-        <div style="flex:1; min-width:0;">
-          <div class="a-name">${agent.name}</div>
-          <div class="a-cat">${agent.category}</div>
-        </div>
-        <span class="a-tier tier-${profile.tier}">T${profile.tier}</span>
-      </div>
-      <div class="a-row"><span class="k">Wallet</span><a class="wlink" href="https://testnet.snowtrace.io/address/${profile.wallet}" target="_blank">${shorten(profile.wallet)}</a></div>
-      <div class="a-row"><span class="k">Trigger</span><span class="v" style="font-size:.62rem;">${(hire.meta?.trigger || 'routed').slice(0,36)}</span></div>
-      <div class="a-row"><span class="k">Paid</span><span class="v" style="color:var(--teal); font-weight:700;">${hire.amountUSDC.toFixed(4)} USDC</span></div>
-      <div class="a-row"><span class="k">Score</span><span class="v">${preScore} → ${postScore} <span class="delta">+${delta}</span></span></div>
-    `;
-    $('subs').appendChild(chip);
-  }
-
-  function resetStage() {
-    $('a-from').classList.remove('on');
-    $('arrow').classList.remove('on');
-    $('flight').classList.remove('on');
-    $('subs').innerHTML = '<div class="agent empty">Sub-agents appear here when a pipeline runs.</div>';
-  }
-
-  async function runWorkflow() {
-    const btn = $('btn-workflow'); btn.disabled = true;
-    const runs = parseInt($('w-runs').value) || 1;
-    for (let i = 0; i < runs; i++) {
-      btn.textContent = runs > 1 ? `Run ▸ (${i+1}/${runs})` : 'Running…';
-      await _runOne({
-        primaryId: $('w-primary').value,
-        tokenBudget: $('w-tokens').value,
-        pricePerToken: $('w-price').value,
-      });
-      if (i < runs - 1) await sleep(700);
+    $('s-count').textContent = sessionTx;
+    if (ev.kind === 'a2a_hire') {
+      sessionUSDC += (ev.amountUSDC || 0);
+      $('s-usdc').textContent = '$' + sessionUSDC.toFixed(2);
     }
-    btn.disabled = false; btn.textContent = 'Run ▸';
   }
 
-  async function _runOne(body) {
+  function paintChip(slotId, agent, profile, extra) {
+    const el = $(slotId);
+    el.className = 'chip' + (extra?.role === 'sender' ? ' sent' : ' got');
+    el.innerHTML = `
+      <div class="chip-head">
+        <div class="av" style="background:${cats[agent.category] || '#666'};">${initials(agent.name)}</div>
+        <div style="flex:1; min-width:0;">
+          <div class="c-name">${agent.name}</div>
+          <div class="c-cat">${agent.category}</div>
+        </div>
+        <span class="c-tier tier-${profile.tier}">T${profile.tier}</span>
+      </div>
+      <div class="r"><span class="k">Wallet</span><a class="wlink" href="https://testnet.snowtrace.io/address/${profile.wallet}" target="_blank">${shorten(profile.wallet)}</a></div>
+      <div class="r"><span class="k">Score</span><span class="v">${extra?.scoreLine || profile.score + ' / T' + profile.tier}</span></div>
+      ${extra?.extraRow ? `<div class="r"><span class="k">${extra.extraRow.k}</span><span class="v">${extra.extraRow.v}</span></div>` : ''}
+    `;
+  }
+
+  function clearStage() {
+    $('c-from').className = 'chip empty';
+    $('c-from').textContent = 'Sender appears here after Send.';
+    $('c-to').className = 'chip empty';
+    $('c-to').textContent = 'Receiver appears here after Send.';
+    $('flight').textContent = '—';
+    $('arrow').classList.remove('on');
+    $('stage').classList.remove('firing');
+  }
+
+  async function send() {
+    const btn = $('btn-send');
+    btn.disabled = true; btn.textContent = 'Sending…';
     $('stage').classList.add('firing');
-    resetStage();
+
+    const fromId = $('from').value;
+    const toId = $('to').value;
+    const amount = parseFloat($('amount').value);
+    const tokens = parseInt($('tokens').value) || 1000;
+    const cascade = $('cascade').checked;
+
+    if (!fromId) { showErr('Pick a sender.'); btn.disabled=false; btn.textContent='Send Payment ▸'; $('stage').classList.remove('firing'); return; }
+    if (!cascade && !toId) { showErr('Pick a receiver (or enable Cascade to auto-route).'); btn.disabled=false; btn.textContent='Send Payment ▸'; $('stage').classList.remove('firing'); return; }
+    if (cascade && !FLAGSHIPS.has(parseInt(fromId))) { showErr('Cascade mode requires a flagship agent as sender (CodeReview Pro, DataSift Analytics, AlphaTrader AI, SecureAudit AI).'); btn.disabled=false; btn.textContent='Send Payment ▸'; $('stage').classList.remove('firing'); return; }
+    if (!cascade && fromId === toId) { showErr('Sender and receiver must differ.'); btn.disabled=false; btn.textContent='Send Payment ▸'; $('stage').classList.remove('firing'); return; }
+    if (!cascade && !(amount > 0)) { showErr('Amount must be > 0.'); btn.disabled=false; btn.textContent='Send Payment ▸'; $('stage').classList.remove('firing'); return; }
+
     let data;
     try {
-      const res = await fetch('/api/sim/trigger-a2a', {
-        method: 'POST', headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({
-          primaryId: body.primaryId ? Number(body.primaryId) : undefined,
-          tokenBudget: body.tokenBudget ? Number(body.tokenBudget) : undefined,
-          pricePerToken: body.pricePerToken ? Number(body.pricePerToken) : undefined,
-        }),
-      });
-      data = await res.json();
-    } catch (e) { showErr('Request failed: ' + e.message); $('stage').classList.remove('firing'); return; }
+      if (cascade) {
+        const res = await fetch('/api/sim/trigger-a2a', {
+          method: 'POST', headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({
+            primaryId: Number(fromId),
+            tokenBudget: tokens,
+            pricePerToken: amount > 0 && tokens > 0 ? (amount / tokens) : undefined,
+          }),
+        });
+        data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'HTTP ' + res.status);
+      } else {
+        const res = await fetch('/api/sim/trigger-direct', {
+          method: 'POST', headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ fromId: Number(fromId), toId: Number(toId), amountUSDC: amount, tokens }),
+        });
+        data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'HTTP ' + res.status);
+      }
+    } catch (e) {
+      showErr(e.message);
+      $('stage').classList.remove('firing');
+      btn.disabled = false; btn.textContent = 'Send Payment ▸';
+      return;
+    }
+
     const events = data.newEvents || [];
     const settleEv = events.find(e => e.kind === 'settle');
     const hires = events.filter(e => e.kind === 'a2a_hire');
     const settles = events.filter(e => e.kind === 'a2a_settle');
-    if (!settleEv) { $('stage').classList.remove('firing'); return; }
 
-    await fillFrom(settleEv);
-    $('pipe').classList.toggle('fan', hires.length >= 1);
-    $('subs').classList.toggle('two', hires.length >= 2);
-    $('subs').innerHTML = '';
+    // Paint SENDER chip
+    if (settleEv) {
+      const a = await fetchAgent(settleEv.agentId);
+      const p = await fetchProfile(settleEv.agentId);
+      if (a && p) paintChip('c-from', a, p, {
+        role: 'sender',
+        scoreLine: `${p.score} / T${p.tier}`,
+        extraRow: { k: 'Task size', v: settleEv.meta?.tokensUsed ? settleEv.meta.tokensUsed + ' tok' : '—' },
+      });
+    }
 
-    const total = hires.reduce((s,h) => s + (h.amountUSDC||0), 0);
-    $('flight').textContent = total.toFixed(4) + ' USDC';
-    $('flight').classList.add('on');
+    // Flight label = total amount paid out (sum of hires)
+    const total = hires.reduce((s, h) => s + (h.amountUSDC || 0), 0);
+    $('flight').textContent = total > 0 ? total.toFixed(4) + ' USDC' : '—';
     $('arrow').classList.add('on');
 
-    for (const ev of events) {
-      addRow(ev);
-      if (ev.kind === 'a2a_hire') sessionUSDC += (ev.amountUSDC || 0);
-    }
-    $('st-usdc').textContent = '$' + sessionUSDC.toFixed(2);
-
-    for (let i = 0; i < hires.length; i++) {
-      await sleep(280);
-      await addSub(hires[i], settles[i]);
-    }
-
-    if (data.chain) {
-      setChain(data.chain);
-      if (data.chain.liveTx && data.chain.liveTx.txHash) {
-        addRow({
-          id: 'live-' + Date.now(),
-          ts: Math.floor(Date.now() / 1000),
-          kind: 'registerAgent',
-          agentId: null,
-          message: `LIVE FUJI TX · registerAgent · block #${data.chain.block}`,
-          amountUSDC: 0,
-        }, data.chain.liveTx.txHash, data.chain.liveTx.snowtrace);
+    // Paint RECEIVER chip — use the first hire's sub-agent
+    if (hires.length > 0) {
+      const hire = hires[0];
+      const settle = settles[0];
+      const subId = hire.meta?.subAgentId || (settle && settle.agentId);
+      if (subId) {
+        const a = await fetchAgent(subId);
+        const p = await fetchProfile(subId);
+        if (a && p) {
+          const post = settle?.meta?.score || p.score;
+          const delta = hire.amountUSDC > 2 ? 5 : (hire.amountUSDC > 0.5 ? 3 : 1);
+          const pre  = post - delta;
+          paintChip('c-to', a, p, {
+            role: 'receiver',
+            scoreLine: `${pre} → ${post} <span class="delta">+${delta}</span>`,
+            extraRow: { k: 'Paid', v: `<span style="color:var(--teal); font-weight:700;">${hire.amountUSDC.toFixed(4)} USDC</span>` },
+          });
+        }
       }
     }
 
-    await sleep(1100);
-    $('stage').classList.remove('firing');
-  }
-
-  async function runDirect() {
-    const btn = $('btn-direct'); btn.disabled = true; btn.textContent = 'Sending…';
-    const fromId = $('d-from').value, toId = $('d-to').value;
-    const amount = parseFloat($('d-amount').value);
-    const tokens = parseInt($('d-tokens').value) || 1000;
-    const reason = $('d-reason').value.trim();
-    if (!fromId || !toId) { showErr('Pick sender and receiver.'); btn.disabled=false; btn.textContent='Send ▸'; return; }
-    if (fromId === toId) { showErr('Sender and receiver must differ.'); btn.disabled=false; btn.textContent='Send ▸'; return; }
-    if (!(amount > 0)) { showErr('Amount must be > 0.'); btn.disabled=false; btn.textContent='Send ▸'; return; }
-
-    $('stage').classList.add('firing');
-    resetStage();
-    let data;
-    try {
-      const res = await fetch('/api/sim/trigger-direct', {
-        method: 'POST', headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ fromId: Number(fromId), toId: Number(toId),
-                                amountUSDC: amount, tokens, reason: reason || null }),
-      });
-      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || 'HTTP ' + res.status); }
-      data = await res.json();
-    } catch (e) { showErr('Send failed: ' + e.message); $('stage').classList.remove('firing'); btn.disabled=false; btn.textContent='Send ▸'; return; }
-
-    const events = data.newEvents || [];
-    const settleEv = events.find(e => e.kind === 'settle');
-    const hire = events.find(e => e.kind === 'a2a_hire');
-    const settle = events.find(e => e.kind === 'a2a_settle');
-
-    if (settleEv) await fillFrom(settleEv);
-    $('pipe').classList.add('fan');
-    $('subs').classList.remove('two');
-    $('subs').innerHTML = '';
-
-    if (hire) {
-      $('flight').textContent = (hire.amountUSDC || 0).toFixed(4) + ' USDC';
-      $('flight').classList.add('on');
-      $('arrow').classList.add('on');
-    }
-
+    // Add every event to history
     for (const ev of events) addRow(ev);
-    if (hire) {
-      sessionUSDC += (hire.amountUSDC || 0);
-      $('st-usdc').textContent = '$' + sessionUSDC.toFixed(2);
-      await sleep(260);
-      await addSub(hire, settle);
-    }
-    if (data.chain) setChain(data.chain);
 
-    await sleep(1100);
+    // Chain banner + optional live-tx row
+    if (data.chain) {
+      const c = data.chain;
+      const bar = $('chain');
+      if (c.mode === 'simulation') {
+        bar.style.display = 'none';
+      } else {
+        bar.style.display = 'flex';
+        bar.className = 'chain ' + (c.mode === 'live-write' ? 'write' : 'read');
+        const label = c.mode === 'live-write' ? 'LIVE WRITE' : 'READ-ONLY';
+        const rep = c.onChainReputation;
+        bar.innerHTML = `<b>${label}</b> · Fuji block <a href="${c.explorer}" target="_blank">#${c.block?.toLocaleString()}</a>${rep ? ' · on-chain agent ' + rep.agentId + ' · score ' + rep.score + ' T' + rep.tier : ''} · <span style="opacity:.75;">${c.note || ''}</span>`;
+      }
+      if (c.liveTx && c.liveTx.txHash) {
+        addRow({
+          id: 'live-' + Date.now(), ts: Math.floor(Date.now() / 1000),
+          kind: 'registerAgent', message: 'LIVE FUJI · registerAgent · block #' + c.block,
+          amountUSDC: 0,
+        }, c.liveTx.txHash, c.liveTx.snowtrace);
+      }
+    }
+
+    await sleep(900);
     $('stage').classList.remove('firing');
-    btn.disabled = false; btn.textContent = 'Send ▸';
+    btn.disabled = false; btn.textContent = 'Send Payment ▸';
   }
 
   function reset() {
     sessionTx = 0; sessionUSDC = 0; emptyShown = true;
-    $('st-count').textContent = '0';
-    $('st-usdc').textContent = '$0.00';
-    $('h-count').textContent = '0';
-    $('hbody').innerHTML = '<div class="hist-empty">Click Run (or Send) to add your first transaction.</div>';
-    resetStage();
-    $('chain-bar').style.display = 'none';
+    $('s-count').textContent = '0';
+    $('s-usdc').textContent = '$0.00';
+    $('hist').innerHTML = '<div class="hist-empty">Click Send Payment to add your first transaction.</div>';
+    clearStage();
+    $('chain').style.display = 'none';
   }
 
-  async function pollStatus() {
+  async function pollEngine() {
     try {
-      const r = await fetch('/api/sim/status'); if (!r.ok) return;
+      const r = await fetch('/api/sim/status');
       const s = await r.json();
-      $('st-status').textContent = s.running ? 'live' : 'stopped';
-      $('st-status').style.color = s.running ? 'var(--green)' : '#888';
-      $('dot').className = s.running ? 'd-dot' : 'd-dot stopped';
+      $('s-engine').textContent = s.running ? 'live' : 'stopped';
+      $('s-engine').style.color = s.running ? 'var(--green)' : '#888';
     } catch {}
   }
 
-  // Wire
-  document.querySelectorAll('[data-mode]').forEach(b => {
-    b.addEventListener('click', () => {
-      document.querySelectorAll('[data-mode]').forEach(x => x.classList.remove('active'));
-      b.classList.add('active');
-      const m = b.dataset.mode;
-      $('form-workflow').style.display = m === 'workflow' ? 'grid' : 'none';
-      $('form-direct').style.display   = m === 'direct'   ? 'grid' : 'none';
-      // Reset the stage so chips from the previous mode don't stick around
-      resetStage();
-    });
-  });
-  $('btn-workflow').onclick = runWorkflow;
-  $('btn-direct').onclick   = runDirect;
-  $('btn-reset').onclick    = reset;
+  $('btn-send').onclick = send;
+  $('btn-reset').onclick = reset;
 
+  // Initial load
   (async () => {
     try {
       const r = await fetch('/api/sim/event-contract-map');
@@ -536,35 +403,33 @@
       contractMap = d.map || {};
       if (contractMap.deposit) $('via-link').href = contractMap.deposit.explorer;
     } catch {}
+
     try {
       const r = await fetch('/api/sim/a2a-candidates');
       const d = await r.json();
-      const sel = $('w-primary');
-      for (const f of (d.flagships || [])) {
-        const o = document.createElement('option');
-        o.value = f.id;
-        o.textContent = `${f.name} · T${f.tier} · ${f.subAgents.length} sub-agents`;
-        sel.appendChild(o);
-      }
+      (d.flagships || []).forEach(f => FLAGSHIPS.add(f.id));
     } catch {}
+
     try {
       const r = await fetch('/api/sim/all-agents');
       const d = await r.json();
       const byCat = {};
       for (const a of d.agents || []) (byCat[a.category] = byCat[a.category] || []).push(a);
-      const fromSel = $('d-from'), toSel = $('d-to');
+      const fromSel = $('from'), toSel = $('to');
       for (const cat of Object.keys(byCat).sort()) {
         const gf = document.createElement('optgroup'); gf.label = cat;
         const gt = document.createElement('optgroup'); gt.label = cat;
         for (const a of byCat[cat]) {
-          const label = `${a.name} · T${a.tier}`;
+          const isFlag = FLAGSHIPS.has(a.id);
+          const label = (isFlag ? '★ ' : '') + `${a.name} · T${a.tier} · ${a.modelProvider || 'Undisclosed'}`;
           const of = document.createElement('option'); of.value = a.id; of.textContent = label; gf.appendChild(of);
           const ot = document.createElement('option'); ot.value = a.id; ot.textContent = label; gt.appendChild(ot);
         }
         fromSel.appendChild(gf); toSel.appendChild(gt);
       }
     } catch {}
-    pollStatus(); setInterval(pollStatus, 2500);
+
+    pollEngine(); setInterval(pollEngine, 3000);
   })();
 })();
 </script>
