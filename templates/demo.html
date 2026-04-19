@@ -170,9 +170,16 @@
     <div class="narration-steps" id="narration-steps"></div>
   </div>
 
-  <div class="controls">
+  <div style="display:flex; gap:6px; margin-bottom: 10px;">
+    <button class="filter-btn active" data-mode="workflow" id="mode-workflow">Workflow Pipeline</button>
+    <button class="filter-btn" data-mode="direct" id="mode-direct">Direct A → B</button>
+    <span style="flex:1;"></span>
+    <button class="btn-reset" id="btn-reset">Reset Session</button>
+  </div>
+
+  <div class="controls" id="controls-workflow">
     <div class="ctl-field">
-      <label class="ctl-label">Primary Agent</label>
+      <label class="ctl-label">Primary Agent (sender)</label>
       <select id="pick-primary" class="ctl-input"><option value="">Random flagship</option></select>
     </div>
     <div class="ctl-field">
@@ -187,8 +194,31 @@
       <label class="ctl-label">Runs</label>
       <input type="number" id="pick-runs" class="ctl-input" min="1" max="20" value="1">
     </div>
-    <button class="btn-run" id="btn-trigger">Run A2A Pipeline ▸</button>
-    <button class="btn-reset" id="btn-reset">Reset Session</button>
+    <button class="btn-run" id="btn-trigger">Run Workflow ▸</button>
+  </div>
+
+  <div class="controls" id="controls-direct" style="display:none; grid-template-columns: 1.2fr 1.2fr 1fr 1fr 1.4fr auto;">
+    <div class="ctl-field">
+      <label class="ctl-label">From (sender)</label>
+      <select id="pick-from" class="ctl-input"><option value="">Choose sender</option></select>
+    </div>
+    <div class="ctl-field">
+      <label class="ctl-label">To (receiver)</label>
+      <select id="pick-to" class="ctl-input"><option value="">Choose receiver</option></select>
+    </div>
+    <div class="ctl-field">
+      <label class="ctl-label">Amount (USDC)</label>
+      <input type="number" id="pick-amount" class="ctl-input" min="0.0001" max="10000" step="0.01" value="5.00">
+    </div>
+    <div class="ctl-field">
+      <label class="ctl-label">Tokens</label>
+      <input type="number" id="pick-direct-tokens" class="ctl-input" min="1" max="100000" step="100" value="1000">
+    </div>
+    <div class="ctl-field">
+      <label class="ctl-label">Reason (optional)</label>
+      <input type="text" id="pick-reason" class="ctl-input" placeholder="e.g. routed translation subtask">
+    </div>
+    <button class="btn-run" id="btn-direct">Send A → B ▸</button>
   </div>
 
   <div class="stage" id="stage">
@@ -672,6 +702,101 @@
     } catch {}
   }
 
+  // ── Mode toggle ──────────────────────────────────────────────────────────
+  document.querySelectorAll('[data-mode]').forEach(b => {
+    b.addEventListener('click', () => {
+      document.querySelectorAll('[data-mode]').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+      const m = b.getAttribute('data-mode');
+      document.getElementById('controls-workflow').style.display = (m === 'workflow') ? 'grid' : 'none';
+      document.getElementById('controls-direct').style.display   = (m === 'direct')   ? 'grid' : 'none';
+    });
+  });
+
+  // ── Direct A → B run ────────────────────────────────────────────────────
+  async function runDirect() {
+    const btn = document.getElementById('btn-direct');
+    const fromId = document.getElementById('pick-from').value;
+    const toId = document.getElementById('pick-to').value;
+    const amount = parseFloat(document.getElementById('pick-amount').value);
+    const tokens = parseInt(document.getElementById('pick-direct-tokens').value) || 1000;
+    const reason = document.getElementById('pick-reason').value.trim();
+    if (!fromId || !toId) { showErr('Pick a sender and receiver.'); return; }
+    if (fromId === toId) { showErr('Sender and receiver must be different.'); return; }
+    if (!amount || amount <= 0) { showErr('Amount must be > 0.'); return; }
+    btn.disabled = true;
+    btn.textContent = 'Sending…';
+    stage.classList.add('firing');
+    resetX402();
+    subsCol.innerHTML = '';
+    document.getElementById('chip-primary').classList.remove('active');
+
+    setX402('s-permit', 'firing'); await sleep(180); setX402('s-permit', 'done');
+    setX402('s-approve', 'firing');
+    let data;
+    try {
+      const res = await fetch('/api/sim/trigger-direct', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ fromId: Number(fromId), toId: Number(toId),
+                                amountUSDC: amount, tokens, reason: reason || null }),
+      });
+      if (!res.ok) {
+        const e = await res.json().catch(() => ({}));
+        throw new Error(e.error || ('HTTP ' + res.status));
+      }
+      data = await res.json();
+    } catch (e) {
+      showErr('Direct send failed: ' + e.message);
+      stage.classList.remove('firing');
+      btn.disabled = false; btn.textContent = 'Send A → B ▸';
+      return;
+    }
+    setX402('s-approve', 'done');
+    setX402('s-deposit', 'firing'); await sleep(160); setX402('s-deposit', 'done');
+
+    const events = data.newEvents || [];
+    const settleEv = events.find(e => e.kind === 'settle');
+    const hire = events.find(e => e.kind === 'a2a_hire');
+    const settle = events.find(e => e.kind === 'a2a_settle');
+
+    if (settleEv) {
+      await populatePrimary(settleEv);
+    }
+
+    setX402('s-subcall', 'firing');
+    const totalA2A = hire ? (hire.amountUSDC || 0) : 0;
+    document.getElementById('amt-total').textContent = `${totalA2A.toFixed(4)} USDC`;
+    document.getElementById('amt-total').classList.add('show');
+    document.getElementById('arrow-main').classList.add('active');
+
+    for (const ev of events) addFeedRow(ev);
+    if (hire && settle) {
+      await sleep(280);
+      await makeSubChip(hire, settle);
+      sessionA2A++;
+      sessionUSDC += (hire.amountUSDC || 0);
+      if (hire.meta?.subAgentId) sessionSubs.add(hire.meta.subAgentId);
+      setNarration({ name: settleEv?.message?.split(' initiating')[0] || 'Sender' }, [hire]);
+    }
+    setX402('s-subcall', 'done');
+    setX402('s-settle', 'firing'); await sleep(200); setX402('s-settle', 'done');
+
+    if (data.chain) setChainStatus(data.chain);
+
+    document.getElementById('st-a2a').textContent = sessionA2A;
+    document.getElementById('st-usdc').textContent = '$' + sessionUSDC.toFixed(2);
+    document.getElementById('st-subs').textContent = sessionSubs.size;
+
+    await sleep(900);
+    document.getElementById('chip-primary').classList.remove('active');
+    document.getElementById('arrow-main').classList.remove('active');
+    document.getElementById('amt-total').classList.remove('show');
+    stage.classList.remove('firing');
+    btn.disabled = false; btn.textContent = 'Send A → B ▸';
+  }
+  document.getElementById('btn-direct').addEventListener('click', runDirect);
+
   // ── Wire controls ────────────────────────────────────────────────────────
   document.getElementById('btn-trigger').addEventListener('click', runFlow);
   document.getElementById('btn-reset').addEventListener('click', resetSession);
@@ -711,6 +836,29 @@
         sel.appendChild(opt);
       }
     } catch {}
+
+    // Populate the Direct A→B pickers with every agent, grouped by category
+    try {
+      const r = await fetch('/api/sim/all-agents');
+      const d = await r.json();
+      const byCat = {};
+      for (const a of (d.agents || [])) {
+        (byCat[a.category] = byCat[a.category] || []).push(a);
+      }
+      const fromSel = document.getElementById('pick-from');
+      const toSel = document.getElementById('pick-to');
+      for (const cat of Object.keys(byCat).sort()) {
+        const gf = document.createElement('optgroup'); gf.label = cat;
+        const gt = document.createElement('optgroup'); gt.label = cat;
+        for (const a of byCat[cat]) {
+          const label = `${a.name} · T${a.tier} · score ${a.score}${a.banned ? ' (banned)' : ''}`;
+          const of = document.createElement('option'); of.value = a.id; of.textContent = label;
+          const ot = document.createElement('option'); ot.value = a.id; ot.textContent = label;
+          gf.appendChild(of); gt.appendChild(ot);
+        }
+        fromSel.appendChild(gf); toSel.appendChild(gt);
+      }
+    } catch (e) { console.error('all-agents load failed:', e); }
 
     pollStatus();
     setInterval(pollStatus, 2000);

@@ -213,6 +213,92 @@ class SimulationEngine:
             self._apply_decay(agents)
             self._expire_bids()
 
+    def fire_direct_a2a(self, from_id: int, to_id: int, amount_usdc: float,
+                         tokens: int = 1000, reason: str | None = None) -> dict:
+        """Direct agent-to-agent payment: caller picks both sides and the
+        exact USDC amount. Used by the /demo picker when the user wants full
+        control over sender AND receiver, bypassing A2A_WORKFLOWS.
+
+        Returns the event ids generated so the UI can echo them.
+        """
+        from_agent = db.session.get(Agent, int(from_id))
+        from_profile = db.session.get(OnchainProfile, int(from_id))
+        to_agent = db.session.get(Agent, int(to_id))
+        to_profile = db.session.get(OnchainProfile, int(to_id))
+        if not (from_agent and from_profile and to_agent and to_profile):
+            return {"ok": False, "error": "agent or profile missing"}
+        if to_profile.banned:
+            # Unban the target so the demo stays alive
+            to_profile.banned = False
+            to_profile.accepting_work = True
+            to_profile.stake_incident_count = max(0, to_profile.stake_incident_count - 1)
+
+        amount_micro = int(float(amount_usdc) * 1_000_000)
+        if amount_micro <= 0:
+            return {"ok": False, "error": "amount must be > 0"}
+
+        reason = reason or f"direct payment: {from_agent.name} → {to_agent.name}"
+
+        # Log as a pseudo-settle on the sender so the demo UI has context
+        self._log_event(
+            "settle", from_agent.id,
+            f"{from_agent.name} initiating direct A2A payment to {to_agent.name}",
+            amount=float(amount_usdc),
+            meta={"tokensUsed": tokens, "demo": True, "direct": True},
+        )
+
+        # Deposit-style tx from sender wallet → escrow
+        db.session.add(ChainTransaction(
+            tx_hash=_mock_tx_hash(from_agent.id, 80_000 + self._event_id),
+            block_number=2_000_000 + self.tick_count * 100 + self._event_id,
+            ts=self.sim_clock, kind="a2a_hire",
+            agent_id=to_agent.id,
+            from_addr=from_profile.wallet_address,
+            to_addr=ADDR_ESCROW,
+            amount_usdc=amount_micro,
+            meta=json.dumps({
+                "primaryAgentId": from_agent.id, "primaryAgentName": from_agent.name,
+                "subAgentName": to_agent.name, "trigger": reason, "direct": True,
+            }),
+        ))
+        self._log_event(
+            "a2a_hire", from_agent.id,
+            f"{from_agent.name} → {to_agent.name} ({reason})",
+            amount=float(amount_usdc),
+            meta={"subAgentId": to_agent.id, "subAgentName": to_agent.name,
+                  "primaryId": from_agent.id, "tokens": tokens,
+                  "trigger": reason, "direct": True},
+        )
+        # Settle-style tx from escrow → receiver
+        db.session.add(ChainTransaction(
+            tx_hash=_mock_tx_hash(to_agent.id, 90_000 + self._event_id),
+            block_number=2_000_000 + self.tick_count * 100 + self._event_id + 1,
+            ts=self.sim_clock, kind="a2a_settle",
+            agent_id=to_agent.id,
+            from_addr=ADDR_ESCROW,
+            to_addr=to_profile.wallet_address,
+            amount_usdc=amount_micro,
+            meta=json.dumps({
+                "primaryAgentId": from_agent.id, "primaryAgentName": from_agent.name,
+                "subAgentName": to_agent.name, "direct": True,
+            }),
+        ))
+        points = min(MAX_POINTS_PER_TASK // 2 or 1,
+                     max(1, amount_micro // VOLUME_PER_POINT))
+        to_profile.score = min(MAX_SCORE, to_profile.score + points)
+        to_profile.tasks_completed += 1
+        to_profile.tier = _tier_for(to_profile.score, to_profile.tasks_completed)
+        to_agent.tasks_completed = (to_agent.tasks_completed or 0) + 1
+        self._log_event(
+            "a2a_settle", to_agent.id,
+            f"{to_agent.name} got paid by {from_agent.name} · +{points} score → {to_profile.score}",
+            amount=float(amount_usdc),
+            meta={"primaryId": from_agent.id, "primaryName": from_agent.name,
+                  "score": to_profile.score, "tier": to_profile.tier, "direct": True},
+        )
+        return {"ok": True, "fromId": from_agent.id, "toId": to_agent.id,
+                "amountUSDC": float(amount_usdc)}
+
     def _fire_demo_a2a_flow(self, primary_id: int | None = None,
                               token_budget: int | None = None,
                               price_per_token: float | None = None,

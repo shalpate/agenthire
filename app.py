@@ -2168,6 +2168,58 @@ def api_sim_speed():
     return jsonify(get_engine(app).status())
 
 
+@app.route("/api/sim/trigger-direct", methods=["POST"])
+def api_sim_trigger_direct():
+    """Direct agent-to-agent payment — caller picks sender, receiver, and
+    exact USDC amount. Any agent can pay any other agent."""
+    from sim_engine import get_engine
+    data = request.get_json(silent=True) or {}
+    for k in ("fromId", "toId", "amountUSDC"):
+        if k not in data:
+            return jsonify({"error": f"missing field: {k}"}), 400
+    try:
+        eng = get_engine(app)
+        if not eng.is_running():
+            eng.start()
+        before_id = eng._event_id
+        with app.app_context():
+            r = eng.fire_direct_a2a(
+                from_id=int(data["fromId"]),
+                to_id=int(data["toId"]),
+                amount_usdc=float(data["amountUSDC"]),
+                tokens=int(data.get("tokens", 1000)),
+                reason=data.get("reason"),
+            )
+            db.session.commit()
+        if not r.get("ok"):
+            return jsonify(r), 400
+        new_events = [ev.to_dict() for ev in eng.events if ev.id > before_id]
+        return jsonify({"triggered": True, "newEvents": new_events, "count": len(new_events), **r})
+    except Exception as e:
+        app.logger.warning("trigger-direct error: %s", e)
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/sim/all-agents")
+def api_sim_all_agents():
+    """All agents (id, name, category, tier, score, wallet) so the demo
+    picker can offer ANY agent as sender or receiver."""
+    from models import Agent as AgentModel, OnchainProfile
+    rows = AgentModel.query.order_by(AgentModel.category, AgentModel.name).all()
+    out = []
+    for a in rows:
+        p = OnchainProfile.query.get(a.id)
+        if not p:
+            continue
+        out.append({
+            "id": a.id, "name": a.name, "category": a.category,
+            "tier": p.tier, "score": p.score, "wallet": p.wallet_address,
+            "banned": p.banned, "minPrice": a.min_price,
+            "modelProvider": a.model_provider, "modelName": a.model_name,
+        })
+    return jsonify({"agents": out})
+
+
 @app.route("/api/sim/trigger-a2a", methods=["POST"])
 def api_sim_trigger_a2a():
     """Fire one agent-to-agent flow on demand (for the live demo).
