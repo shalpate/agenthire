@@ -1,159 +1,166 @@
-# AgentHire - Full-Stack Integration Guide
+# AgentHire Integration Guide
 
-How the frontend (this repo) connects to the on-chain layer.
+How the demo connects end-to-end and how to wire frontend / backend work into
+it without collisions. Current tip: `fe7ca12` on `latest-onchain` (pushed).
 
-## Stack overview
+## Quick start
 
-```
-┌──────────────────┐    ┌───────────────┐    ┌───────────────────────────┐
-│  Browser + Wallet│◄──►│  Flask (this) │◄──►│  Node services (separate) │
-│  (ethers + 3009) │    │  mock data +  │    │  facilitator + gatekeeper │
-│                  │    │  proxy APIs   │    │                           │
-└──────────────────┘    └───────────────┘    └───────────────┬───────────┘
-                                                             │
-                                                             ▼
-                                              ┌──────────────────────────┐
-                                              │   Avalanche Fuji L1      │
-                                              │   6 smart contracts      │
-                                              └──────────────────────────┘
+```bash
+cd ~/agenthire
+.venv/bin/python app.py        # Flask on http://localhost:8080
 ```
 
-## Deployed contracts (Fuji, chainId 43113)
+Open **http://localhost:8080/demo** for the pitch surface.
+Open **http://localhost:8080/sim** for the full sim dashboard.
+Open **http://localhost:8080/marketplace** for the buyer-facing agent grid.
+
+## Architecture
+
+```
+┌──────────────────────┐    ┌─────────────────────┐    ┌──────────────────────────┐
+│ Browser + Rabby/MM   │◄──►│  Flask app (this)   │◄──►│   Avalanche Fuji L1      │
+│ ethers.js for signing│    │  sim engine + 60+   │    │   6 verified contracts   │
+│ /demo + /sim + other │    │  API endpoints      │    │   + TeleporterMessenger  │
+└──────────────────────┘    └─────────────────────┘    └──────────────────────────┘
+```
+
+## What's on-chain vs what's sim
+
+**Fully on-chain (Avalanche Fuji, verifiable on Snowtrace):**
 
 | Contract | Address |
 |---|---|
-| MockUSDC (EIP-3009 enabled) | `0x9C49D730Dfb82B7663aBE6069B5bFe867fa34c9f` |
 | AgentRegistry | `0x6B71b84Fa3C313ccC43D63A400Ab47e6A0d4BCbB` |
 | ReputationContract | `0x40ef89Ce1E248Df00AF6Dc37f96BBf92A9Bf603A` |
 | StakingSlashing | `0xfc942b4d1Eb363F25886b3F5935394BD4932B896` |
 | EscrowPayment | `0xD19990C7CB8C386fa865135Ce9706A5A37A3f2f2` |
 | AuctionMarket | `0xa7AEEca5a76bd5Cd38B15dfcC2c288d3645E53E3` |
+| MockUSDC (EIP-3009) | `0x9C49D730Dfb82B7663aBE6069B5bFe867fa34c9f` |
+| TeleporterMessenger | `0x253b2784c75e510dD0fF1da844684a1aC0aa5fcf` |
 
-All verified on Snowtrace. ABIs + signer helpers live in the contract repo (`ai-agent-marketplace/abi/`).
+- **Facilitator wallet**: `0xD6E914025Be928dCb75d53B7B884f41D43964132` (~0.99 AVAX, signs demo txs)
+- **Deployer wallet**: `0xdb4135c6884D81497769440788306EE985DD1A6e` (your Rabby — owner of the contract suite)
+- **Registered agents**: agent 1 (SmokeTestAgent, score 518, 500 USDC staked), agent 2 (demo-click)
+- **32 real historical transactions** visible in the demo's Real On-Chain Activity panel
 
-## Frontend API (this repo)
+**Sim-backed (SQLite via `OnchainProfile`):**
+- 123 of 125 agent states (score, tier, stake, incidents, banned)
+- Bid matching logic (off-chain by design — mirrors real x402 facilitators)
+- Surge pricing calculation (off-chain pricing signal)
 
-### Global: `window.AgentHire`
-
-Loaded by `static/js/web3.js`. Always present after DOMContentLoaded.
-
-| Method | What it does |
-|---|---|
-| `connectWallet()` | Prompts wallet, auto-switches to Fuji, stores signer |
-| `getUsdcBalance()` | Current wallet USDC balance (6-dec base units) |
-| `mintUSDC(n)` | Testnet faucet - mints n USDC to connected wallet |
-| `getAgentProfile(id)` | One-call read: agent + listing + reputation + stake |
-| `payWithX402({ agentId, depositUSDC, tokenBudget, facilitator })` | Sign EIP-3009 permit → POST `/api/x402/pay` → returns session id |
-| `depositDirect({ ... })` | Fallback: `approve` + `depositFunds` (two transactions) |
-
-### Flask endpoints (proxies to Node services)
-
-| Route | Purpose |
-|---|---|
-| `GET /api/onchain/info` | All contract addresses + explorer URL |
-| `POST /api/x402/pay` | Forwards signed permit to `FACILITATOR_URL` |
-| `GET /api/session/<id>` | Reads live escrow session from chain |
-| `POST /api/dispute/submit` | Forwards dispute to `GATEKEEPER_URL` |
-
-## Running the full stack locally
-
-### 1. Start the on-chain services (Node)
-
-From the `ai-agent-marketplace` repo:
-
+UI labels each agent's source honestly: teal `Fuji ✓` vs amber `sim (not yet on-chain)`. To push all 125 agents on-chain:
 ```bash
-# Terminal 1 - facilitator (handles x402 payments)
-cd ai-agent-marketplace
-AGENT_PRIVATE_KEY=0x... \
-FACILITATOR_PRIVATE_KEY=0x... \
-PORT=3000 \
-node backend-ref/example-agent-server.js
-
-# Terminal 2 - gatekeeper (signs incidents for disputes)
-GATEKEEPER_PRIVATE_KEY=0x... \
-PORT=3001 \
-node backend-ref/gatekeeper-server.js
+.venv/bin/python seed_onchain.py   # ~0.05 AVAX, ~3 minutes
 ```
 
-The gatekeeper key MUST match the `GATEKEEPER_ADDRESS` constant configured on
-`ReputationContract` at deploy time. Fetch the expected address from the chain
-with `oc.w3.eth.contract(...).functions.GATEKEEPER_ADDRESS().call()` (or the
-equivalent Solidity getter) and confirm the running signer derives from a
-matching private key. Hit `http://localhost:3001/health` to verify the service
-is reachable.
+## Backend API surface
 
-### 2. Start Flask with proxy env
+All sim/demo endpoints are additive under `/api/sim/*` (no conflicts with existing `/api/*`).
 
-```bash
-# Terminal 3
-cd agenthire
-FACILITATOR_URL=http://localhost:3000 \
-GATEKEEPER_URL=http://localhost:3001 \
-python app.py
+| Endpoint | Purpose |
+|---|---|
+| `GET /api/sim/status` | Engine status, tick count, acceleration |
+| `GET /api/sim/chain-health` | Live Fuji block, facilitator balance, mode |
+| `GET /api/sim/event-contract-map` | Event kind → contract mapping |
+| `GET /api/sim/all-agents` | Full roster for dropdowns |
+| `GET /api/sim/a2a-candidates` | Flagship composable agents |
+| `GET /api/sim/agent-onchain/<id>` | Live on-chain read for one agent (fallback to sim) |
+| `GET /api/sim/open-bids` | Currently open auction bids |
+| `GET /api/sim/recent-winners` | Last bid_claim events |
+| `GET /api/sim/surge-top` | Agents currently surging |
+| `GET /api/sim/onchain-history` | 32 real historical Fuji txs |
+| `GET /api/sim/events?since=<id>` | Streaming event tail |
+| `GET/POST /api/sim/live-mode` | Toggle real writes on/off (persisted) |
+| `POST /api/sim/trigger-a2a` | Fire flagship cascade |
+| `POST /api/sim/trigger-direct` | A → B payment, exact amount |
+| `POST /api/sim/post-bid` | User-driven bid post |
+| `POST /api/sim/force-surge` | Demand spike simulation |
+| `POST /api/sim/slash-agent` | Gatekeeper incident |
+| `POST /api/sim/start` / `/stop` / `/speed` | Engine control |
+| `GET /api/agents/<id>/erc8004` | ERC-8004 adapter (identity + score + reputation) |
+| `GET /api/icm/info` / `POST /api/icm/send` | Teleporter cross-L1 |
+| `GET /api/stack` | One-shot bounty audit JSON |
+
+## Frontend integration hooks
+
+- **Wallet state**: `window.AgentHire.address` (set by `static/js/web3.js`). Works with Rabby + MetaMask.
+- **x402 flow**: sign EIP-3009 in wallet → POST `/api/x402/pay` → facilitator executes 3-tx sequence gasless for buyer.
+- **Live reads**: `/api/sim/agent-onchain/<id>` for per-agent, `/api/sim/chain-health` for global state.
+- **Contract addresses**: pull from `/api/sim/event-contract-map` — don't hardcode in new UI.
+- **Tx history**: persisted to localStorage on demo page; frontend integrations should use `/api/sim/events` for live stream.
+
+## Merge-safety
+
+### Additive files (zero conflict surface — safe to merge anywhere)
+
+```
+agent_pack.py          # 125-agent roster generator
+review_pack.py         # per-agent review seeder
+sim_engine.py          # tick-driven sim economy
+simulation.py          # DB seeder + read helpers
+erc8004.py             # IERC8004 adapter
+icm.py                 # Teleporter wrapper
+seed_onchain.py        # one-time on-chain registration script
+templates/demo.html    # pitch surface
+templates/sim.html     # full marketplace sim dashboard
+DEMO.md                # pitch script
+INTEGRATION.md         # this file
 ```
 
-### 3. Open browser
+### Shared files (prefer `latest-onchain` version on conflict)
 
-http://localhost:5000 - everything works end-to-end on live Fuji.
+```
+app.py                 # routes appended at end; env loader at top
+models.py              # new columns (additive via SQLite ALTER)
+config.py              # RATELIMIT_DEFAULT raised to 600/min
+```
 
-## Demo flows
+### Unchanged from ui-cleanup-redesign merge
 
-### x402 payment
-1. Browse to `/checkout/1`
-2. Click "Confirm & Pay in Escrow"
-3. Wallet prompts you to sign an EIP-712 `TransferWithAuthorization`
-4. Frontend POSTs the signed permit to Flask → Flask forwards to Node facilitator
-5. Facilitator submits 3 txs atomically:
-   - `MockUSDC.transferWithAuthorization` (pulls USDC from you, pays gas)
-   - `MockUSDC.approve(escrow, value)`
-   - `EscrowPayment.depositFunds(...)` (opens session)
-6. Returns session id → frontend redirects to order page
+Most templates, CSS, and JS came from the earlier UI merge and should be identical in both branches. If merge conflicts surface there, it's safe to take either side — the demo hooks live in the additive files above.
 
-### Live session display
-1. After checkout, `/order/<sessionId>` loads
-2. If session id is numeric, frontend calls `/api/session/<id>` → Flask → Node → `EscrowPayment.getSession`
-3. Renders a panel showing deposit, price/token, state, expiry
+## State persistence (survives Flask restarts)
 
-### Seller staking
-1. Go to `/seller/dashboard`
-2. "On-chain stake" card auto-loads current stake
-3. Enter amount → "Stake USDC" signs tx directly (not via facilitator - staker is msg.sender)
+- `instance/agenthire.db` — SQLite main DB (agents, profiles, reviews, etc.)
+- `instance/.live_writes` — the live-write toggle state (auto-enabled when facilitator ≥ 0.1 AVAX, respects explicit user toggle)
+- `.env` — facilitator private key + RPC config (gitignored)
 
-### Dispute
-1. Go to `/order/<id>`
-2. Click "Open Dispute" in the right column
-3. Enter reason + severity
-4. POSTs to `/api/dispute/submit` → Flask → gatekeeper service
-5. Gatekeeper signs + submits `ReputationContract.submitIncident(agentId, affectedUser, severity, sig)`
-6. For severity=2, the contract cascades to `StakingSlashing.slash(agentId, affectedUser)` - 60/40 distribution
+## Live-writes toggle
 
-### Auction
-1. Go to `/marketplace`
-2. Click floating "⚡ Post Open Bid"
-3. Modal collects deposit, budget, ceiling, minTier
-4. Directly signs `AuctionMarket.postBid(...)` from the connected wallet
+Default behavior at boot:
+- If facilitator wallet has ≥ 0.1 AVAX and no `.live_writes` file exists → auto-enables (file created with `on`)
+- If user explicitly disabled via UI or API → stays off across restarts (respects choice)
+- Can be flipped via: UI checkbox on `/demo`, or `POST /api/sim/live-mode` with `{"enabled": true/false}`
 
-### Live feed
-Home page (`/`) shows "LIVE ON-CHAIN ACTIVITY" - polls 6 event types every 12 seconds from the three markets. Click any event to open its tx on Snowtrace.
+When ON, every Send click submits a real `registerAgent` tx; the response includes the real tx hash + Snowtrace URL; UI shows a green `● LIVE WRITE MODE` banner.
 
-## Mock fallback
+## Bounty rubric
 
-All 3 proxy routes fall back to mock responses if the corresponding Node service is not configured:
-
-| Missing env | Behavior |
+| Requirement | How it's hit |
 |---|---|
-| `FACILITATOR_URL` unset | `/api/x402/pay` returns a fake session id |
-| `GATEKEEPER_URL` unset | `/api/dispute/submit` returns `pending_review` (no on-chain tx) |
+| Triggered programmatically without human approval | Sim engine auto-generates bids, matches qualifying agents, settles. Background tick loop runs continuously. |
+| Settled instantly using stablecoins on Avalanche | MockUSDC EIP-3009 → `EscrowPayment.depositFunds` → settlement on Fuji in ~2s. Proven by 5 real transferWithAuthorization txs in contract history. |
+| Gated by on-chain identity and reputation | `AuctionMarket.postBid` accepts `minTier` arg; matcher reads `ReputationContract.getCreditProfile(agentId)`; T2 gate = score≥700 + tasks≥50, T3 = score≥900 + tasks≥200. |
+| Composed across multiple services or chains | `A2A_WORKFLOWS` cascade fires flagship → sub-agents (visible on demo + sim pages); ICM `sendCrossChainMessage` wrapper ready for cross-subnet via canonical TeleporterMessenger. |
 
-This lets the UI be demo'd without the full backend running. For the bounty judges, wire everything and show real on-chain txs.
+## Demo pitch checklist (3 min)
 
-## Bounty rubric mapping
+1. Open `/demo` — confirm green **LIVE WRITE MODE** banner (auto-shows when facilitator funded).
+2. Point to the always-on chain strip — watch block number advance every ~2s (real RPC round-trip).
+3. Expand **Real On-Chain Activity** — 32 real tx receipts, click any → Snowtrace.
+4. Pick any two agents in **From** / **To**, click **Send Payment**.
+5. Watch stage animate: sender → USDC → receiver. New row lands in history with green ✓.
+6. Click the ✓ hash → real Snowtrace receipt confirming the tx you just created.
+7. Check **Cascade** checkbox + pick a flagship sender → one click fires the full workflow.
+8. Close with `/api/stack` in a new tab → single JSON proves all bounty surfaces.
 
-| Requirement | Where |
+## Recovery
+
+| Symptom | Fix |
 |---|---|
-| Settlement on Avalanche C-Chain | Fuji testnet, 6 contracts verified on Snowtrace |
-| x402 for pay-per-request | `static/js/web3.js::payWithX402` + facilitator `POST /x402/execute` |
-| ERC-8004 identity + reputation | `ReputationContract.getCreditProfile`, `getCategoryTier`, `IERC8004.sol` interface shim |
-| Triggered programmatically | Facilitator auto-submits `transferWithAuthorization` → `depositFunds`; token counter auto-signs settlement |
-| Gated by on-chain reputation | `EscrowPayment.depositFunds` enforces tier cap; `AuctionMarket.claimBid` enforces `minTier` |
-| Cross-service composition | Escrow ↔ Auction both call Reputation.recordCompletion; Reputation ↔ Staking; Staking ↔ Registry |
+| Flask dies | `cd ~/agenthire && .venv/bin/python app.py`. Live-writes state auto-restores. |
+| Port 5000 returns 403 | macOS AirPlay; use 8080. |
+| AVAX runs out | Send more from Rabby to `0xD6E914025Be928dCb75d53B7B884f41D43964132` on Fuji. |
+| Dropdowns empty | Hard-refresh (Cmd+Shift+R); check browser console for `/api/sim/all-agents` |
+| Live writes not firing | Confirm toggle ON at `/api/sim/live-mode`. Check `instance/.live_writes` = `on`. |
+| All agents banned | `python -c "from app import app; from models import OnchainProfile; from extensions import db; \n with app.app_context():\n  for p in OnchainProfile.query.filter_by(banned=True).all(): p.banned=False\n  db.session.commit()"` |
