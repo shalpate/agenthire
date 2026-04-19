@@ -371,43 +371,119 @@ class SimulationEngine:
 
     # ── tick sub-steps ────────────────────────────────────────────────────
 
+    # Realistic task descriptions per category — keeps bids from feeling
+    # like Mad Libs. Each bid pulls one line from the matching bucket.
+    TASK_DESCRIPTIONS = {
+        0: [  # Development
+            "refactor auth middleware",
+            "audit PR for memory leaks",
+            "generate test cases for the new pricing endpoint",
+            "migrate legacy REST to GraphQL",
+            "scan deps for CVE-2024-known issues",
+            "rewrite CI pipeline in Python",
+        ],
+        1: [  # Data & Analytics
+            "cohort retention analysis Q4",
+            "rebuild churn model on new schema",
+            "daily revenue dashboard for sales team",
+            "debug slow BigQuery join",
+            "ETL from Snowflake to Postgres staging",
+        ],
+        2: [  # Content
+            "long-form blog on agent economy",
+            "SEO landing page for launch",
+            "email drip for new waitlist",
+            "press release draft for Series A",
+            "social thread on latest product update",
+        ],
+        3: [  # Finance
+            "reconcile DeFi treasury positions",
+            "tax lot accounting Q4",
+            "portfolio risk analysis for governance vote",
+            "on-chain flow trace suspicious wallet",
+            "backtest new signal against 2022 data",
+        ],
+        4: [  # Research
+            "literature review on agent pricing mechanisms",
+            "meta-analysis of LLM benchmarks",
+            "citation graph for published crypto papers",
+            "methodology review for our planned study",
+        ],
+        5: [  # Security
+            "pentest the new checkout flow",
+            "OWASP scan before production push",
+            "threat model for the federated auth service",
+            "audit smart contract deploy bytecode",
+            "investigate phishing report from ops",
+        ],
+        6: [  # Automation
+            "sync customer updates from Salesforce to Zendesk",
+            "auto-respond to low-tier support tickets",
+            "scrape competitor pricing daily",
+            "calendar orchestration for exec team",
+            "route webhooks across our four tools",
+        ],
+    }
+
+    # Buyer personas — feels like a real marketplace with named customers,
+    # not anonymous 0x hashes. Each has a stable deterministic wallet.
+    BUYER_PERSONAS = [
+        ("Acme Labs Treasury",      "0xAC3e1abs11111111111111111111111111111111"),
+        ("Helix Capital",           "0xHe11x0000000000000000000000000000000022"),
+        ("Northwind Ventures",      "0x400Thw11d00000000000000000000000000002A"),
+        ("Pioneer Audit Co",        "0xP10Nee4Aud17000000000000000000000000003B"),
+        ("Stratos AI Desk",         "0x5724705a1deSk00000000000000000000000044"),
+        ("Meridian Research",       "0xMer1d14nResearch00000000000000000000055"),
+        ("Compass Tax Partners",    "0xC0mpa55Tax000000000000000000000000000066"),
+        ("Open Source Consortium",  "0x0p3n50u7C0n50r71um0000000000000000000077"),
+        ("Atlas Guild DAO",         "0xA71a5Gu11dDa000000000000000000000000088"),
+        ("Pulse Analytics",         "0xPu15eAn4ly71c500000000000000000000000099"),
+    ]
+
     def _generate_bids(self, agents) -> int:
         hour = datetime.fromtimestamp(self.sim_clock, tz=timezone.utc).hour
         peak = 9 <= hour < 17
-        # Expected arrivals per minute
-        # Arrival rate tuned for a realistic marketplace rhythm — one
-        # bid every couple of ticks during peak, barely any off-peak.
-        # Avoids the "firehose" feel that judges read as bullshit.
+        # ~1 bid every two sim-minutes at peak — one at a time, like a
+        # real order book, not a firehose.
         lam = 0.6 if peak else 0.2
         n = self._poisson(lam)
         created = 0
         for _ in range(n):
-            # Pick the target category first, then price from an agent in that
-            # category — keeps bid prices in the right zone for the category.
             a_template = self._rng.choice(agents)
             category = _category_id(a_template)
-            tokens = self._rng.choice([250, 500, 1000, 2000, 5000])
+            tokens = self._rng.choice([500, 1000, 2000, 5000])
             price_ceiling = a_template.min_price * self._rng.uniform(1.05, 1.8)
             deposit = int(tokens * price_ceiling * 1_000_000)
             min_tier = self._rng.choices([1, 2, 3], weights=[70, 22, 8])[0]
+            # Narrative — a real task + a real-looking buyer name
+            task = self._rng.choice(self.TASK_DESCRIPTIONS.get(category, ["general task"]))
+            buyer_name, buyer_wallet = self._rng.choice(self.BUYER_PERSONAS)
+            # Normalize wallet to valid hex (replace junk chars with hex)
+            clean_wallet = "0x" + "".join(
+                c if c in "0123456789abcdefABCDEF" else format(ord(c) % 16, "x")
+                for c in buyer_wallet[2:]
+            )[:40].lower()
+            # Sequential bid id (looks like "BID-4873") not "LIVE-2-31"
+            bid_num = self._event_id + 1
             bid = AuctionBid(
-                on_chain_bid_id=f"LIVE-{self.tick_count}-{self._event_id + 1}",
-                user="0x" + hashlib.sha256(f"bidder-{self.sim_clock}-{self._event_id}".encode()).hexdigest()[:40],
+                on_chain_bid_id=f"BID-{bid_num:04d}",
+                user=clean_wallet,
                 deposit_amount=deposit,
                 token_budget=tokens,
                 max_price_per_token=int(price_ceiling * 1_000_000),
                 category_id=category,
                 min_tier=min_tier,
-                expires_at=self.sim_clock + self._rng.choice([5*60, 15*60, 30*60, 2*3600]),
+                expires_at=self.sim_clock + self._rng.choice([15*60, 30*60, 2*3600]),
                 settled=False, cancelled=False,
             )
             db.session.add(bid)
             self._recent_bids.append((self.sim_clock, category))
             self._log_event(
                 "bid_post", None,
-                f"New bid {bid.on_chain_bid_id} · {tokens} tokens · T{min_tier}+ · ≤${price_ceiling:.4f}/tok",
+                f"{buyer_name} posted BID-{bid_num:04d}: \"{task}\" · {tokens} tokens · T{min_tier}+",
                 amount=deposit / 1_000_000,
-                meta={"bidId": bid.on_chain_bid_id, "tokens": tokens, "minTier": min_tier},
+                meta={"bidId": f"BID-{bid_num:04d}", "tokens": tokens, "minTier": min_tier,
+                      "buyerName": buyer_name, "task": task},
             )
             created += 1
         return created

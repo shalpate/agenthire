@@ -2168,6 +2168,22 @@ def api_sim_speed():
     return jsonify(get_engine(app).status())
 
 
+# Global toggle for submitting real on-chain writes per click. Default OFF
+# so idle testing doesn't drain the facilitator wallet. Flipped on via
+# POST /api/sim/live-mode when the user is about to demo to a group.
+_LIVE_WRITES_ENABLED = {"on": False}
+
+
+@app.route("/api/sim/live-mode", methods=["GET", "POST"])
+def api_sim_live_mode():
+    """Toggle whether _chain_overlay_for submits a real registerAgent tx
+    on every click. Always-off default preserves facilitator AVAX."""
+    if request.method == "POST":
+        data = request.get_json(silent=True) or {}
+        _LIVE_WRITES_ENABLED["on"] = bool(data.get("enabled", False))
+    return jsonify({"liveWritesEnabled": _LIVE_WRITES_ENABLED["on"]})
+
+
 def _chain_overlay_for(new_events, from_wallet=None, to_wallet=None, amount_usdc=0):
     """Make every trigger response materially tied to real Fuji data:
 
@@ -2259,8 +2275,10 @@ def _chain_overlay_for(new_events, from_wallet=None, to_wallet=None, amount_usdc
         except Exception as enc_err:
             chain_info["calldataError"] = str(enc_err)[:120]
 
-        # If funded: actually submit a real on-chain write
-        if bal_avax >= 0.01:
+        # If funded AND live-writes toggle is ON: submit a real on-chain
+        # write per click. Default OFF so idle testing doesn't drain the
+        # facilitator — user enables via /api/sim/live-mode for the demo.
+        if bal_avax >= 0.01 and _LIVE_WRITES_ENABLED["on"]:
             try:
                 import time as _t
                 ident = f"demo-click-{int(_t.time())}"
@@ -2274,6 +2292,8 @@ def _chain_overlay_for(new_events, from_wallet=None, to_wallet=None, amount_usdc
                 }
             except Exception as wx:
                 chain_info["liveTxError"] = str(wx)[:200]
+        elif bal_avax >= 0.01:
+            chain_info["liveWritesDisabled"] = "toggle OFF — flip via /api/sim/live-mode to enable"
     except Exception as e:
         chain_info = {"mode": "simulation", "chainError": str(e)[:200]}
     return chain_info
