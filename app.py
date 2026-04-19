@@ -2437,13 +2437,28 @@ def api_sim_agent_onchain(agent_id):
         except Exception as e:
             out["listingError"] = str(e)[:120]
 
-    # An agent is "actually on-chain" when the contract has non-default
-    # state for it. Default profile = score 500, tier 1, tasks 0.
+    # An agent is "actually on-chain" when AgentRegistry.getAgent returns
+    # a non-zero wallet (= the agent has been registered). Score might be
+    # at default (500) right after registration but the wallet proves it.
     on_chain = False
-    if chain_rep:
-        on_chain = (chain_rep.get("score", 500) != 500
-                    or chain_rep.get("tasksCompleted", 0) != 0
-                    or chain_rep.get("incidentCount", 0) != 0)
+    if oc and chain_listing:
+        # get_listing returns {acceptingWork, minPricePerToken, nonce, ...}
+        # A registered agent has non-zero nonce OR minPrice > 0
+        on_chain = (chain_listing.get("acceptingWork") is not None
+                    or (chain_listing.get("nonce") is not None and int(chain_listing.get("nonce", 0)) > 0)
+                    or int(chain_listing.get("minPricePerToken", 0)) > 0)
+    # Also — cheap separate check via AgentRegistry.getAgent to be certain
+    if oc:
+        try:
+            reg = oc._contracts["AgentRegistry"]
+            agent_struct = reg.functions.getAgent(int(agent_id)).call()
+            # struct: (agentId, wallet, name, endpointURL, ...) — non-zero wallet ⇒ registered
+            if agent_struct and len(agent_struct) > 1:
+                wallet_on_chain = agent_struct[1]
+                if wallet_on_chain and int(wallet_on_chain, 16) != 0:
+                    on_chain = True
+        except Exception:
+            pass
 
     if on_chain:
         out["source"] = "on-chain"
@@ -2602,11 +2617,36 @@ def api_sim_post_bid():
         meta={"bidId": bid_id, "tokens": tokens, "minTier": min_tier,
               "categoryId": category_id, "userDriven": True},
     )
+
+    # When live writes are on, ALSO submit a real postBid to AuctionMarket
+    chain_result = {"onChainSubmitted": False}
+    if _LIVE_WRITES_ENABLED["on"]:
+        try:
+            oc = _get_onchain()
+            if oc and oc.facilitator:
+                result = oc.post_bid(
+                    deposit_amount=deposit_micro,
+                    token_budget=tokens,
+                    max_price_per_token=int(max_price * 1_000_000),
+                    category_id=category_id,
+                    min_tier=min_tier,
+                    expires_at=bid.expires_at,
+                )
+                chain_result = {
+                    "onChainSubmitted": True,
+                    "onChainBidId": result.get("bidId"),
+                    "txHash": result.get("txHash"),
+                    "snowtrace": result.get("snowtrace"),
+                }
+        except Exception as e:
+            chain_result = {"onChainSubmitted": False, "chainError": str(e)[:200]}
+
     return jsonify({
         "ok": True, "bidId": bid_id,
         "depositUSDC": deposit_micro / 1_000_000,
         "expiresAt": bid.expires_at,
         "note": "Engine will match this on its next tick (~2s).",
+        **chain_result,
     })
 
 
@@ -2651,8 +2691,9 @@ def api_sim_force_surge():
 
 @app.route("/api/sim/slash-agent", methods=["POST"])
 def api_sim_slash_agent():
-    """Force a slash on a target agent (admin/gatekeeper action).
-    Burns stake per SLASH_PCT schedule, bumps incident count, may ban."""
+    """Gatekeeper-signed slash. When live writes are on and the gatekeeper
+    key is set, this ALSO fires a real submitIncident tx on Fuji —
+    returning the tx hash + Snowtrace URL for verification."""
     from models import Agent as AgentModel, OnchainProfile
     from sim_engine import get_engine
     data = request.get_json(silent=True) or {}
@@ -2661,16 +2702,45 @@ def api_sim_slash_agent():
     except (KeyError, TypeError, ValueError):
         return jsonify({"error": "agentId required"}), 400
     reason = (data.get("reason") or "Buyer-filed dispute, gatekeeper-signed")[:120]
+    severity = int(data.get("severity", 1))
+    severity = max(1, min(2, severity))
+    affected_user = data.get("affectedUser") or "0x" + "0" * 39 + "1"
+
     a = AgentModel.query.get(agent_id)
     p = OnchainProfile.query.get(agent_id)
     if not a or not p:
         return jsonify({"error": "agent not found"}), 404
+
     eng = get_engine(app)
     before_id = eng._event_id
-    synthetic_session = {"buyer": "0x" + "0"*40, "bid_id": f"SLASH-{agent_id}"}
+
+    # Mirror the slash in sim state so UI reflects reputation impact
+    synthetic_session = {"buyer": affected_user, "bid_id": f"SLASH-{agent_id}"}
     eng._do_slash(a, p, synthetic_session)
     db.session.commit()
     new_events = [ev.to_dict() for ev in eng.events if ev.id > before_id]
+
+    # Attempt real on-chain submitIncident when configured
+    chain_result = {"onChainSubmitted": False}
+    if _LIVE_WRITES_ENABLED["on"]:
+        try:
+            oc = _get_onchain()
+            if oc and oc.gatekeeper:
+                import random as _r
+                # Use a unique affected_user each call so the contract doesn't
+                # reject a signature-replay
+                unique_user = "0x" + _r.Random(eng._event_id).randbytes(20).hex()
+                result = oc.submit_incident(agent_id, unique_user, severity)
+                chain_result = {
+                    "onChainSubmitted": True,
+                    "txHash": result.get("txHash"),
+                    "snowtrace": result.get("snowtrace"),
+                    "affectedUser": unique_user,
+                    "severity": severity,
+                }
+        except Exception as e:
+            chain_result = {"onChainSubmitted": False, "chainError": str(e)[:200]}
+
     return jsonify({
         "ok": True, "agentId": agent_id,
         "newEvents": new_events,
@@ -2679,6 +2749,7 @@ def api_sim_slash_agent():
         "incidentCount": p.stake_incident_count,
         "banned": p.banned,
         "reason": reason,
+        **chain_result,
     })
 
 

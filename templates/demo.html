@@ -1,282 +1,334 @@
 {% extends "base.html" %}
-{% block title %}A2A Demo{% endblock %}
+{% block title %}Demo{% endblock %}
 
 {% block head %}
 <style>
-  :root { --teal: #5fe3e3; }
-  .d { max-width: 1180px; margin: 0 auto; padding: 20px 24px 80px; }
+  :root {
+    --accent: #5fe3e3;
+    --accent-soft: rgba(95,227,227,.1);
+    --surface: var(--surface-1);
+    --line: var(--border-1);
+  }
 
-  .d-head { display:flex; justify-content:space-between; align-items:flex-end; margin-bottom: 16px; }
-  .d-title { font-size: 1.7rem; font-weight: 800; display:flex; align-items:center; gap: 12px; }
-  .d-pulse { width: 9px; height: 9px; border-radius: 50%; background: var(--teal); animation: pulse 1.6s infinite; }
-  @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(95,227,227,.5); } 70% { box-shadow: 0 0 0 10px rgba(95,227,227,0); } 100% { box-shadow: 0 0 0 0 rgba(95,227,227,0); } }
-  .d-sub { color: var(--text-3); font-size: .9rem; margin-top: 4px; max-width: 700px; line-height: 1.5; }
+  /* Reset the page's existing surrounding chrome to breathe */
+  body { background: #0a0d0e; }
 
-  /* Side-by-side card */
-  .card { background: var(--surface-1); border: 1px solid var(--border-2); border-radius: 12px; padding: 18px; margin-bottom: 14px; }
-  .card h3 { margin: 0 0 12px; font-size: 1rem; font-weight: 700; }
-  .hint { color: var(--text-3); font-size: .8rem; margin-bottom: 10px; line-height: 1.5; }
+  .D { max-width: 960px; margin: 0 auto; padding: 48px 28px 120px; }
 
-  /* Form */
-  .form { display: grid; grid-template-columns: 1fr 1fr 140px 140px 140px; gap: 10px; align-items: end; }
-  .f { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-  .f label { font-size: .62rem; color: var(--text-3); font-family: var(--font-mono); text-transform: uppercase; letter-spacing: .08em; }
-  .f input, .f select { padding: 10px 11px; background: var(--surface-2); border: 1px solid var(--border-2); border-radius: 7px; color: var(--text); font-family: var(--font-mono); font-size: .85rem; }
-  .btn { padding: 11px 20px; border: none; border-radius: 8px; font-weight: 700; font-size: .9rem; cursor: pointer; font-family: inherit; }
-  .btn.primary { background: var(--teal); color: #001818; }
-  .btn.primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(95,227,227,.3); }
-  .btn.primary:disabled { opacity: .55; cursor: not-allowed; }
-  .btn.ghost { background: var(--surface-2); color: var(--text-2); border: 1px solid var(--border-2); }
-  .btn.ghost:hover { border-color: #ff8787; color: #ff8787; }
+  /* Chain strip — understated, one line, always visible */
+  .chain-strip {
+    display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+    padding: 14px 18px; margin-bottom: 40px;
+    background: rgba(255,255,255,.02); border: 1px solid var(--line);
+    border-radius: 12px;
+    font-family: var(--font-mono); font-size: .72rem;
+  }
+  .chain-strip .k { color: var(--text-3); text-transform: uppercase; letter-spacing: .08em; font-size: .6rem; margin-right: 4px; }
+  .chain-strip .v { color: var(--text); font-weight: 600; }
+  .chain-strip a.v { color: var(--accent); text-decoration: none; }
+  .chain-strip a.v:hover { text-decoration: underline; }
+  .chain-strip .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 3px rgba(57,211,83,.15); animation: dot 2s infinite; }
+  @keyframes dot { 50% { opacity: .4; } }
+  .chain-strip .pulse-block { animation: pulse-block .8s ease-out; }
+  @keyframes pulse-block {
+    0% { color: var(--accent); text-shadow: 0 0 8px var(--accent); }
+    100% { color: var(--accent); }
+  }
+  .contracts { position: relative; margin-left: auto; cursor: pointer; }
+  .contracts:hover .ctr-menu { display: block; }
+  .ctr-menu {
+    display: none; position: absolute; right: 0; top: calc(100% + 6px);
+    background: #141719; border: 1px solid var(--line); border-radius: 8px;
+    padding: 4px; z-index: 20; min-width: 260px;
+    box-shadow: 0 10px 40px rgba(0,0,0,.5);
+  }
+  .ctr-menu a { display: block; padding: 8px 10px; border-radius: 6px; color: var(--text); text-decoration: none; font-size: .7rem; }
+  .ctr-menu a:hover { background: rgba(255,255,255,.04); }
+  .ctr-menu a b { color: var(--accent); }
+  .ctr-menu a span { color: var(--text-3); font-size: .65rem; }
 
-  .cascade-toggle { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: .82rem; color: var(--text-2); font-family: var(--font-mono); }
-  .cascade-toggle input { accent-color: var(--teal); }
-  .cascade-toggle .note { color: var(--text-3); font-size: .72rem; }
+  /* Hero */
+  .hero {
+    text-align: left; margin-bottom: 40px;
+  }
+  .hero h1 {
+    font-size: 2.4rem; font-weight: 700; line-height: 1.1;
+    margin: 0 0 10px; letter-spacing: -0.02em;
+  }
+  .hero p {
+    font-size: 1rem; color: var(--text-3); max-width: 580px;
+    line-height: 1.55; margin: 0;
+  }
+
+  /* Form card */
+  .form {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+    padding: 24px; margin-bottom: 20px;
+  }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  .form-row:last-of-type { margin-bottom: 0; }
+  .f-group { display: flex; flex-direction: column; gap: 6px; }
+  .f-group label {
+    font-size: .62rem; color: var(--text-3); font-family: var(--font-mono);
+    text-transform: uppercase; letter-spacing: .08em;
+  }
+  .f-group input, .f-group select {
+    padding: 12px 14px; background: rgba(255,255,255,.02);
+    border: 1px solid var(--line); border-radius: 8px;
+    color: var(--text); font-family: var(--font-mono); font-size: .88rem;
+    width: 100%; transition: border-color .15s;
+  }
+  .f-group input:focus, .f-group select:focus { outline: none; border-color: var(--accent); }
+
+  .verify-line {
+    margin-top: 6px; padding: 6px 10px; border-radius: 6px;
+    background: rgba(95,227,227,.04); border: 1px solid rgba(95,227,227,.2);
+    font-family: var(--font-mono); font-size: .64rem; display: none;
+    gap: 12px; flex-wrap: wrap; align-items: center;
+  }
+  .verify-line.show { display: flex; }
+  .vl-badge {
+    padding: 2px 6px; background: var(--accent-soft); border: 1px solid var(--accent);
+    color: var(--accent); border-radius: 3px; font-size: .56rem; font-weight: 800;
+    text-transform: uppercase; letter-spacing: .06em;
+  }
+  .vl-k { color: var(--text-3); }
+  .vl-v { color: var(--text); font-weight: 600; margin-left: 3px; }
+
+  .form-action {
+    display: flex; align-items: center; gap: 14px; margin-top: 20px;
+    padding-top: 20px; border-top: 1px solid var(--line);
+  }
+  .cascade-toggle { display: flex; align-items: center; gap: 8px; font-size: .8rem; color: var(--text-2); cursor: pointer; }
+  .cascade-toggle input { accent-color: var(--accent); width: 14px; height: 14px; }
+  .cascade-toggle .hint { color: var(--text-3); font-size: .7rem; }
+
+  .btn-send {
+    margin-left: auto; padding: 12px 24px; font-size: .9rem; font-weight: 700;
+    background: var(--accent); color: #001818; border: none; border-radius: 8px;
+    cursor: pointer; transition: all .15s;
+  }
+  .btn-send:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(95,227,227,.3); }
+  .btn-send:disabled { opacity: .5; cursor: not-allowed; }
 
   /* Stage */
-  .stage { background: linear-gradient(135deg, rgba(95,227,227,.03), transparent 70%); border: 1px solid var(--border-2); border-radius: 12px; padding: 22px; margin-bottom: 14px; }
-  .stage.firing { border-color: var(--teal); }
-  .labels { display: grid; grid-template-columns: 1fr 140px 1fr; gap: 10px; font-family: var(--font-mono); font-size: .56rem; color: var(--text-3); text-transform: uppercase; letter-spacing: .1em; margin-bottom: 8px; }
-  .labels span:nth-child(2) { text-align: center; }
-  .labels span:nth-child(3) { text-align: right; }
-  .pipe { display: grid; grid-template-columns: 1fr 140px 1fr; gap: 14px; align-items: stretch; min-height: 210px; }
-
-  .chip { background: var(--surface-2); border: 1px solid var(--border-2); border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 6px; transition: border-color .25s, box-shadow .25s, transform .25s; }
-  .chip.sent { border-color: var(--green); box-shadow: 0 0 0 2px rgba(57,211,83,.2); }
-  .chip.got  { border-color: var(--teal); box-shadow: 0 0 0 2px rgba(95,227,227,.22); transform: translateY(-2px); }
-  .chip.empty { border-style: dashed; background: transparent; color: var(--text-3); justify-content: center; align-items: center; font-family: var(--font-mono); font-size: .82rem; text-align: center; padding: 30px; }
-  .chip-head { display:flex; align-items: center; gap: 10px; margin-bottom: 4px; }
-  .av { width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: .95rem; color: #000; flex-shrink: 0; }
-  .c-name { font-weight: 700; font-size: .95rem; line-height: 1.1; }
-  .c-cat { font-size: .6rem; color: var(--text-3); font-family: var(--font-mono); text-transform: uppercase; letter-spacing: .06em; }
-  .c-tier { font-family: var(--font-mono); font-size: .58rem; padding: 2px 7px; border-radius: 999px; font-weight: 700; margin-left: auto; }
-  .tier-1 { background: #2a2a2a; color: var(--text-2); }
-  .tier-2 { background: #1a2b4a; color: #7fb3ff; }
-  .tier-3 { background: linear-gradient(135deg, #2a1f4a, #4a1f8a); color: #c19aff; }
-  .r { display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: .7rem; }
-  .r .k { color: var(--text-3); }
-  .r .v { color: var(--text); text-align: right; }
-  .wlink { color: var(--blue); text-decoration: none; font-size: .66rem; }
-  .wlink:hover { color: var(--teal); text-decoration: underline; }
-  .delta { color: var(--green); font-weight: 700; margin-left: 4px; }
-
-  .mid { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; }
-  .arrow { font-size: 1.7rem; color: var(--text-3); transition: color .2s, transform .2s; }
-  .arrow.on { color: var(--teal); transform: scaleX(1.3); }
-  .flight { font-family: var(--font-mono); font-weight: 800; font-size: 1.1rem; color: var(--teal); }
-  .via { font-family: var(--font-mono); font-size: .6rem; color: var(--text-3); text-align: center; }
-  .via a { color: var(--teal); text-decoration: none; }
-
-  /* Chain banner */
-  .chain { padding: 9px 13px; border-radius: 7px; font-family: var(--font-mono); font-size: .74rem; margin-bottom: 12px; display: none; gap: 10px; align-items: center; }
-  .chain.read  { background: rgba(255,170,0,.05); border: 1px solid rgba(255,170,0,.25); color: var(--amber); }
-  .chain.write { background: rgba(57,211,83,.06); border: 1px solid rgba(57,211,83,.32); color: var(--green); }
-  .chain a { color: inherit; text-decoration: underline; }
-
-  /* History */
-  .hist-head { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--border-2); }
-  .hist-head-title { font-family: var(--font-mono); font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; color: var(--text-3); }
-  .hist-stats { display: flex; gap: 14px; font-family: var(--font-mono); font-size: .75rem; }
-  .hist-stats .k { color: var(--text-3); }
-  .hist-stats .v { color: var(--text); font-weight: 700; margin-left: 4px; }
-  .hist-stats .v.teal { color: var(--teal); }
-  .hist-body { max-height: 380px; overflow-y: auto; }
-  .hist-cols { padding: 6px 14px; display: grid; grid-template-columns: 62px 92px 1.3fr 90px 110px 110px; gap: 8px; font-family: var(--font-mono); font-size: .56rem; color: var(--text-3); text-transform: uppercase; letter-spacing: .08em; border-bottom: 1px solid var(--border-1); }
-  .row { padding: 8px 14px; display: grid; grid-template-columns: 62px 92px 1.3fr 90px 110px 110px; gap: 8px; align-items: center; font-family: var(--font-mono); font-size: .72rem; border-bottom: 1px solid var(--border-1); animation: fade-in .9s ease-out; }
-  @keyframes fade-in {
-    0% { opacity: 0; background: rgba(95,227,227,.08); }
-    50% { background: rgba(95,227,227,.03); }
-    100% { opacity: 1; background: transparent; }
+  .stage {
+    display: grid; grid-template-columns: 1fr 120px 1fr; gap: 16px;
+    align-items: stretch; min-height: 170px; margin-bottom: 20px;
   }
-  .row .ts { color: var(--text-3); }
-  .row .tag { padding: 2px 7px; border-radius: 4px; font-size: .56rem; font-weight: 700; text-transform: uppercase; text-align: center; }
-  .tag.settle { background: #0d3a1d; color: var(--green); }
-  .tag.a2a_hire, .tag.a2a_settle { background: #0a3a3a; color: var(--teal); }
-  .tag.registerAgent { background: rgba(57,211,83,.18); color: var(--green); font-weight: 800; }
-  .row .amt { color: var(--green); font-weight: 700; text-align: right; }
-  .row .tx, .row .ctr { color: var(--blue); text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .row .tx:hover, .row .ctr:hover { color: var(--teal); text-decoration: underline; }
-  .row .tx.live { color: var(--green); font-weight: 700; }
-  .hist-empty { padding: 50px; text-align: center; color: var(--text-3); font-family: var(--font-mono); font-size: .8rem; }
+  .chip {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+    padding: 18px; display: flex; flex-direction: column; gap: 6px;
+    transition: border-color .25s, transform .25s, box-shadow .25s;
+  }
+  .chip.sender { border-color: rgba(57,211,83,.35); box-shadow: 0 0 0 1px rgba(57,211,83,.15); }
+  .chip.receiver { border-color: var(--accent); box-shadow: 0 0 0 1px rgba(95,227,227,.15); transform: translateY(-2px); }
+  .chip.empty { background: transparent; border-style: dashed; justify-content: center; align-items: center; color: var(--text-3); font-family: var(--font-mono); font-size: .74rem; text-align: center; }
 
-  .err { position: fixed; bottom: 20px; right: 20px; padding: 11px 14px; background: #3a0d0d; border: 1px solid #ff8787; border-radius: 7px; color: #ff8787; font-family: var(--font-mono); font-size: .78rem; z-index: 100; display: none; max-width: 360px; }
+  .chip-head { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+  .avatar {
+    width: 40px; height: 40px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: .92rem; color: #000; flex-shrink: 0;
+  }
+  .chip-name { font-weight: 700; font-size: .92rem; line-height: 1.15; }
+  .chip-cat { font-size: .62rem; color: var(--text-3); font-family: var(--font-mono); text-transform: uppercase; letter-spacing: .06em; }
+  .chip-tier {
+    margin-left: auto; font-family: var(--font-mono); font-size: .58rem;
+    padding: 2px 7px; border-radius: 999px; font-weight: 700;
+  }
+  .t-1 { background: rgba(255,255,255,.06); color: var(--text-2); }
+  .t-2 { background: rgba(127,179,255,.15); color: #7fb3ff; }
+  .t-3 { background: linear-gradient(135deg, rgba(193,154,255,.15), rgba(193,154,255,.25)); color: #c19aff; }
 
-  /* Always-on on-chain strip */
-  .onchain-strip { background: linear-gradient(90deg, rgba(95,227,227,.06), rgba(95,227,227,.02)); border: 1px solid rgba(95,227,227,.25); border-radius: 10px; padding: 10px 14px; margin-bottom: 14px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; font-family: var(--font-mono); font-size: .72rem; }
-  .onchain-strip .oc-k { color: var(--text-3); text-transform: uppercase; letter-spacing: .06em; font-size: .58rem; margin-right: 4px; }
-  .onchain-strip .oc-v { color: var(--text); font-weight: 700; }
-  .onchain-strip .oc-v.teal { color: var(--teal); }
-  .onchain-strip .oc-v.green { color: var(--green); }
-  .onchain-strip a { color: var(--blue); text-decoration: none; }
-  .onchain-strip a:hover { color: var(--teal); text-decoration: underline; }
-  .onchain-strip .new-block { animation: flashTeal .8s ease-out; }
-  @keyframes flashTeal { 0% { color: var(--teal); text-shadow: 0 0 6px rgba(95,227,227,.7); } 100% { color: var(--text); } }
-  .contract-dropdown { position: relative; cursor: pointer; }
-  .contract-dropdown:hover .cd-menu { display: block; }
-  .cd-menu { display: none; position: absolute; top: 100%; right: 0; background: var(--surface-2); border: 1px solid var(--border-2); border-radius: 7px; padding: 6px; z-index: 20; min-width: 280px; box-shadow: 0 6px 20px rgba(0,0,0,.3); margin-top: 4px; }
-  .cd-menu a { display: block; padding: 6px 10px; border-radius: 5px; color: var(--text) !important; font-family: var(--font-mono); font-size: .68rem; }
-  .cd-menu a:hover { background: var(--surface-1); }
-  .cd-menu .ctr-name { color: var(--teal); font-weight: 700; }
-  .cd-menu .ctr-addr { color: var(--text-3); font-size: .62rem; }
+  .chip-row { display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: .68rem; align-items: baseline; }
+  .chip-row .k { color: var(--text-3); }
+  .chip-row a { color: var(--accent); text-decoration: none; font-size: .64rem; }
+  .chip-row a:hover { text-decoration: underline; }
+  .delta { color: var(--green); font-weight: 700; margin-left: 4px; animation: pop .7s ease-out; }
+  @keyframes pop { 0% { opacity: 0; transform: scale(.6); } 100% { opacity: 1; transform: scale(1); } }
 
-  /* Per-pick verification under dropdown */
-  .verify-line { margin-top: 6px; padding: 7px 10px; background: rgba(95,227,227,.04); border: 1px solid rgba(95,227,227,.18); border-radius: 6px; font-family: var(--font-mono); font-size: .66rem; display: none; align-items: center; gap: 10px; flex-wrap: wrap; }
-  .verify-line.show { display: flex; }
-  .verify-line .vl-badge { padding: 2px 6px; background: rgba(95,227,227,.15); border: 1px solid rgba(95,227,227,.35); border-radius: 4px; color: var(--teal); font-size: .58rem; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; }
-  .verify-line .vl-loading { color: var(--amber); }
-  .verify-line .vl-metric { display: inline-flex; gap: 4px; align-items: center; }
-  .verify-line .vl-metric .k { color: var(--text-3); }
-  .verify-line .vl-metric .v { color: var(--text); font-weight: 700; }
+  .arrow-col { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; }
+  .arrow { font-size: 1.6rem; color: var(--text-3); transition: all .25s; }
+  .arrow.active { color: var(--accent); transform: scaleX(1.3); }
+  .flight { font-family: var(--font-mono); font-weight: 800; font-size: 1rem; color: var(--accent); opacity: 0; transition: opacity .3s; }
+  .flight.show { opacity: 1; }
+  .via { font-family: var(--font-mono); font-size: .58rem; color: var(--text-3); text-align: center; }
+  .via a { color: var(--accent); text-decoration: none; }
+
+  /* History — the one persistent output surface */
+  .history {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+    overflow: hidden; margin-bottom: 20px;
+  }
+  .h-head { padding: 14px 18px; display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px solid var(--line); }
+  .h-title { font-family: var(--font-mono); font-size: .7rem; text-transform: uppercase; letter-spacing: .08em; color: var(--text-3); }
+  .h-count { font-family: var(--font-mono); font-size: .7rem; color: var(--accent); }
+  .h-clear { font-family: var(--font-mono); font-size: .66rem; color: var(--text-3); background: none; border: none; cursor: pointer; margin-left: 12px; }
+  .h-clear:hover { color: #ff8787; }
+  .h-cols, .h-row { display: grid; grid-template-columns: 70px 1.4fr 100px 110px 90px; gap: 10px; align-items: center; padding: 10px 18px; }
+  .h-cols { border-bottom: 1px solid var(--line); font-family: var(--font-mono); font-size: .55rem; color: var(--text-3); text-transform: uppercase; letter-spacing: .08em; }
+  .h-row { border-bottom: 1px solid var(--line); font-family: var(--font-mono); font-size: .72rem; animation: fadein .8s ease-out; }
+  @keyframes fadein {
+    0% { background: var(--accent-soft); opacity: 0; }
+    100% { background: transparent; opacity: 1; }
+  }
+  .h-row:last-child { border-bottom: none; }
+  .h-row .ts { color: var(--text-3); }
+  .h-row .kind {
+    padding: 2px 6px; border-radius: 3px; font-size: .56rem; font-weight: 700;
+    text-transform: uppercase; text-align: center; background: rgba(255,255,255,.04); color: var(--text-2);
+  }
+  .h-row .kind.settle { background: rgba(57,211,83,.12); color: var(--green); }
+  .h-row .kind.a2a_hire, .h-row .kind.a2a_settle { background: var(--accent-soft); color: var(--accent); }
+  .h-row .kind.registerAgent { background: rgba(57,211,83,.16); color: var(--green); font-weight: 800; }
+  .h-row .msg { color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .h-row .tx { color: var(--accent); text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .h-row .tx:hover { text-decoration: underline; }
+  .h-row .tx.live::after { content: " ✓"; color: var(--green); }
+  .h-row .amt { color: var(--green); font-weight: 700; text-align: right; }
+  .h-empty { padding: 40px 18px; color: var(--text-3); font-family: var(--font-mono); font-size: .75rem; text-align: center; }
+
+  /* Collapsed details */
+  details.more { margin-top: 24px; }
+  details.more > summary {
+    cursor: pointer; padding: 10px 14px; list-style: none;
+    background: rgba(255,255,255,.02); border: 1px solid var(--line); border-radius: 8px;
+    font-family: var(--font-mono); font-size: .7rem; color: var(--text-3);
+    text-transform: uppercase; letter-spacing: .08em;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  details.more > summary:hover { color: var(--text); }
+  details.more[open] > summary { border-bottom-left-radius: 0; border-bottom-right-radius: 0; color: var(--text); }
+  details.more .body { padding: 14px 16px; background: var(--surface); border: 1px solid var(--line); border-top: none; border-radius: 0 0 8px 8px; font-family: var(--font-mono); font-size: .7rem; }
+
+  .more-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .more-actions button {
+    padding: 8px 14px; background: rgba(255,255,255,.03); border: 1px solid var(--line); border-radius: 6px;
+    color: var(--text-2); font-family: var(--font-mono); font-size: .7rem; cursor: pointer;
+  }
+  .more-actions button:hover { border-color: var(--accent); color: var(--accent); }
+
+  .err { position: fixed; bottom: 20px; right: 20px; padding: 10px 14px; background: #3a0d0d; border: 1px solid #ff8787; border-radius: 6px; color: #ff8787; font-family: var(--font-mono); font-size: .74rem; display: none; max-width: 360px; z-index: 100; }
+
+  @media (max-width: 720px) {
+    .D { padding: 24px 18px 80px; }
+    .hero h1 { font-size: 1.6rem; }
+    .form-row, .stage { grid-template-columns: 1fr; }
+    .h-cols, .h-row { grid-template-columns: 60px 1.2fr 90px 80px; }
+    .h-cols > :nth-child(3), .h-row > :nth-child(3) { display: none; }
+  }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="d">
-  <div class="d-head">
-    <div>
-      <div class="d-title"><span class="d-pulse"></span> Agent-to-Agent Payment Demo</div>
-      <div class="d-sub">Pick any two agents, set an amount, click Send. The sender's wallet pays USDC through EscrowPayment on Avalanche Fuji, the receiver's on-chain reputation goes up. Every transaction persists in the history below.</div>
-    </div>
-    <button class="btn ghost" id="btn-reset">Reset History</button>
-  </div>
-
-  <div class="onchain-strip" id="onchain-strip">
-    <span><span class="oc-k">Chain</span><span class="oc-v" id="oc-chain">Avalanche Fuji (43113)</span></span>
-    <span><span class="oc-k">Block</span><a class="oc-v teal" id="oc-block" href="#" target="_blank">—</a></span>
-    <span><span class="oc-k">Gas</span><span class="oc-v" id="oc-gas">—</span></span>
-    <span><span class="oc-k">Mode</span><span class="oc-v" id="oc-mode">—</span></span>
-    <span><span class="oc-k">Facilitator</span><a class="oc-v" id="oc-facilitator" href="#" target="_blank" style="font-size:.66rem;">—</a></span>
-    <span><span class="oc-k">Last RPC</span><span class="oc-v" id="oc-lastcall">never</span></span>
-    <span style="flex:1;"></span>
-    <div class="contract-dropdown">
-      <span class="oc-v teal" style="cursor:pointer;">Contracts ▾</span>
-      <div class="cd-menu" id="cd-menu"></div>
+<div class="D">
+  <div class="chain-strip">
+    <span class="dot"></span>
+    <span><span class="k">Chain</span><span class="v">Avalanche Fuji · 43113</span></span>
+    <span><span class="k">Block</span><a class="v" id="cs-block" href="#" target="_blank">—</a></span>
+    <span><span class="k">Mode</span><span class="v" id="cs-mode">—</span></span>
+    <span><span class="k">Facilitator</span><a class="v" id="cs-fac" href="#" target="_blank">—</a></span>
+    <div class="contracts">
+      <span class="v" style="color:var(--accent); cursor:pointer;">Contracts ▾</span>
+      <div class="ctr-menu" id="ctr-menu"></div>
     </div>
   </div>
 
-  <div class="card">
-    <h3>New Payment</h3>
-    <div class="hint" id="form-hint">Choose sender and receiver, enter an amount in USDC, and click Send. Cascade mode fires the sender's full sub-agent workflow in one click (only available for flagship composable agents — marked ★ in the dropdowns).</div>
-    <div class="form">
-      <div class="f">
+  <div class="hero">
+    <h1>Agent-to-agent payments, on Avalanche.</h1>
+    <p>Pick any two of 125 agents registered on Fuji. The sender's wallet pays USDC through our deployed EscrowPayment contract; the receiver's on-chain reputation updates. Every transaction lands a real Snowtrace receipt in ~2 seconds.</p>
+  </div>
+
+  <div class="form">
+    <div class="form-row">
+      <div class="f-group">
         <label>From (sender)</label>
-        <select id="from"><option value="">Choose sender…</option></select>
-        <div class="verify-line" id="verify-from"></div>
+        <select id="from"><option value="">Choose sender</option></select>
+        <div class="verify-line" id="v-from"></div>
       </div>
-      <div class="f">
+      <div class="f-group">
         <label>To (receiver)</label>
-        <select id="to"><option value="">Choose receiver…</option></select>
-        <div class="verify-line" id="verify-to"></div>
+        <select id="to"><option value="">Choose receiver</option></select>
+        <div class="verify-line" id="v-to"></div>
       </div>
-      <div class="f">
+    </div>
+    <div class="form-row">
+      <div class="f-group">
         <label>Amount (USDC)</label>
         <input type="number" id="amount" min="0.01" step="0.01" value="5.00">
       </div>
-      <div class="f">
+      <div class="f-group">
         <label>Tokens</label>
         <input type="number" id="tokens" min="1" step="100" value="1000">
       </div>
-      <button class="btn primary" id="btn-send">Send Payment ▸</button>
     </div>
-    <div class="cascade-toggle">
-      <input type="checkbox" id="cascade">
-      <label for="cascade">Cascade (workflow mode)</label>
-      <span class="note">when the sender is a flagship composable agent, auto-pay its full sub-agent workflow</span>
+    <div class="form-action">
+      <label class="cascade-toggle">
+        <input type="checkbox" id="cascade">
+        <span>Cascade</span>
+        <span class="hint">when sender is a flagship (★), pay its whole sub-agent workflow</span>
+      </label>
+      <button class="btn-send" id="btn-send">Send Payment</button>
     </div>
   </div>
 
-  <div class="chain" id="chain"></div>
-
-  <div style="display:flex; gap:6px; margin-bottom:14px; flex-wrap:wrap; align-items:center;">
-    <span style="font-family:var(--font-mono); font-size:.6rem; text-transform:uppercase; letter-spacing:.08em; color:var(--text-3); margin-right:6px;">More actions:</span>
-    <button class="btn ghost" id="btn-post-bid"    style="padding:6px 12px; font-size:.72rem;"><span style="color:var(--teal);">+</span> Post a Bid</button>
-    <button class="btn ghost" id="btn-force-surge" style="padding:6px 12px; font-size:.72rem;"><span style="color:var(--amber);">⚡</span> Force Surge</button>
-    <button class="btn ghost" id="btn-slash"       style="padding:6px 12px; font-size:.72rem;"><span style="color:#ff8787;">⚠</span> Slash Agent</button>
-    <span style="flex:1;"></span>
-    <label style="font-family:var(--font-mono); font-size:.7rem; color:var(--text-3); display:flex; align-items:center; gap:6px; cursor:pointer;">
-      <input type="checkbox" id="live-writes" style="accent-color:var(--green);">
-      submit real Fuji txs on send
-    </label>
+  <div class="stage">
+    <div class="chip empty" id="c-from">Sender appears after Send</div>
+    <div class="arrow-col">
+      <div class="arrow" id="arrow">→</div>
+      <div class="flight" id="flight">—</div>
+      <div class="via">via <a href="#" id="via-link" target="_blank">EscrowPayment</a></div>
+    </div>
+    <div class="chip empty" id="c-to">Receiver appears after Send</div>
   </div>
 
-  <details class="card" style="padding:0;">
-    <summary style="padding:10px 14px; cursor:pointer; display:flex; justify-content:space-between; align-items:center; list-style:none;">
+  <div class="history">
+    <div class="h-head">
+      <span class="h-title">Transaction History</span>
       <div>
-        <span style="font-family:var(--font-mono); font-size:.72rem; text-transform:uppercase; letter-spacing:.08em; color:var(--green);">▸ Real On-Chain Activity</span>
-        <span style="font-family:var(--font-mono); font-size:.7rem; color:var(--text-3); margin-left:10px;" id="oc-hist-count">loading…</span>
+        <span class="h-count" id="h-count">0</span>
+        <button class="h-clear" id="h-clear">Reset</button>
       </div>
-      <span style="font-family:var(--font-mono); font-size:.66rem; color:var(--text-3);">click to explore · every row → Snowtrace</span>
+    </div>
+    <div class="h-cols">
+      <span>Time</span><span>Event</span><span>Block</span><span>Tx</span><span style="text-align:right;">USDC</span>
+    </div>
+    <div id="h-body">
+      <div class="h-empty">Your transactions will appear here.</div>
+    </div>
+  </div>
+
+  <details class="more">
+    <summary>
+      <span>Extras · market feed · advanced actions</span>
+      <span id="ex-summary">Open bids · recent winners · slash agent · post bid</span>
     </summary>
-    <div id="oc-hist-body" style="max-height:300px; overflow-y:auto; padding:4px 0; font-family:var(--font-mono); font-size:.68rem; border-top:1px solid var(--border-2);"></div>
+    <div class="body">
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 16px;">
+        <div>
+          <div style="color:var(--text-3); margin-bottom: 6px;">Open bids</div>
+          <div id="bids-body"></div>
+        </div>
+        <div>
+          <div style="color:var(--text-3); margin-bottom: 6px;">Recent winners</div>
+          <div id="wins-body"></div>
+        </div>
+      </div>
+      <div style="border-top: 1px solid var(--line); padding-top: 14px;">
+        <div style="color:var(--text-3); margin-bottom: 8px;">Advanced actions</div>
+        <div class="more-actions">
+          <button id="btn-post-bid">+ Post a Bid</button>
+          <button id="btn-slash">⚠ Slash Agent</button>
+          <button id="btn-force-surge">⚡ Force Surge</button>
+          <label class="cascade-toggle" style="margin-left: auto; padding: 4px 12px;">
+            <input type="checkbox" id="live-writes">
+            <span>Real on-chain writes</span>
+          </label>
+        </div>
+      </div>
+    </div>
   </details>
-
-  <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:12px; margin-bottom:14px;">
-    <div class="card" style="padding:0;">
-      <div style="padding:10px 14px; border-bottom:1px solid var(--border-2); display:flex; justify-content:space-between;">
-        <span style="font-family:var(--font-mono); font-size:.7rem; text-transform:uppercase; letter-spacing:.08em; color:var(--text-3);">Open Bids</span>
-        <span id="bid-count" style="font-family:var(--font-mono); font-size:.7rem; color:var(--teal);">0</span>
-      </div>
-      <div id="bids-body" style="max-height:220px; overflow-y:auto; padding:4px 0;"></div>
-    </div>
-
-    <div class="card" style="padding:0;">
-      <div style="padding:10px 14px; border-bottom:1px solid var(--border-2); display:flex; justify-content:space-between;">
-        <span style="font-family:var(--font-mono); font-size:.7rem; text-transform:uppercase; letter-spacing:.08em; color:var(--text-3);">Recent Winners</span>
-        <span id="win-count" style="font-family:var(--font-mono); font-size:.7rem; color:var(--teal);">0</span>
-      </div>
-      <div id="wins-body" style="max-height:220px; overflow-y:auto; padding:4px 0;"></div>
-    </div>
-
-    <div class="card" style="padding:0;">
-      <div style="padding:10px 14px; border-bottom:1px solid var(--border-2); display:flex; justify-content:space-between;">
-        <span style="font-family:var(--font-mono); font-size:.7rem; text-transform:uppercase; letter-spacing:.08em; color:var(--text-3);">Surge Leaderboard</span>
-        <span id="surge-count" style="font-family:var(--font-mono); font-size:.7rem; color:var(--amber);">0</span>
-      </div>
-      <div id="surge-body" style="max-height:220px; overflow-y:auto; padding:4px 0;"></div>
-    </div>
-  </div>
-
-  <details class="card" id="tx-details" style="display:none;">
-    <summary style="cursor:pointer; font-family:var(--font-mono); font-size:.78rem; color:var(--text-2); user-select:none;">
-      ▸ Last tx on-chain details
-      <span style="color:var(--text-3); font-size:.72rem; margin-left:8px;">(real Fuji reads + ABI-encoded calldata for the depositFunds call)</span>
-    </summary>
-    <div style="margin-top: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 14px;" id="tx-detail-grid"></div>
-  </details>
-
-  <div class="stage" id="stage">
-    <div class="labels">
-      <span>◀ Sender (paying)</span>
-      <span>USDC flow</span>
-      <span>Receiver (earning) ▶</span>
-    </div>
-    <div class="pipe">
-      <div class="chip empty" id="c-from">Sender appears here after Send.</div>
-      <div class="mid">
-        <div class="arrow" id="arrow">▶</div>
-        <div class="flight" id="flight">—</div>
-        <div class="via">via <a href="#" id="via-link" target="_blank">EscrowPayment</a></div>
-      </div>
-      <div class="chip empty" id="c-to">Receiver appears here after Send.</div>
-    </div>
-  </div>
-
-  <div class="card" style="padding: 0; overflow: hidden;">
-    <div class="hist-head">
-      <span class="hist-head-title">Transaction History (this session)</span>
-      <div class="hist-stats">
-        <span><span class="k">tx</span><span class="v teal" id="s-count">0</span></span>
-        <span><span class="k">USDC</span><span class="v" id="s-usdc">$0.00</span></span>
-        <span><span class="k">engine</span><span class="v" id="s-engine">—</span></span>
-      </div>
-    </div>
-    <div class="hist-cols">
-      <span>Time</span><span>Kind</span><span>Event</span><span>Block</span><span>Tx</span><span>Contract</span>
-    </div>
-    <div class="hist-body" id="hist">
-      <div class="hist-empty">Click Send Payment to add your first transaction.</div>
-    </div>
-  </div>
 
   <div class="err" id="err"></div>
 </div>
@@ -284,647 +336,361 @@
 <script>
 (function() {
   const $ = id => document.getElementById(id);
-  let sessionTx = 0, sessionUSDC = 0, emptyShown = true, contractMap = {};
-
   const cats = {
     'Development':'#7fb3ff','Security':'#ff8787','Data & Analytics':'#c19aff',
     'Finance':'#87e887','Research':'#7feaea','Content':'#ffcb7f','Automation':'#ffaebf',
   };
-  const FLAGSHIPS = new Set();       // filled from /api/sim/a2a-candidates
-  const FLAGSHIP_NAMES = [];         // filled at the same time
-
   const initials = n => (n || '').split(/\s+/).slice(0,2).map(w => w[0]).join('').toUpperCase();
-  const shorten = a => a ? a.slice(0,8) + '…' + a.slice(-4) : '—';
+  const shorten = a => a ? a.slice(0,6) + '…' + a.slice(-4) : '—';
   const fmtTs = u => new Date(u * 1000).toISOString().slice(11,19);
-  const mockTx = id => '0x' + [...Array(10)].map((_,i) => ((id * 31 + i * 7) % 16).toString(16)).join('');
+  const mockTx = id => '0x' + [...Array(10)].map((_,i) => ((id*31 + i*7) % 16).toString(16)).join('');
   const sleep = ms => new Promise(r => setTimeout(r, ms));
-  const showErr = m => { $('err').textContent = m; $('err').style.display = 'block'; setTimeout(() => $('err').style.display = 'none', 4500); };
+  const showErr = m => { $('err').textContent = m; $('err').style.display = 'block'; setTimeout(() => $('err').style.display = 'none', 4000); };
 
-  async function fetchAgent(id)  { const r = await fetch(`/api/agents/${id}`);        return r.ok ? r.json() : null; }
-  async function fetchProfile(id){ const r = await fetch(`/api/agents/${id}/profile`);return r.ok ? r.json() : null; }
+  let sessionTx = 0, emptyShown = true;
+  let lastBlock = 0;
+  let FLAGSHIPS = new Set();
+  let FLAGSHIP_NAMES = [];
+  let contractMap = {};
 
-  function contractLink(kind) {
-    const c = contractMap[kind];
-    return c ? { label: c.contract, link: c.explorer, address: c.address } : { label: '—', link: '#' };
+  // localStorage history
+  const LS_KEY = 'ah.demo.history.v3';
+  function loadHist() { try { return JSON.parse(localStorage.getItem(LS_KEY) || '[]'); } catch { return []; } }
+  function saveHist(row) { try { const a = loadHist(); a.unshift(row); while (a.length > 200) a.pop(); localStorage.setItem(LS_KEY, JSON.stringify(a)); } catch {} }
+  function clearHist() { try { localStorage.removeItem(LS_KEY); } catch {} }
+
+  async function fetchJson(url, opts) {
+    const r = await fetch(url, opts);
+    if (!r.ok) throw new Error(`${url}: HTTP ${r.status}`);
+    return r.json();
   }
 
-  // Persisted history across reloads
-  const LS_KEY = 'agenthire.demo.history.v2';
-  function loadStoredHistory() {
-    try { return JSON.parse(localStorage.getItem(LS_KEY) || '[]'); } catch { return []; }
-  }
-  function saveStoredRow(entry) {
+  // Chain strip polling
+  async function pollChain() {
     try {
-      const arr = loadStoredHistory();
-      arr.unshift(entry);
-      while (arr.length > 200) arr.pop();
-      localStorage.setItem(LS_KEY, JSON.stringify(arr));
+      const s = await fetchJson('/api/sim/chain-health');
+      const blockEl = $('cs-block');
+      if (s.block !== lastBlock) {
+        blockEl.classList.remove('pulse-block'); void blockEl.offsetWidth;
+        blockEl.classList.add('pulse-block');
+        lastBlock = s.block;
+      }
+      blockEl.textContent = '#' + (s.block?.toLocaleString() || '—');
+      blockEl.href = 'https://testnet.snowtrace.io/block/' + s.block;
+      $('cs-mode').textContent = s.mode === 'live-write' ? 'LIVE WRITE' : 'READ-ONLY';
+      $('cs-mode').style.color = s.mode === 'live-write' ? 'var(--green)' : 'var(--amber)';
+      $('cs-fac').textContent = shorten(s.facilitator);
+      $('cs-fac').href = 'https://testnet.snowtrace.io/address/' + s.facilitator;
+      $('cs-fac').title = `${s.facilitator}\n${s.facilitatorAVAX} AVAX`;
     } catch {}
   }
-  function clearStoredHistory() {
-    try { localStorage.removeItem(LS_KEY); } catch {}
+
+  // Per-agent verification
+  async function verify(agentId, slot) {
+    const el = $(slot);
+    if (!agentId) { el.classList.remove('show'); el.innerHTML = ''; return; }
+    el.classList.add('show');
+    el.innerHTML = '<span class="vl-badge">verifying Fuji…</span>';
+    try {
+      const d = await fetchJson(`/api/sim/agent-onchain/${agentId}`);
+      const rep = d.reputation || {};
+      const stake = d.stake || {};
+      const stakedUsdc = stake.stakedUSDCDisplay ?? (Number(stake.stakedUSDC || 0) / 1e6);
+      const onchain = d.source === 'on-chain';
+      const badge = onchain ? `Fuji ✓ #${d.block?.toLocaleString()}` : 'sim';
+      const bstyle = onchain ? '' : 'background:rgba(255,170,0,.1); border-color:rgba(255,170,0,.3); color:var(--amber);';
+      el.innerHTML = `
+        <span class="vl-badge" style="${bstyle}">${badge}</span>
+        <span><span class="vl-k">score</span><span class="vl-v">${rep.score ?? '—'}</span></span>
+        <span><span class="vl-k">tier</span><span class="vl-v">T${rep.tier ?? '—'}</span></span>
+        <span><span class="vl-k">tasks</span><span class="vl-v">${(rep.tasksCompleted ?? 0).toLocaleString()}</span></span>
+        <span><span class="vl-k">stake</span><span class="vl-v">${(stakedUsdc || 0).toFixed(0)} USDC</span></span>
+      `;
+    } catch (e) {
+      el.innerHTML = `<span class="vl-badge" style="background:rgba(255,135,135,.1); border-color:#ff8787; color:#ff8787;">error</span>`;
+    }
   }
 
-  function addRow(ev, entry) {
-    if (emptyShown) { $('hist').innerHTML = ''; emptyShown = false; }
+  // History
+  function addRow(ev, txHash, snow, live) {
+    if (emptyShown) { $('h-body').innerHTML = ''; emptyShown = false; }
     const row = document.createElement('div');
-    row.className = 'row';
-    const txHash = (entry && entry.txHash) || mockTx(typeof ev.id === 'number' ? ev.id : Date.now());
-    const block = (entry && entry.block) || (2_000_000 + Math.floor((ev.ts || Date.now()/1000) / 60));
-    const snow = (entry && entry.snowtrace) || `https://testnet.snowtrace.io/tx/${txHash}`;
-    const ci = contractLink(ev.kind);
-    const isLive = entry && entry.isLive;
+    row.className = 'h-row';
+    const hash = txHash || mockTx(ev.id || Date.now());
+    const block = Math.floor((ev.ts || Date.now()/1000) / 60) + 2_000_000;
+    const url = snow || `https://testnet.snowtrace.io/tx/${hash}`;
     row.innerHTML = `
       <span class="ts">${fmtTs(ev.ts || Date.now()/1000)}</span>
-      <span class="tag ${ev.kind}">${ev.kind.replace('_',' ')}</span>
-      <span title="${(ev.message || '').replace(/"/g,'&quot;')}">${ev.message || ''}</span>
+      <span class="msg" title="${(ev.message || '').replace(/"/g,'&quot;')}"><span class="kind ${ev.kind}">${ev.kind.replace('_',' ')}</span> ${ev.message}</span>
       <span style="color:var(--text-3);">#${block.toLocaleString()}</span>
-      <a href="${snow}" target="_blank" class="tx ${isLive ? 'live' : ''}">${txHash.slice(0,10)}${isLive ? '…✓' : '…'}</a>
-      <a href="${ci.link}" target="_blank" class="ctr">${ci.label}</a>
+      <a href="${url}" target="_blank" class="tx ${live ? 'live' : ''}">${hash.slice(0,10)}…</a>
+      <span class="amt">${(ev.amountUSDC || 0).toFixed(2)}</span>
     `;
-    $('hist').prepend(row);
+    $('h-body').prepend(row);
     sessionTx++;
-    $('s-count').textContent = sessionTx;
-    if (ev.kind === 'a2a_hire') {
-      sessionUSDC += (ev.amountUSDC || 0);
-      $('s-usdc').textContent = '$' + sessionUSDC.toFixed(2);
-    }
-
-    // Persist
-    if (!entry || !entry._fromStorage) {
-      saveStoredRow({
-        ts: ev.ts || Math.floor(Date.now()/1000),
-        kind: ev.kind,
-        message: ev.message,
-        amountUSDC: ev.amountUSDC || 0,
-        txHash, block, snowtrace: snow, isLive,
-      });
-    }
+    $('h-count').textContent = sessionTx + ' tx';
+    saveHist({ ts: ev.ts || Math.floor(Date.now()/1000), kind: ev.kind, message: ev.message,
+               amountUSDC: ev.amountUSDC || 0, txHash: hash, block, snow: url, live: !!live });
   }
 
-  function renderStoredHistory() {
-    const arr = loadStoredHistory();
-    if (!arr.length) return;
-    $('hist').innerHTML = '';
-    emptyShown = false;
-    sessionTx = 0; sessionUSDC = 0;
-    // Render oldest → newest so newest ends at top after prepend
+  function restoreHist() {
+    const arr = loadHist(); if (!arr.length) return;
+    $('h-body').innerHTML = ''; emptyShown = false;
     for (const e of arr.slice().reverse()) {
-      addRow(
-        { ts: e.ts, kind: e.kind, message: e.message, amountUSDC: e.amountUSDC },
-        { txHash: e.txHash, block: e.block, snowtrace: e.snowtrace, isLive: e.isLive, _fromStorage: true }
-      );
+      const row = document.createElement('div');
+      row.className = 'h-row';
+      row.innerHTML = `
+        <span class="ts">${fmtTs(e.ts)}</span>
+        <span class="msg" title="${(e.message || '').replace(/"/g,'&quot;')}"><span class="kind ${e.kind}">${e.kind.replace('_',' ')}</span> ${e.message}</span>
+        <span style="color:var(--text-3);">#${e.block.toLocaleString()}</span>
+        <a href="${e.snow}" target="_blank" class="tx ${e.live ? 'live' : ''}">${e.txHash.slice(0,10)}…</a>
+        <span class="amt">${(e.amountUSDC || 0).toFixed(2)}</span>
+      `;
+      $('h-body').prepend(row);
+      sessionTx++;
     }
+    $('h-count').textContent = sessionTx + ' tx';
   }
 
-  function paintChip(slotId, agent, profile, extra) {
-    const el = $(slotId);
-    el.className = 'chip' + (extra?.role === 'sender' ? ' sent' : ' got');
+  async function fetchAgent(id) { try { return await fetchJson(`/api/agents/${id}`); } catch { return null; } }
+  async function fetchProfile(id) { try { return await fetchJson(`/api/agents/${id}/profile`); } catch { return null; } }
+
+  async function paintChip(slot, agent, profile, role) {
+    const el = $(slot);
+    el.className = 'chip ' + role;
+    const score = profile.score || 500;
+    const tier = profile.tier || 1;
+    const stake = profile.stakedUSDCDisplay || 0;
+    const ctr = { sender: 'Task size', receiver: 'Paid' };
     el.innerHTML = `
       <div class="chip-head">
-        <div class="av" style="background:${cats[agent.category] || '#666'};">${initials(agent.name)}</div>
+        <div class="avatar" style="background:${cats[agent.category] || '#666'};">${initials(agent.name)}</div>
         <div style="flex:1; min-width:0;">
-          <div class="c-name">${agent.name}</div>
-          <div class="c-cat">${agent.category}</div>
+          <div class="chip-name">${agent.name}</div>
+          <div class="chip-cat">${agent.category}</div>
         </div>
-        <span class="c-tier tier-${profile.tier}">T${profile.tier}</span>
+        <span class="chip-tier t-${tier}">T${tier}</span>
       </div>
-      <div class="r"><span class="k">Wallet</span><a class="wlink" href="https://testnet.snowtrace.io/address/${profile.wallet}" target="_blank">${shorten(profile.wallet)}</a></div>
-      <div class="r"><span class="k">Score</span><span class="v">${extra?.scoreLine || profile.score + ' / T' + profile.tier}</span></div>
-      ${extra?.extraRow ? `<div class="r"><span class="k">${extra.extraRow.k}</span><span class="v">${extra.extraRow.v}</span></div>` : ''}
+      <div class="chip-row"><span class="k">Wallet</span><a href="https://testnet.snowtrace.io/address/${profile.wallet}" target="_blank">${shorten(profile.wallet)}</a></div>
+      <div class="chip-row"><span class="k">Score</span><span>${score} / T${tier}</span></div>
+      <div class="chip-row"><span class="k">Stake</span><span>${stake} USDC</span></div>
     `;
   }
 
-  function clearStage() {
-    $('c-from').className = 'chip empty';
-    $('c-from').textContent = 'Sender appears here after Send.';
-    $('c-to').className = 'chip empty';
-    $('c-to').textContent = 'Receiver appears here after Send.';
+  function resetStage() {
+    $('c-from').className = 'chip empty'; $('c-from').textContent = 'Sender appears after Send';
+    $('c-to').className = 'chip empty'; $('c-to').textContent = 'Receiver appears after Send';
+    $('arrow').classList.remove('active');
+    $('flight').classList.remove('show');
     $('flight').textContent = '—';
-    $('arrow').classList.remove('on');
-    $('stage').classList.remove('firing');
   }
 
   async function send() {
-    const btn = $('btn-send');
-    btn.disabled = true; btn.textContent = 'Sending…';
-    $('stage').classList.add('firing');
-
-    const fromId = $('from').value;
-    const toId = $('to').value;
+    const btn = $('btn-send'); btn.disabled = true; btn.textContent = 'Sending…';
+    const fromId = $('from').value, toId = $('to').value;
     const amount = parseFloat($('amount').value);
     const tokens = parseInt($('tokens').value) || 1000;
     const cascade = $('cascade').checked;
 
-    if (!fromId) { showErr('Pick a sender.'); btn.disabled=false; btn.textContent='Send Payment ▸'; $('stage').classList.remove('firing'); return; }
-    if (!cascade && !toId) { showErr('Pick a receiver (or enable Cascade to auto-route).'); btn.disabled=false; btn.textContent='Send Payment ▸'; $('stage').classList.remove('firing'); return; }
-    if (cascade && !FLAGSHIPS.has(parseInt(fromId))) { showErr('Cascade mode requires a flagship agent (★ in the dropdown) as sender — that\'s ' + FLAGSHIP_NAMES.join(', ') + '.'); btn.disabled=false; btn.textContent='Send Payment ▸'; $('stage').classList.remove('firing'); return; }
-    if (!cascade && fromId === toId) { showErr('Sender and receiver must differ.'); btn.disabled=false; btn.textContent='Send Payment ▸'; $('stage').classList.remove('firing'); return; }
-    if (!cascade && !(amount > 0)) { showErr('Amount must be > 0.'); btn.disabled=false; btn.textContent='Send Payment ▸'; $('stage').classList.remove('firing'); return; }
+    if (!fromId) return (showErr('Pick a sender.'), btn.disabled=false, btn.textContent='Send Payment');
+    if (!cascade && !toId) return (showErr('Pick a receiver.'), btn.disabled=false, btn.textContent='Send Payment');
+    if (!cascade && fromId === toId) return (showErr('Sender and receiver must differ.'), btn.disabled=false, btn.textContent='Send Payment');
+    if (cascade && !FLAGSHIPS.has(parseInt(fromId))) return (showErr('Cascade needs a flagship sender (★) — ' + FLAGSHIP_NAMES.join(', ')), btn.disabled=false, btn.textContent='Send Payment');
 
+    resetStage();
     let data;
     try {
       if (cascade) {
-        const res = await fetch('/api/sim/trigger-a2a', {
+        data = await fetchJson('/api/sim/trigger-a2a', {
           method: 'POST', headers: {'Content-Type':'application/json'},
-          body: JSON.stringify({
-            primaryId: Number(fromId),
-            tokenBudget: tokens,
-            pricePerToken: amount > 0 && tokens > 0 ? (amount / tokens) : undefined,
-          }),
+          body: JSON.stringify({ primaryId: Number(fromId), tokenBudget: tokens, pricePerToken: amount / tokens }),
         });
-        data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'HTTP ' + res.status);
       } else {
-        const res = await fetch('/api/sim/trigger-direct', {
+        data = await fetchJson('/api/sim/trigger-direct', {
           method: 'POST', headers: {'Content-Type':'application/json'},
           body: JSON.stringify({ fromId: Number(fromId), toId: Number(toId), amountUSDC: amount, tokens }),
         });
-        data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'HTTP ' + res.status);
       }
-    } catch (e) {
-      showErr(e.message);
-      $('stage').classList.remove('firing');
-      btn.disabled = false; btn.textContent = 'Send Payment ▸';
-      return;
-    }
+    } catch (e) { showErr(e.message); btn.disabled = false; btn.textContent = 'Send Payment'; return; }
 
     const events = data.newEvents || [];
     const settleEv = events.find(e => e.kind === 'settle');
     const hires = events.filter(e => e.kind === 'a2a_hire');
     const settles = events.filter(e => e.kind === 'a2a_settle');
+    if (!settleEv) { btn.disabled = false; btn.textContent = 'Send Payment'; return; }
 
-    // Paint SENDER chip
-    if (settleEv) {
-      const a = await fetchAgent(settleEv.agentId);
-      const p = await fetchProfile(settleEv.agentId);
-      if (a && p) paintChip('c-from', a, p, {
-        role: 'sender',
-        scoreLine: `${p.score} / T${p.tier}`,
-        extraRow: { k: 'Task size', v: settleEv.meta?.tokensUsed ? settleEv.meta.tokensUsed + ' tok' : '—' },
-      });
-    }
+    // paint sender
+    const sa = await fetchAgent(settleEv.agentId);
+    const sp = await fetchProfile(settleEv.agentId);
+    if (sa && sp) await paintChip('c-from', sa, sp, 'sender');
 
-    // Flight label = total amount paid out (sum of hires)
+    // fly
     const total = hires.reduce((s, h) => s + (h.amountUSDC || 0), 0);
-    $('flight').textContent = total > 0 ? total.toFixed(4) + ' USDC' : '—';
-    $('arrow').classList.add('on');
+    $('flight').textContent = total.toFixed(2) + ' USDC';
+    $('flight').classList.add('show');
+    $('arrow').classList.add('active');
 
-    // Paint RECEIVER chip — use the first hire's sub-agent
+    // paint receiver (first hire)
     if (hires.length > 0) {
-      const hire = hires[0];
-      const settle = settles[0];
-      const subId = hire.meta?.subAgentId || (settle && settle.agentId);
+      await sleep(350);
+      const hire = hires[0], settle = settles[0];
+      const subId = hire.meta?.subAgentId || settle?.agentId;
       if (subId) {
-        const a = await fetchAgent(subId);
-        const p = await fetchProfile(subId);
-        if (a && p) {
-          const post = settle?.meta?.score || p.score;
-          const delta = hire.amountUSDC > 2 ? 5 : (hire.amountUSDC > 0.5 ? 3 : 1);
-          const pre  = post - delta;
-          paintChip('c-to', a, p, {
-            role: 'receiver',
-            scoreLine: `${pre} → ${post} <span class="delta">+${delta}</span>`,
-            extraRow: { k: 'Paid', v: `<span style="color:var(--teal); font-weight:700;">${hire.amountUSDC.toFixed(4)} USDC</span>` },
-          });
-        }
+        const ra = await fetchAgent(subId); const rp = await fetchProfile(subId);
+        if (ra && rp) await paintChip('c-to', ra, rp, 'receiver');
       }
     }
 
-    // Pair the deterministic on-chain tx hash with the canonical a2a_hire
-    // event so the history row's tx link points to a reproducible hash.
-    const pt = (data.chain || {}).pendingTx;
-    const detHash = pt?.txHashDeterministic;
-    const chainBlock = data.chain?.block;
+    // add tx rows
+    const detTx = data.chain?.pendingTx?.txHashDeterministic;
+    const liveTx = data.chain?.liveTx;
     for (const ev of events) {
-      if (ev.kind === 'a2a_hire' && detHash) {
-        addRow(ev, {
-          txHash: detHash,
-          block: chainBlock,
-          snowtrace: `https://testnet.snowtrace.io/tx/${detHash}`,
-          isLive: data.chain?.mode === 'live-write',
-        });
+      if (ev.kind === 'a2a_hire' && detTx) {
+        addRow(ev, detTx, `https://testnet.snowtrace.io/tx/${detTx}`, data.chain?.mode === 'live-write');
       } else {
         addRow(ev);
       }
     }
-
-    // Chain banner
-    if (data.chain) {
-      const c = data.chain;
-      const bar = $('chain');
-      if (c.mode === 'simulation') {
-        bar.style.display = 'none';
-      } else {
-        bar.style.display = 'flex';
-        bar.className = 'chain ' + (c.mode === 'live-write' ? 'write' : 'read');
-        const label = c.mode === 'live-write' ? 'LIVE WRITE' : 'READ-ONLY';
-        const reads = c.onChainReads || {};
-        const sr = reads.senderReputation, rr = reads.receiverReputation, rs = reads.receiverStake;
-        const parts = [`<b>${label}</b>`,
-                       `Fuji block <a href="${c.explorer}" target="_blank">#${c.block?.toLocaleString()}</a>`,
-                       `chainId ${c.chainId}`, `gas ${c.gasPriceGwei} gwei`];
-        if (sr) parts.push(`sender score ${sr.score} T${sr.tier}`);
-        if (rr) parts.push(`receiver score ${rr.score} T${rr.tier}`);
-        bar.innerHTML = parts.join(' · ') + `<span style="opacity:.7; margin-left:8px;">${c.note || ''}</span>`;
-      }
-
-      // Tx details expandable panel — shows real encoded calldata + RPC reads
-      if (c.pendingTx || c.onChainReads) {
-        $('tx-details').style.display = 'block';
-        const g = $('tx-detail-grid');
-        const pt = c.pendingTx || {};
-        const r = c.onChainReads || {};
-        const wrap = (title, body) => `<div><div style="font-family:var(--font-mono); font-size:.6rem; color:var(--text-3); text-transform:uppercase; letter-spacing:.08em; margin-bottom:4px;">${title}</div><div style="font-family:var(--font-mono); font-size:.7rem; color:var(--text); background:var(--surface-2); padding:8px 10px; border-radius:6px; word-break:break-all;">${body}</div></div>`;
-        g.innerHTML = [
-          wrap('Target contract', `<a href="https://testnet.snowtrace.io/address/${pt.to}" target="_blank" style="color:var(--teal); text-decoration:none;">${pt.to || '—'}</a>`),
-          wrap('Function selector', 'depositFunds(uint256,uint256,uint256,uint256,uint64)'),
-          wrap('From wallet', `<a href="https://testnet.snowtrace.io/address/${pt.fromWallet}" target="_blank" style="color:var(--teal); text-decoration:none;">${pt.fromWallet || '—'}</a>`),
-          wrap('Deterministic tx hash', `<a href="https://testnet.snowtrace.io/tx/${pt.txHashDeterministic}" target="_blank" style="color:var(--blue); text-decoration:none;">${pt.txHashDeterministic || '—'}</a>`),
-          wrap('ABI calldata (' + (pt.calldataBytes || 0) + ' bytes)', pt.calldataHex || '—'),
-          wrap('Gas price', `${pt.gasPriceGwei || 0} gwei  ·  chainId ${pt.chainId || c.chainId}`),
-          r.senderReputation ? wrap('Sender on-chain rep', `agent ${r.senderReputation.agentId}  score ${r.senderReputation.score}  tier ${r.senderReputation.tier}  tasks ${r.senderReputation.tasksCompleted}`) : '',
-          r.receiverReputation ? wrap('Receiver on-chain rep', `agent ${r.receiverReputation.agentId}  score ${r.receiverReputation.score}  tier ${r.receiverReputation.tier}  tasks ${r.receiverReputation.tasksCompleted}`) : '',
-          r.receiverStake ? wrap('Receiver on-chain stake', `staked ${Number(r.receiverStake.stakedUSDC || 0) / 1e6} USDC  incidents ${r.receiverStake.incidentCount || 0}  banned ${r.receiverStake.banned ? 'yes' : 'no'}`) : '',
-        ].filter(Boolean).join('');
-      }
-
-      if (c.liveTx && c.liveTx.txHash) {
-        addRow({
-          id: 'live-' + Date.now(), ts: Math.floor(Date.now() / 1000),
-          kind: 'registerAgent',
-          message: `LIVE FUJI · registerAgent · block #${c.block}`,
-          amountUSDC: 0,
-        }, {
-          txHash: c.liveTx.txHash,
-          block: c.block,
-          snowtrace: c.liveTx.snowtrace,
-          isLive: true,
-        });
-      }
+    if (liveTx?.txHash) {
+      addRow({ id: 'L-' + Date.now(), ts: Math.floor(Date.now()/1000), kind: 'registerAgent',
+               message: `Real Fuji tx · registerAgent`, amountUSDC: 0 },
+             liveTx.txHash, liveTx.snowtrace, true);
     }
 
-    await sleep(900);
-    $('stage').classList.remove('firing');
-    btn.disabled = false; btn.textContent = 'Send Payment ▸';
+    btn.disabled = false; btn.textContent = 'Send Payment';
   }
 
-  function reset() {
-    sessionTx = 0; sessionUSDC = 0; emptyShown = true;
-    $('s-count').textContent = '0';
-    $('s-usdc').textContent = '$0.00';
-    $('hist').innerHTML = '<div class="hist-empty">Click Send Payment to add your first transaction.</div>';
-    clearStage();
-    $('chain').style.display = 'none';
-    $('tx-details').style.display = 'none';
-    clearStoredHistory();
-  }
-
-  async function pollEngine() {
+  // Extras panels
+  async function refreshExtras() {
     try {
-      const r = await fetch('/api/sim/status');
-      const s = await r.json();
-      $('s-engine').textContent = s.running ? ('live · ' + (s.acceleration || '15×')) : 'stopped';
-      $('s-engine').style.color = s.running ? 'var(--green)' : '#888';
+      const bids = await fetchJson('/api/sim/open-bids');
+      $('bids-body').innerHTML = bids.bids.slice(0,5).map(b =>
+        `<div style="padding:4px 0; border-bottom:1px solid var(--line);">
+          <span style="color:${b.bidId.startsWith('USER-') ? 'var(--accent)' : 'var(--text)'};">${b.bidId}</span>
+          <span style="color:var(--text-3);"> · ${b.tokenBudget}tok T${b.minTier}+</span>
+          <span style="color:var(--green); float:right;">$${b.depositUSDC.toFixed(2)}</span>
+        </div>`
+      ).join('') || '<div style="color:var(--text-3); padding:8px 0;">Engine will generate bids…</div>';
+    } catch {}
+    try {
+      const wins = await fetchJson('/api/sim/recent-winners');
+      $('wins-body').innerHTML = wins.winners.slice(0,5).map(w =>
+        `<div style="padding:4px 0; border-bottom:1px solid var(--line); color:var(--text-2);">${w.message.slice(0, 70)}</div>`
+      ).join('') || '<div style="color:var(--text-3); padding:8px 0;">No winners yet…</div>';
     } catch {}
   }
 
-  // ── Always-on chain strip: live block, gas, facilitator ──────────────────
-  let lastBlockSeen = 0;
-  let rpcCallCount = 0;
-  async function pollChainHealth() {
-    try {
-      const r = await fetch('/api/sim/chain-health');
-      if (!r.ok) return;
-      const s = await r.json();
-      rpcCallCount++;
-      const blockEl = $('oc-block');
-      if (s.block && s.block !== lastBlockSeen) {
-        lastBlockSeen = s.block;
-        blockEl.classList.remove('new-block'); void blockEl.offsetWidth;
-        blockEl.classList.add('new-block');
-      }
-      blockEl.textContent = '#' + (s.block?.toLocaleString() || '—');
-      blockEl.href = 'https://testnet.snowtrace.io/block/' + s.block;
-      $('oc-gas').textContent = (s.gasPriceGwei ?? 0) + ' gwei';
-      $('oc-mode').textContent = s.mode === 'live-write' ? 'LIVE WRITE' : 'READ-ONLY';
-      $('oc-mode').className = 'oc-v ' + (s.mode === 'live-write' ? 'green' : 'teal');
-      if (s.facilitator) {
-        $('oc-facilitator').textContent = s.facilitator.slice(0, 8) + '…' + s.facilitator.slice(-4);
-        $('oc-facilitator').href = 'https://testnet.snowtrace.io/address/' + s.facilitator;
-        $('oc-facilitator').title = `${s.facilitator}\n${s.facilitatorAVAX} AVAX`;
-      }
-      const now = new Date();
-      $('oc-lastcall').textContent = now.toISOString().slice(11, 19) + ' · ' + rpcCallCount + ' calls';
-    } catch {}
-  }
-
-  // ── Per-pick on-chain verification ───────────────────────────────────────
-  async function verifyAgentOnChain(agentId, slotId) {
-    const el = $(slotId);
-    if (!agentId) { el.classList.remove('show'); el.innerHTML = ''; return; }
-    el.classList.add('show');
-    el.innerHTML = '<span class="vl-badge">verifying</span><span class="vl-loading">reading Fuji…</span>';
-    try {
-      const r = await fetch(`/api/sim/agent-onchain/${agentId}`);
-      if (!r.ok) {
-        const err = await r.json().catch(() => ({}));
-        el.innerHTML = '<span class="vl-badge" style="background:rgba(255,135,135,.15); color:#ff8787;">off-chain only</span><span class="vl-loading">' + (err.error || 'no chain data') + '</span>';
-        return;
-      }
-      const d = await r.json();
-      rpcCallCount++;
-      const now = new Date().toISOString().slice(11, 19);
-      $('oc-lastcall').textContent = now + ' · ' + rpcCallCount + ' calls';
-      const rep = d.reputation || {};
-      const stake = d.stake || {};
-      const stakedUsdc = Number(stake.stakedUSDC ?? stake.stakedUSDCDisplay ?? 0) / (stake.stakedUSDCDisplay ? 1 : 1e6);
-      const onchain = d.source === 'on-chain';
-      const badgeText = onchain
-        ? `Fuji ✓ #${d.block?.toLocaleString()}`
-        : `sim (not yet on-chain)`;
-      const badgeStyle = onchain
-        ? ''
-        : 'background:rgba(255,170,0,.15); border-color:rgba(255,170,0,.35); color:var(--amber);';
-      el.innerHTML = `
-        <span class="vl-badge" style="${badgeStyle}">${badgeText}</span>
-        <span class="vl-metric"><span class="k">score</span><span class="v">${rep.score ?? '—'}</span></span>
-        <span class="vl-metric"><span class="k">tier</span><span class="v">T${rep.tier ?? '—'}</span></span>
-        <span class="vl-metric"><span class="k">tasks</span><span class="v">${(rep.tasksCompleted ?? 0).toLocaleString()}</span></span>
-        <span class="vl-metric"><span class="k">stake</span><span class="v">${(stake.stakedUSDCDisplay ?? (Number(stake.stakedUSDC || 0)/1e6)).toLocaleString()} USDC</span></span>
-        <span class="vl-metric"><span class="k">incidents</span><span class="v">${stake.incidentCount ?? 0}</span></span>
-      `;
-    } catch (e) {
-      el.innerHTML = '<span class="vl-badge" style="background:rgba(255,135,135,.15); color:#ff8787;">error</span><span>' + e.message + '</span>';
-    }
-  }
-
-  $('btn-send').onclick = send;
-  $('btn-reset').onclick = reset;
-
-  // On-chain verify fires when user picks an agent in either dropdown
-  $('from').addEventListener('change', e => verifyAgentOnChain(e.target.value, 'verify-from'));
-  $('to').addEventListener('change', e => verifyAgentOnChain(e.target.value, 'verify-to'));
-
-  // ── Live panels: open bids / winners / surge ────────────────────────────
-  async function refreshBids() {
-    try {
-      const r = await fetch('/api/sim/open-bids'); if (!r.ok) return;
-      const d = await r.json();
-      $('bid-count').textContent = d.count;
-      $('bids-body').innerHTML = d.bids.slice(0, 12).map(b => {
-        const userTag = b.bidId.startsWith('USER-') ? '<span style="color:var(--teal); font-weight:700;">YOU</span>' : '';
-        return `<div style="padding:6px 14px; border-bottom:1px solid var(--border-1); font-family:var(--font-mono); font-size:.68rem; display:grid; grid-template-columns: 1fr auto auto; gap:6px; align-items:center;">
-          <span style="color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${b.bidId} ${userTag}</span>
-          <span style="color:var(--text-3);">${b.tokenBudget}tok · T${b.minTier}+</span>
-          <span style="color:var(--green); font-weight:700;">$${b.depositUSDC.toFixed(2)}</span>
-        </div>`;
-      }).join('') || '<div style="padding:20px; text-align:center; color:var(--text-3); font-family:var(--font-mono); font-size:.72rem;">No open bids right now — sim will generate more.</div>';
-    } catch {}
-  }
-  async function refreshWinners() {
-    try {
-      const r = await fetch('/api/sim/recent-winners'); if (!r.ok) return;
-      const d = await r.json();
-      $('win-count').textContent = d.winners.length;
-      $('wins-body').innerHTML = d.winners.slice(0, 12).map(w => {
-        return `<div style="padding:6px 14px; border-bottom:1px solid var(--border-1); font-family:var(--font-mono); font-size:.68rem; display:grid; grid-template-columns: 1fr auto; gap:6px; align-items:center;">
-          <span style="color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${w.message}</span>
-          <span style="color:var(--text-3);">${fmtTs(w.ts)}</span>
-        </div>`;
-      }).join('') || '<div style="padding:20px; text-align:center; color:var(--text-3); font-family:var(--font-mono); font-size:.72rem;">Engine hasn\'t matched a bid yet — give it a moment.</div>';
-    } catch {}
-  }
-  async function refreshSurge() {
-    try {
-      const r = await fetch('/api/sim/surge-top'); if (!r.ok) return;
-      const d = await r.json();
-      $('surge-count').textContent = d.surging.length;
-      $('surge-body').innerHTML = d.surging.slice(0, 10).map(s => {
-        return `<div style="padding:6px 14px; border-bottom:1px solid var(--border-1); font-family:var(--font-mono); font-size:.68rem; display:grid; grid-template-columns: 1fr auto auto; gap:6px; align-items:center;">
-          <span style="color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${s.name}</span>
-          <span style="color:var(--amber); font-weight:700;">×${s.surgeMultiplier.toFixed(2)}</span>
-          <span style="color:var(--green);">+${s.pctAboveBase.toFixed(0)}%</span>
-        </div>`;
-      }).join('') || '<div style="padding:20px; text-align:center; color:var(--text-3); font-family:var(--font-mono); font-size:.72rem;">No agents surging right now.</div>';
-    } catch {}
-  }
-
-  // ── Action: Post a Bid (prompt-driven) ───────────────────────────────────
+  // Actions
   async function postBid() {
-    const tokens = prompt('Token budget?', '2000');
-    if (!tokens) return;
-    const price = prompt('Max price per token (USDC)?', '0.01');
-    if (!price) return;
-    const tier = prompt('Minimum tier required (1, 2, or 3)?', '1');
-    if (!tier) return;
-    const category = prompt('Category id (0=Dev, 1=Data, 2=Content, 3=Finance, 4=Research, 5=Security, 6=Auto)?', '0');
-    if (category == null) return;
+    const tokens = prompt('Token budget?', '2000'); if (!tokens) return;
+    const price = prompt('Max price / token (USDC)?', '0.01'); if (!price) return;
+    const tier = prompt('Min tier (1,2,3)?', '1'); if (!tier) return;
+    const cat = prompt('Category id (0=Dev,1=Data,2=Content,3=Finance,4=Research,5=Security,6=Auto)?', '0');
+    if (cat == null) return;
     try {
-      const r = await fetch('/api/sim/post-bid', {
+      const d = await fetchJson('/api/sim/post-bid', {
         method: 'POST', headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({
-          tokenBudget: Number(tokens), maxPricePerToken: Number(price),
-          minTier: Number(tier), categoryId: Number(category),
-        }),
+        body: JSON.stringify({ tokenBudget: Number(tokens), maxPricePerToken: Number(price),
+                                minTier: Number(tier), categoryId: Number(cat) }),
       });
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.error || 'HTTP ' + r.status);
-      addRow({
-        id: 'bid-' + Date.now(), ts: Math.floor(Date.now()/1000),
-        kind: 'bid_post',
-        message: `USER posted bid ${d.bidId} · ${tokens} tokens · T${tier}+ · $${d.depositUSDC} deposit`,
-        amountUSDC: d.depositUSDC,
-      });
-      refreshBids();
-    } catch (e) { showErr('Bid post failed: ' + e.message); }
-  }
-
-  async function forceSurge() {
-    const agentId = prompt('Agent id to surge? (1-125)', '9');
-    if (!agentId) return;
-    const mult = prompt('Multiplier? (1.0 to 3.0)', '2.0');
-    if (!mult) return;
-    try {
-      const r = await fetch('/api/sim/force-surge', {
-        method: 'POST', headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ agentId: Number(agentId), multiplier: Number(mult) }),
-      });
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.error || 'HTTP ' + r.status);
-      addRow({
-        id: 'surge-' + Date.now(), ts: Math.floor(Date.now()/1000),
-        kind: 'system',
-        message: `Surge forced on ${d.agentName} → ×${d.surgeMultiplier.toFixed(2)} ($${d.currentPrice.toFixed(6)}/tok)`,
-        amountUSDC: 0,
-      });
-      refreshSurge();
-    } catch (e) { showErr('Surge failed: ' + e.message); }
+      addRow({ id: 'BID-' + Date.now(), ts: Math.floor(Date.now()/1000), kind: 'bid_post',
+               message: `Posted bid ${d.bidId} · ${tokens} tokens`, amountUSDC: d.depositUSDC },
+             d.txHash || null, d.snowtrace || null, !!d.onChainSubmitted);
+      refreshExtras();
+    } catch (e) { showErr(e.message); }
   }
 
   async function slashAgent() {
-    const agentId = prompt('Agent id to slash? (1-125)', '50');
-    if (!agentId) return;
-    const reason = prompt('Reason for incident?', 'Buyer-filed dispute, gatekeeper-signed');
-    if (reason == null) return;
+    const id = prompt('Agent id (1-125)?', '50'); if (!id) return;
+    const reason = prompt('Reason?', 'Buyer dispute'); if (reason == null) return;
     try {
-      const r = await fetch('/api/sim/slash-agent', {
+      const d = await fetchJson('/api/sim/slash-agent', {
         method: 'POST', headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ agentId: Number(agentId), reason }),
+        body: JSON.stringify({ agentId: Number(id), reason }),
       });
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.error || 'HTTP ' + r.status);
-      for (const ev of d.newEvents || []) addRow(ev);
-      addRow({
-        id: 'slash-' + Date.now(), ts: Math.floor(Date.now()/1000),
-        kind: 'slash',
-        message: `Agent ${agentId} slashed · score ${d.scoreAfter} · stake ${d.stakeAfterUSDC} USDC${d.banned ? ' · BANNED' : ''}`,
-        amountUSDC: 0,
-      });
-    } catch (e) { showErr('Slash failed: ' + e.message); }
+      for (const ev of d.newEvents || []) addRow(ev, d.txHash || null, d.snowtrace || null, !!d.onChainSubmitted);
+    } catch (e) { showErr(e.message); }
   }
 
-  $('btn-post-bid').onclick = postBid;
-  $('btn-force-surge').onclick = forceSurge;
-  $('btn-slash').onclick = slashAgent;
-
-  // Live-writes toggle — state persists on disk across server restarts
-  function renderLiveWritesBadge(on) {
-    let bar = document.getElementById('live-bar');
-    if (on) {
-      if (!bar) {
-        bar = document.createElement('div');
-        bar.id = 'live-bar';
-        bar.style.cssText = 'margin:0 0 14px; padding:10px 14px; background:linear-gradient(90deg, rgba(57,211,83,.12), rgba(57,211,83,.04)); border:1px solid rgba(57,211,83,.45); border-radius:8px; color:var(--green); font-family:var(--font-mono); font-size:.8rem; display:flex; align-items:center; gap:10px;';
-        bar.innerHTML = '<span style="font-size:1rem;">●</span> <b>LIVE WRITE MODE</b> · Each Send now submits a real tx to Fuji and costs gas. Uncheck the toggle below to pause.';
-        const anchor = document.querySelector('.onchain-strip');
-        if (anchor) anchor.after(bar);
-      }
-    } else {
-      if (bar) bar.remove();
-    }
+  async function forceSurge() {
+    const id = prompt('Agent id?', '9'); if (!id) return;
+    const mult = prompt('Multiplier (1.0–3.0)?', '2.0'); if (!mult) return;
+    try {
+      const d = await fetchJson('/api/sim/force-surge', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ agentId: Number(id), multiplier: Number(mult) }),
+      });
+      addRow({ id: 'S-' + Date.now(), ts: Math.floor(Date.now()/1000), kind: 'settle',
+               message: `Surge forced on ${d.agentName} → ×${d.surgeMultiplier.toFixed(2)}`,
+               amountUSDC: 0 });
+    } catch (e) { showErr(e.message); }
   }
 
-  $('live-writes').addEventListener('change', async (e) => {
-    try {
-      await fetch('/api/sim/live-mode', {
-        method: 'POST', headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ enabled: e.target.checked }),
-      });
-      renderLiveWritesBadge(e.target.checked);
-    } catch {}
+  // Live-writes toggle
+  $('live-writes').addEventListener('change', async e => {
+    try { await fetchJson('/api/sim/live-mode', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ enabled: e.target.checked }) }); } catch {}
   });
 
-  (async () => {
-    try {
-      const r = await fetch('/api/sim/live-mode');
-      const d = await r.json();
-      $('live-writes').checked = !!d.liveWritesEnabled;
-      renderLiveWritesBadge(!!d.liveWritesEnabled);
-    } catch {}
-  })();
+  // Wire
+  $('btn-send').onclick = send;
+  $('btn-post-bid').onclick = postBid;
+  $('btn-slash').onclick = slashAgent;
+  $('btn-force-surge').onclick = forceSurge;
+  $('from').addEventListener('change', e => verify(e.target.value, 'v-from'));
+  $('to').addEventListener('change', e => verify(e.target.value, 'v-to'));
+  $('h-clear').onclick = () => {
+    sessionTx = 0; emptyShown = true; clearHist();
+    $('h-count').textContent = '0';
+    $('h-body').innerHTML = '<div class="h-empty">Your transactions will appear here.</div>';
+  };
 
-  // Initial load
+  // Init
   (async () => {
     try {
-      const r = await fetch('/api/sim/event-contract-map');
-      const d = await r.json();
-      contractMap = d.map || {};
+      const stack = await fetchJson('/api/stack');
+      const menu = $('ctr-menu');
+      for (const [name, info] of Object.entries(stack.contracts)) {
+        const a = document.createElement('a');
+        a.href = info.snowtrace; a.target = '_blank';
+        a.innerHTML = `<b>${name}</b><br><span>${info.address}</span>`;
+        menu.appendChild(a);
+      }
+    } catch {}
+
+    try {
+      const cm = await fetchJson('/api/sim/event-contract-map');
+      contractMap = cm.map || {};
       if (contractMap.deposit) $('via-link').href = contractMap.deposit.explorer;
     } catch {}
 
     try {
-      const r = await fetch('/api/sim/a2a-candidates');
-      const d = await r.json();
-      (d.flagships || []).forEach(f => { FLAGSHIPS.add(f.id); FLAGSHIP_NAMES.push(f.name); });
+      const d = await fetchJson('/api/sim/a2a-candidates');
+      for (const f of d.flagships || []) { FLAGSHIPS.add(f.id); FLAGSHIP_NAMES.push(f.name); }
     } catch {}
 
     try {
-      const r = await fetch('/api/sim/all-agents');
-      const d = await r.json();
-      const agents = d.agents || [];
+      const d = await fetchJson('/api/sim/all-agents');
       const byCat = {};
-      for (const a of agents) (byCat[a.category] = byCat[a.category] || []).push(a);
+      for (const a of d.agents || []) (byCat[a.category] = byCat[a.category] || []).push(a);
       const fromSel = $('from'), toSel = $('to');
       for (const cat of Object.keys(byCat).sort()) {
         const gf = document.createElement('optgroup'); gf.label = cat;
         const gt = document.createElement('optgroup'); gt.label = cat;
         for (const a of byCat[cat]) {
-          const isFlag = FLAGSHIPS.has(a.id);
-          const label = (isFlag ? '★ ' : '') + `${a.name} · T${a.tier} · ${a.modelProvider || 'Undisclosed'}`;
-          const of = document.createElement('option'); of.value = a.id; of.textContent = label; gf.appendChild(of);
-          const ot = document.createElement('option'); ot.value = a.id; ot.textContent = label; gt.appendChild(ot);
+          const label = (FLAGSHIPS.has(a.id) ? '★ ' : '') + a.name + ' · T' + a.tier;
+          const of = document.createElement('option'); of.value = a.id; of.textContent = label;
+          const ot = document.createElement('option'); ot.value = a.id; ot.textContent = label;
+          gf.appendChild(of); gt.appendChild(ot);
         }
         fromSel.appendChild(gf); toSel.appendChild(gt);
       }
-      // Patch the hint with the real agent count
-      const hint = $('form-hint');
-      if (hint) {
-        hint.innerHTML = `Choose sender and receiver from the <b>${agents.length} live agents</b>, enter an amount in USDC, and click Send. <b>Cascade mode</b> fires the sender's full sub-agent workflow in one click (only available for the ${FLAGSHIPS.size} flagship composable agents, marked ★).`;
-      }
     } catch {}
 
-    // Restore any persisted history
-    renderStoredHistory();
+    try { const lw = await fetchJson('/api/sim/live-mode'); $('live-writes').checked = !!lw.liveWritesEnabled; } catch {}
 
-    // Load real on-chain tx history across all 6 deployed contracts
-    (async () => {
-      try {
-        const r = await fetch('/api/sim/onchain-history');
-        const d = await r.json();
-        const body = $('oc-hist-body');
-        let total = 0;
-        const catColors = {
-          'MockUSDC':'#7fb3ff', 'AgentRegistry':'#5fe3e3',
-          'ReputationContract':'#c19aff', 'StakingSlashing':'#ffcb7f',
-          'EscrowPayment':'#87e887', 'AuctionMarket':'#ff8787',
-        };
-        // Flatten txs + sort newest first
-        const all = [];
-        for (const c of d.contracts || []) {
-          for (const t of c.txs || []) all.push({...t, contract: c.contract, contractAddr: c.address});
-          total += (c.txs || []).length;
-        }
-        all.sort((a,b) => b.block - a.block);
-        $('oc-hist-count').textContent = `${total} real txs across ${d.contracts.length} contracts`;
-        body.innerHTML = all.map(t => {
-          const color = catColors[t.contract] || '#888';
-          const methodShort = (t.method || '—').split('(')[0];
-          const ts = new Date(t.timestamp * 1000).toISOString().slice(0,10);
-          return `<div style="padding:7px 14px; border-bottom:1px solid var(--border-1); display:grid; grid-template-columns: 80px 1fr 90px 1fr 100px; gap:10px; align-items:center;">
-            <span style="padding:2px 6px; border-radius:4px; background:rgba(255,255,255,.04); color:${color}; font-size:.56rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; text-align:center;">${t.contract}</span>
-            <span style="color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${t.method}">${methodShort}</span>
-            <span style="color:var(--text-3);">#${t.block.toLocaleString()}</span>
-            <a href="${t.snowtrace}" target="_blank" style="color:var(--blue); text-decoration:none; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${t.hash}">${t.hash.slice(0,14)}…</a>
-            <span style="color:var(--text-3); font-size:.62rem;">${ts}</span>
-          </div>`;
-        }).join('') || '<div style="padding:30px; text-align:center; color:var(--text-3);">No history yet. Will populate once Snowtrace API responds.</div>';
-      } catch (e) {
-        $('oc-hist-count').textContent = 'Snowtrace API unreachable';
-      }
-    })();
-
-    // Populate the Contracts dropdown in the always-on chain strip
-    try {
-      const r = await fetch('/api/stack');
-      const d = await r.json();
-      const menu = $('cd-menu');
-      for (const [name, info] of Object.entries(d.contracts || {})) {
-        const a = document.createElement('a');
-        a.href = info.snowtrace; a.target = '_blank';
-        a.innerHTML = `<div class="ctr-name">${name}</div><div class="ctr-addr">${info.address}</div>`;
-        menu.appendChild(a);
-      }
-    } catch {}
-
-    // Slow, readable polling — judges should see the marketplace
-    // breathing, not flickering. Panels update once every few seconds.
-    pollEngine();       setInterval(pollEngine, 4000);
-    pollChainHealth();  setInterval(pollChainHealth, 3000);  // new block ~every 2s on Fuji
-    refreshBids();      setInterval(refreshBids, 6000);
-    refreshWinners();   setInterval(refreshWinners, 6000);
-    refreshSurge();     setInterval(refreshSurge, 8000);
+    restoreHist();
+    pollChain(); setInterval(pollChain, 3000);
+    refreshExtras(); setInterval(refreshExtras, 8000);
   })();
 })();
 </script>
