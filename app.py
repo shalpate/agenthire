@@ -2259,4 +2259,5 @@ if os.environ.get("WERKZEUG_RUN_MAIN") == "true" or not app.debug:
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    # Port 5000 collides with macOS AirPlay Receiver; 8080 is reliable.
+    app.run(debug=True, port=int(os.environ.get("PORT", 8080)))
