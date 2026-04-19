@@ -2424,6 +2424,48 @@ def api_sim_agent_onchain(agent_id):
     return jsonify(out)
 
 
+@app.route("/api/sim/onchain-history")
+def api_sim_onchain_history():
+    """Real tx history for each of our 6 deployed Fuji contracts, pulled
+    live from the Snowtrace API. These are actual on-chain transactions
+    judges can click through and verify right now — no signing needed.
+    """
+    from onchain import ADDRESSES, EXPLORER_URL
+    import urllib.request, urllib.parse, json as _json
+    out = {"contracts": []}
+    for name, addr in ADDRESSES.items():
+        entry = {
+            "contract": name, "address": addr,
+            "explorer": f"{EXPLORER_URL}/address/{addr}",
+            "txs": [],
+        }
+        try:
+            url = (
+                "https://api-testnet.snowtrace.io/api"
+                "?module=account&action=txlist"
+                f"&address={addr}&startblock=0&endblock=99999999"
+                "&sort=desc&page=1&offset=10"
+            )
+            with urllib.request.urlopen(url, timeout=6) as r:
+                d = _json.loads(r.read())
+            for t in (d.get("result") or [])[:8]:
+                if not isinstance(t, dict):
+                    continue
+                method = t.get("functionName") or t.get("methodId") or t.get("input", "0x")[:10]
+                entry["txs"].append({
+                    "hash": t["hash"],
+                    "snowtrace": f"{EXPLORER_URL}/tx/{t['hash']}",
+                    "block": int(t["blockNumber"]),
+                    "from": t["from"],
+                    "method": method[:80] if method else "—",
+                    "timestamp": int(t["timeStamp"]),
+                })
+        except Exception as e:
+            entry["error"] = str(e)[:120]
+        out["contracts"].append(entry)
+    return jsonify(out)
+
+
 @app.route("/api/sim/chain-health")
 def api_sim_chain_health():
     """Lightweight endpoint polled by the always-on chain strip.
