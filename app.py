@@ -2337,6 +2337,201 @@ def api_sim_trigger_direct():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/api/sim/post-bid", methods=["POST"])
+def api_sim_post_bid():
+    """User-initiated bid post. Creates an AuctionBid that the sim engine
+    will match to a qualifying agent on its next tick — judges get to
+    watch their bid become someone's next tx."""
+    from sim_engine import get_engine
+    from models import AuctionBid as BidModel, Agent as AgentModel
+    data = request.get_json(silent=True) or {}
+    try:
+        tokens = int(data.get("tokenBudget", 1000))
+        if tokens < 10 or tokens > 10_000_000:
+            return jsonify({"error": "tokenBudget must be 10 to 10,000,000"}), 400
+        max_price = float(data.get("maxPricePerToken", 0.01))
+        if max_price <= 0 or max_price > 10:
+            return jsonify({"error": "maxPricePerToken must be 0 to 10 USDC"}), 400
+        min_tier = int(data.get("minTier", 1))
+        min_tier = max(1, min(3, min_tier))
+        category_id = int(data.get("categoryId", 0))
+        if category_id < 0 or category_id > 6:
+            return jsonify({"error": "categoryId must be 0-6"}), 400
+    except (TypeError, ValueError):
+        return jsonify({"error": "invalid number in request"}), 400
+
+    eng = get_engine(app)
+    import time as _t, hashlib as _h
+    now = int(_t.time())
+    deposit_micro = int(tokens * max_price * 1_000_000)
+    # Use a clean id pattern so bids posted from the UI are identifiable
+    bid_id = f"USER-{now}-{eng._event_id + 1}"
+    user_wallet = data.get("userWallet") or ("0x" + _h.sha256(f"user-{now}".encode()).hexdigest()[:40])
+    bid = BidModel(
+        on_chain_bid_id=bid_id,
+        user=user_wallet,
+        deposit_amount=deposit_micro,
+        token_budget=tokens,
+        max_price_per_token=int(max_price * 1_000_000),
+        category_id=category_id,
+        min_tier=min_tier,
+        expires_at=now + int(data.get("expiresInSec", 900)),  # 15 min default
+        settled=False, cancelled=False,
+    )
+    db.session.add(bid)
+    db.session.commit()
+    # Log via the engine so UI can pick it up from /api/sim/events
+    eng._log_event(
+        "bid_post", None,
+        f"USER bid {bid_id} · {tokens} tokens · T{min_tier}+ · ≤${max_price:.4f}/tok",
+        amount=deposit_micro / 1_000_000,
+        meta={"bidId": bid_id, "tokens": tokens, "minTier": min_tier,
+              "categoryId": category_id, "userDriven": True},
+    )
+    return jsonify({
+        "ok": True, "bidId": bid_id,
+        "depositUSDC": deposit_micro / 1_000_000,
+        "expiresAt": bid.expires_at,
+        "note": "Engine will match this on its next tick (~2s).",
+    })
+
+
+@app.route("/api/sim/force-surge", methods=["POST"])
+def api_sim_force_surge():
+    """Pump a specific agent's surge multiplier to simulate a demand spike.
+    The surge persists until the next sim tick recomputes it."""
+    from models import Agent as AgentModel
+    data = request.get_json(silent=True) or {}
+    try:
+        agent_id = int(data["agentId"])
+    except (KeyError, TypeError, ValueError):
+        return jsonify({"error": "agentId required"}), 400
+    try:
+        multiplier = float(data.get("multiplier", 2.0))
+    except (TypeError, ValueError):
+        return jsonify({"error": "multiplier must be a number"}), 400
+    if multiplier < 1.0 or multiplier > 3.0:
+        return jsonify({"error": "multiplier must be 1.0 to 3.0"}), 400
+    a = AgentModel.query.get(agent_id)
+    if not a:
+        return jsonify({"error": "agent not found"}), 404
+    new_price = round(a.min_price * multiplier, 6)
+    if new_price > a.max_price:
+        new_price = a.max_price
+        multiplier = round(new_price / a.min_price, 3) if a.min_price > 0 else 1.0
+    a.surge_multiplier = multiplier
+    a.surge_active = multiplier > 1.2
+    a.current_price = new_price
+    db.session.commit()
+    from sim_engine import get_engine
+    get_engine(app)._log_event(
+        "system", agent_id,
+        f"{a.name} surge forced → ×{multiplier:.2f} (${new_price:.6f}/tok)",
+        meta={"multiplier": multiplier, "currentPrice": new_price, "userForced": True},
+    )
+    return jsonify({
+        "ok": True, "agentId": agent_id, "agentName": a.name,
+        "surgeMultiplier": multiplier, "currentPrice": new_price,
+    })
+
+
+@app.route("/api/sim/slash-agent", methods=["POST"])
+def api_sim_slash_agent():
+    """Force a slash on a target agent (admin/gatekeeper action).
+    Burns stake per SLASH_PCT schedule, bumps incident count, may ban."""
+    from models import Agent as AgentModel, OnchainProfile
+    from sim_engine import get_engine
+    data = request.get_json(silent=True) or {}
+    try:
+        agent_id = int(data["agentId"])
+    except (KeyError, TypeError, ValueError):
+        return jsonify({"error": "agentId required"}), 400
+    reason = (data.get("reason") or "Buyer-filed dispute, gatekeeper-signed")[:120]
+    a = AgentModel.query.get(agent_id)
+    p = OnchainProfile.query.get(agent_id)
+    if not a or not p:
+        return jsonify({"error": "agent not found"}), 404
+    eng = get_engine(app)
+    before_id = eng._event_id
+    synthetic_session = {"buyer": "0x" + "0"*40, "bid_id": f"SLASH-{agent_id}"}
+    eng._do_slash(a, p, synthetic_session)
+    db.session.commit()
+    new_events = [ev.to_dict() for ev in eng.events if ev.id > before_id]
+    return jsonify({
+        "ok": True, "agentId": agent_id,
+        "newEvents": new_events,
+        "scoreAfter": p.score,
+        "stakeAfterUSDC": round(p.staked_amount / 1_000_000, 2),
+        "incidentCount": p.stake_incident_count,
+        "banned": p.banned,
+        "reason": reason,
+    })
+
+
+@app.route("/api/sim/open-bids")
+def api_sim_open_bids():
+    """Live auction bids, newest first. Shows the user the marketplace is
+    actively generating demand between their own triggers."""
+    from models import AuctionBid as BidModel
+    import time as _t
+    now = int(_t.time())
+    rows = (BidModel.query
+            .filter_by(settled=False, cancelled=False)
+            .order_by(BidModel.id.desc())
+            .limit(25).all())
+    out = []
+    for b in rows:
+        if b.expires_at and b.expires_at < now:
+            continue  # stale
+        out.append({
+            "bidId": b.on_chain_bid_id or str(b.id),
+            "user": b.user,
+            "tokenBudget": int(b.token_budget),
+            "depositUSDC": round(int(b.deposit_amount) / 1_000_000, 2),
+            "maxPricePerToken": round(int(b.max_price_per_token) / 1_000_000, 6),
+            "categoryId": b.category_id,
+            "minTier": b.min_tier,
+            "expiresAt": int(b.expires_at) if b.expires_at else 0,
+            "secsLeft": max(0, int(b.expires_at) - now) if b.expires_at else 0,
+        })
+    return jsonify({"bids": out, "count": len(out)})
+
+
+@app.route("/api/sim/recent-winners")
+def api_sim_recent_winners():
+    """Recent bid_claim events: which agent won which bid, when."""
+    from sim_engine import get_engine
+    eng = get_engine(app)
+    events = [e for e in eng.events if e.kind == "bid_claim"][-20:]
+    out = []
+    for e in events:
+        out.append({
+            "ts": e.ts, "realTs": e.real_ts,
+            "agentId": e.agent_id,
+            "message": e.message,
+            "meta": e.meta,
+        })
+    out.reverse()
+    return jsonify({"winners": out})
+
+
+@app.route("/api/sim/surge-top")
+def api_sim_surge_top():
+    """Agents with the highest active surge multipliers, sorted."""
+    from models import Agent as AgentModel
+    rows = (AgentModel.query
+            .filter(AgentModel.surge_active == True)
+            .order_by(AgentModel.surge_multiplier.desc())
+            .limit(10).all())
+    return jsonify({"surging": [{
+        "id": a.id, "name": a.name, "category": a.category,
+        "currentPrice": a.current_price,
+        "minPrice": a.min_price,
+        "surgeMultiplier": a.surge_multiplier,
+        "pctAboveBase": round((a.surge_multiplier - 1) * 100, 1),
+    } for a in rows]})
+
+
 @app.route("/api/sim/all-agents")
 def api_sim_all_agents():
     """All agents (id, name, category, tier, score, wallet) so the demo

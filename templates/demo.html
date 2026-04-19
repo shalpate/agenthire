@@ -140,6 +140,52 @@
 
   <div class="chain" id="chain"></div>
 
+  <div class="card" style="padding:0;">
+    <div style="padding:10px 16px; border-bottom:1px solid var(--border-2); display:flex; justify-content:space-between; align-items:center;">
+      <span style="font-family:var(--font-mono); font-size:.72rem; text-transform:uppercase; letter-spacing:.08em; color:var(--text-3);">More Actions</span>
+    </div>
+    <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:1px; background:var(--border-1);">
+      <button class="btn ghost" id="btn-post-bid"   style="border-radius:0; padding:14px; text-align:left;">
+        <div style="font-weight:700; color:var(--teal); font-size:.82rem;">+ Post a Bid</div>
+        <div style="font-size:.7rem; color:var(--text-3); margin-top:3px;">Open a new auction, engine matches next tick.</div>
+      </button>
+      <button class="btn ghost" id="btn-force-surge" style="border-radius:0; padding:14px; text-align:left;">
+        <div style="font-weight:700; color:var(--amber); font-size:.82rem;">⚡ Force Surge</div>
+        <div style="font-size:.7rem; color:var(--text-3); margin-top:3px;">Simulate demand spike on a specific agent.</div>
+      </button>
+      <button class="btn ghost" id="btn-slash"      style="border-radius:0; padding:14px; text-align:left;">
+        <div style="font-weight:700; color:#ff8787; font-size:.82rem;">⚠ Slash Agent</div>
+        <div style="font-size:.7rem; color:var(--text-3); margin-top:3px;">Gatekeeper-style incident burns stake.</div>
+      </button>
+    </div>
+  </div>
+
+  <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:12px; margin-bottom:14px;">
+    <div class="card" style="padding:0;">
+      <div style="padding:10px 14px; border-bottom:1px solid var(--border-2); display:flex; justify-content:space-between;">
+        <span style="font-family:var(--font-mono); font-size:.7rem; text-transform:uppercase; letter-spacing:.08em; color:var(--text-3);">Open Bids</span>
+        <span id="bid-count" style="font-family:var(--font-mono); font-size:.7rem; color:var(--teal);">0</span>
+      </div>
+      <div id="bids-body" style="max-height:220px; overflow-y:auto; padding:4px 0;"></div>
+    </div>
+
+    <div class="card" style="padding:0;">
+      <div style="padding:10px 14px; border-bottom:1px solid var(--border-2); display:flex; justify-content:space-between;">
+        <span style="font-family:var(--font-mono); font-size:.7rem; text-transform:uppercase; letter-spacing:.08em; color:var(--text-3);">Recent Winners</span>
+        <span id="win-count" style="font-family:var(--font-mono); font-size:.7rem; color:var(--teal);">0</span>
+      </div>
+      <div id="wins-body" style="max-height:220px; overflow-y:auto; padding:4px 0;"></div>
+    </div>
+
+    <div class="card" style="padding:0;">
+      <div style="padding:10px 14px; border-bottom:1px solid var(--border-2); display:flex; justify-content:space-between;">
+        <span style="font-family:var(--font-mono); font-size:.7rem; text-transform:uppercase; letter-spacing:.08em; color:var(--text-3);">Surge Leaderboard</span>
+        <span id="surge-count" style="font-family:var(--font-mono); font-size:.7rem; color:var(--amber);">0</span>
+      </div>
+      <div id="surge-body" style="max-height:220px; overflow-y:auto; padding:4px 0;"></div>
+    </div>
+  </div>
+
   <details class="card" id="tx-details" style="display:none;">
     <summary style="cursor:pointer; font-family:var(--font-mono); font-size:.78rem; color:var(--text-2); user-select:none;">
       ▸ Last tx on-chain details
@@ -497,6 +543,128 @@
   $('btn-send').onclick = send;
   $('btn-reset').onclick = reset;
 
+  // ── Live panels: open bids / winners / surge ────────────────────────────
+  async function refreshBids() {
+    try {
+      const r = await fetch('/api/sim/open-bids'); if (!r.ok) return;
+      const d = await r.json();
+      $('bid-count').textContent = d.count;
+      $('bids-body').innerHTML = d.bids.slice(0, 12).map(b => {
+        const userTag = b.bidId.startsWith('USER-') ? '<span style="color:var(--teal); font-weight:700;">YOU</span>' : '';
+        return `<div style="padding:6px 14px; border-bottom:1px solid var(--border-1); font-family:var(--font-mono); font-size:.68rem; display:grid; grid-template-columns: 1fr auto auto; gap:6px; align-items:center;">
+          <span style="color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${b.bidId} ${userTag}</span>
+          <span style="color:var(--text-3);">${b.tokenBudget}tok · T${b.minTier}+</span>
+          <span style="color:var(--green); font-weight:700;">$${b.depositUSDC.toFixed(2)}</span>
+        </div>`;
+      }).join('') || '<div style="padding:20px; text-align:center; color:var(--text-3); font-family:var(--font-mono); font-size:.72rem;">No open bids right now — sim will generate more.</div>';
+    } catch {}
+  }
+  async function refreshWinners() {
+    try {
+      const r = await fetch('/api/sim/recent-winners'); if (!r.ok) return;
+      const d = await r.json();
+      $('win-count').textContent = d.winners.length;
+      $('wins-body').innerHTML = d.winners.slice(0, 12).map(w => {
+        return `<div style="padding:6px 14px; border-bottom:1px solid var(--border-1); font-family:var(--font-mono); font-size:.68rem; display:grid; grid-template-columns: 1fr auto; gap:6px; align-items:center;">
+          <span style="color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${w.message}</span>
+          <span style="color:var(--text-3);">${fmtTs(w.ts)}</span>
+        </div>`;
+      }).join('') || '<div style="padding:20px; text-align:center; color:var(--text-3); font-family:var(--font-mono); font-size:.72rem;">Engine hasn\'t matched a bid yet — give it a moment.</div>';
+    } catch {}
+  }
+  async function refreshSurge() {
+    try {
+      const r = await fetch('/api/sim/surge-top'); if (!r.ok) return;
+      const d = await r.json();
+      $('surge-count').textContent = d.surging.length;
+      $('surge-body').innerHTML = d.surging.slice(0, 10).map(s => {
+        return `<div style="padding:6px 14px; border-bottom:1px solid var(--border-1); font-family:var(--font-mono); font-size:.68rem; display:grid; grid-template-columns: 1fr auto auto; gap:6px; align-items:center;">
+          <span style="color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${s.name}</span>
+          <span style="color:var(--amber); font-weight:700;">×${s.surgeMultiplier.toFixed(2)}</span>
+          <span style="color:var(--green);">+${s.pctAboveBase.toFixed(0)}%</span>
+        </div>`;
+      }).join('') || '<div style="padding:20px; text-align:center; color:var(--text-3); font-family:var(--font-mono); font-size:.72rem;">No agents surging right now.</div>';
+    } catch {}
+  }
+
+  // ── Action: Post a Bid (prompt-driven) ───────────────────────────────────
+  async function postBid() {
+    const tokens = prompt('Token budget?', '2000');
+    if (!tokens) return;
+    const price = prompt('Max price per token (USDC)?', '0.01');
+    if (!price) return;
+    const tier = prompt('Minimum tier required (1, 2, or 3)?', '1');
+    if (!tier) return;
+    const category = prompt('Category id (0=Dev, 1=Data, 2=Content, 3=Finance, 4=Research, 5=Security, 6=Auto)?', '0');
+    if (category == null) return;
+    try {
+      const r = await fetch('/api/sim/post-bid', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({
+          tokenBudget: Number(tokens), maxPricePerToken: Number(price),
+          minTier: Number(tier), categoryId: Number(category),
+        }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || 'HTTP ' + r.status);
+      addRow({
+        id: 'bid-' + Date.now(), ts: Math.floor(Date.now()/1000),
+        kind: 'bid_post',
+        message: `USER posted bid ${d.bidId} · ${tokens} tokens · T${tier}+ · $${d.depositUSDC} deposit`,
+        amountUSDC: d.depositUSDC,
+      });
+      refreshBids();
+    } catch (e) { showErr('Bid post failed: ' + e.message); }
+  }
+
+  async function forceSurge() {
+    const agentId = prompt('Agent id to surge? (1-125)', '9');
+    if (!agentId) return;
+    const mult = prompt('Multiplier? (1.0 to 3.0)', '2.0');
+    if (!mult) return;
+    try {
+      const r = await fetch('/api/sim/force-surge', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ agentId: Number(agentId), multiplier: Number(mult) }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || 'HTTP ' + r.status);
+      addRow({
+        id: 'surge-' + Date.now(), ts: Math.floor(Date.now()/1000),
+        kind: 'system',
+        message: `Surge forced on ${d.agentName} → ×${d.surgeMultiplier.toFixed(2)} ($${d.currentPrice.toFixed(6)}/tok)`,
+        amountUSDC: 0,
+      });
+      refreshSurge();
+    } catch (e) { showErr('Surge failed: ' + e.message); }
+  }
+
+  async function slashAgent() {
+    const agentId = prompt('Agent id to slash? (1-125)', '50');
+    if (!agentId) return;
+    const reason = prompt('Reason for incident?', 'Buyer-filed dispute, gatekeeper-signed');
+    if (reason == null) return;
+    try {
+      const r = await fetch('/api/sim/slash-agent', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ agentId: Number(agentId), reason }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || 'HTTP ' + r.status);
+      for (const ev of d.newEvents || []) addRow(ev);
+      addRow({
+        id: 'slash-' + Date.now(), ts: Math.floor(Date.now()/1000),
+        kind: 'slash',
+        message: `Agent ${agentId} slashed · score ${d.scoreAfter} · stake ${d.stakeAfterUSDC} USDC${d.banned ? ' · BANNED' : ''}`,
+        amountUSDC: 0,
+      });
+    } catch (e) { showErr('Slash failed: ' + e.message); }
+  }
+
+  $('btn-post-bid').onclick = postBid;
+  $('btn-force-surge').onclick = forceSurge;
+  $('btn-slash').onclick = slashAgent;
+
   // Initial load
   (async () => {
     try {
@@ -541,6 +709,9 @@
     renderStoredHistory();
 
     pollEngine(); setInterval(pollEngine, 3000);
+    refreshBids(); setInterval(refreshBids, 2500);
+    refreshWinners(); setInterval(refreshWinners, 2500);
+    refreshSurge(); setInterval(refreshSurge, 3500);
   })();
 })();
 </script>
