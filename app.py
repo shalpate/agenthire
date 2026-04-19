@@ -2186,6 +2186,34 @@ def api_sim_trigger_a2a():
     return jsonify({"triggered": True, "newEvents": new_events, "count": len(new_events)})
 
 
+@app.route("/api/sim/event-contract-map")
+def api_sim_event_contract_map():
+    """Map each sim event kind to the on-chain contract that would emit it.
+    Used by the demo UI to deep-link every row to the right Snowtrace address."""
+    from onchain import ADDRESSES, EXPLORER_URL
+    kind_to_contract = {
+        "register":       "AgentRegistry",
+        "stake":          "StakingSlashing",
+        "unstake":        "StakingSlashing",
+        "deposit":        "EscrowPayment",
+        "settle":         "EscrowPayment",
+        "refund":         "EscrowPayment",
+        "slash":          "ReputationContract",
+        "incident":       "ReputationContract",
+        "a2a_hire":       "EscrowPayment",
+        "a2a_settle":     "EscrowPayment",
+        "bid_post":       "AuctionMarket",
+        "bid_claim":      "AuctionMarket",
+        "bid_cancel":     "AuctionMarket",
+    }
+    return jsonify({
+        "explorer": EXPLORER_URL,
+        "map": {k: {"contract": c, "address": ADDRESSES[c],
+                    "explorer": f"{EXPLORER_URL}/address/{ADDRESSES[c]}"}
+                for k, c in kind_to_contract.items() if c in ADDRESSES},
+    })
+
+
 @app.route("/api/sim/a2a-candidates")
 def api_sim_a2a_candidates():
     """Return the flagship composable agents + their sub-agents for the

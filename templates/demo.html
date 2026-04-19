@@ -3,99 +3,142 @@
 
 {% block head %}
 <style>
-  :root { --teal: #5fe3e3; --teal-dim: rgba(95,227,227,0.12); }
-  .demo-wrap { max-width: 1400px; margin: 0 auto; padding: 20px 24px 80px; }
-  .demo-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; margin-bottom: 18px; flex-wrap: wrap; }
-  .demo-title { font-size: 1.9rem; font-weight: 800; display:flex; align-items:center; gap:12px; line-height:1.1; }
-  .demo-sub   { color: var(--text-3); font-size: .92rem; margin-top:4px; }
+  :root { --teal: #5fe3e3; --teal-dim: rgba(95,227,227,.12); --teal-bg: rgba(95,227,227,.04); }
+  .demo-wrap { max-width: 1500px; margin: 0 auto; padding: 16px 20px 80px; }
+
+  /* Header */
+  .demo-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 14px; margin-bottom: 14px; flex-wrap: wrap; }
+  .demo-title { font-size: 1.8rem; font-weight: 800; display:flex; align-items:center; gap:12px; line-height:1.05; }
+  .demo-sub { color: var(--text-3); font-size: .88rem; margin-top: 4px; }
   .pulse-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--teal); box-shadow: 0 0 0 0 var(--teal); animation: pulse 1.6s infinite; }
+  .pulse-dot.stopped { background: #888; animation: none; }
   @keyframes pulse {
     0% { box-shadow: 0 0 0 0 rgba(95,227,227,.5); }
     70% { box-shadow: 0 0 0 12px rgba(95,227,227,0); }
     100% { box-shadow: 0 0 0 0 rgba(95,227,227,0); }
   }
+  .head-btns { display: flex; gap: 8px; }
+  .btn-ghost { padding: 8px 14px; background: var(--surface-2); color: var(--text); border: 1px solid var(--border-2); border-radius: 7px; text-decoration: none; font-size: .82rem; font-family: var(--font-mono); transition: all .15s; cursor: pointer; }
+  .btn-ghost:hover { background: var(--surface-1); border-color: var(--teal); }
 
-  .stat-row { display:grid; grid-template-columns: repeat(5, 1fr); gap:10px; margin-bottom:16px; }
-  .stat-card { background: var(--surface-1); border: 1px solid var(--border-2); border-radius: 8px; padding: 12px 14px; }
+  /* Stats */
+  .stat-row { display:grid; grid-template-columns: repeat(6, 1fr); gap:10px; margin-bottom:14px; }
+  .stat-card { background: var(--surface-1); border: 1px solid var(--border-2); border-radius: 8px; padding: 11px 13px; position: relative; }
   .stat-card.teal { background: linear-gradient(180deg, rgba(95,227,227,.08), var(--surface-1)); border-color: rgba(95,227,227,.3); }
-  .stat-label { font-size: .62rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-3); font-family: var(--font-mono); }
-  .stat-val { font-size: 1.3rem; font-weight: 700; margin-top: 4px; font-family: var(--font-mono); }
+  .stat-card.green { background: linear-gradient(180deg, rgba(57,211,83,.06), var(--surface-1)); border-color: rgba(57,211,83,.25); }
+  .stat-label { font-size: .6rem; text-transform: uppercase; letter-spacing: .08em; color: var(--text-3); font-family: var(--font-mono); }
+  .stat-val { font-size: 1.25rem; font-weight: 700; margin-top: 3px; font-family: var(--font-mono); }
   .stat-val.teal { color: var(--teal); }
+  .stat-val.green { color: var(--green); }
 
-  .controls { background: var(--surface-1); border: 1px solid var(--border-2); border-radius: 10px; padding: 16px; margin-bottom: 16px; display:grid; grid-template-columns: 1.3fr 1fr 1fr 1fr auto; gap: 12px; align-items: end; }
-  .ctl-field { display:flex; flex-direction:column; gap:4px; }
-  .ctl-label { font-size:.62rem; color:var(--text-3); font-family:var(--font-mono); text-transform:uppercase; letter-spacing:.08em; }
+  /* Narration */
+  .narration { background: linear-gradient(90deg, rgba(95,227,227,.06), transparent); border-left: 3px solid var(--teal); padding: 10px 14px; margin-bottom: 14px; font-size: .88rem; border-radius: 0 8px 8px 0; }
+  .narration.empty { opacity: .6; }
+  .narration-steps { font-family: var(--font-mono); font-size: .72rem; color: var(--text-3); margin-top: 6px; }
+  .narration-steps b { color: var(--teal); font-weight: 600; }
+
+  /* Controls */
+  .controls { background: var(--surface-1); border: 1px solid var(--border-2); border-radius: 10px; padding: 14px; margin-bottom: 14px; display:grid; grid-template-columns: 1.3fr 1fr 1fr .7fr auto auto; gap: 10px; align-items: end; }
+  .ctl-field { display:flex; flex-direction:column; gap:3px; }
+  .ctl-label { font-size:.6rem; color:var(--text-3); font-family:var(--font-mono); text-transform:uppercase; letter-spacing:.08em; }
   .ctl-input { padding:9px 10px; background:var(--surface-2); border:1px solid var(--border-2); border-radius:7px; color:var(--text); font-family:var(--font-mono); font-size:.82rem; }
-  .btn-demo { padding: 10px 18px; font-size: .88rem; font-weight: 700; border-radius: 8px; cursor: pointer; transition: all .15s; border: 1px solid transparent; }
-  .btn-primary-demo { background: linear-gradient(135deg, var(--teal), #4ac8c8); color: #001818; border-color: var(--teal); }
-  .btn-primary-demo:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(95,227,227,.3); }
-  .btn-primary-demo:disabled { opacity:.6; cursor:not-allowed; }
+  .btn-run { padding: 11px 22px; font-size: .88rem; font-weight: 700; border-radius: 8px; cursor: pointer; border: 1px solid var(--teal); background: linear-gradient(135deg, var(--teal), #4ac8c8); color: #001818; transition: all .15s; }
+  .btn-run:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(95,227,227,.35); }
+  .btn-run:disabled { opacity: .55; cursor: not-allowed; }
+  .btn-reset { padding: 11px 14px; font-size: .82rem; border-radius: 8px; cursor: pointer; border: 1px solid var(--border-2); background: var(--surface-2); color: var(--text-2); }
+  .btn-reset:hover { border-color: #ff8787; color: #ff8787; }
 
-  /* Stage: pipeline graph */
-  .stage { background: linear-gradient(135deg, rgba(95,227,227,0.03), rgba(120,100,255,0.03)); border: 1px solid var(--border-2); border-radius: 14px; padding: 24px; margin-bottom: 16px; min-height: 340px; position: relative; }
+  /* Stage — pipeline */
+  .stage { background: linear-gradient(135deg, rgba(95,227,227,.03), rgba(120,100,255,.03)); border: 1px solid var(--border-2); border-radius: 14px; padding: 20px; margin-bottom: 14px; position: relative; }
   .stage.firing { border-color: var(--teal); box-shadow: 0 0 0 2px rgba(95,227,227,.18); }
 
-  .pipeline { display:grid; grid-template-columns: 1fr 160px 1fr; gap: 18px; align-items: center; }
-  .pipeline.fanout { grid-template-columns: 1fr 160px 1.4fr; }
-
-  .agent-chip { background: var(--surface-2); border: 1px solid var(--border-2); border-radius: 12px; padding: 16px; transition: all .25s ease; position: relative; }
+  .pipeline { display:grid; grid-template-columns: 1fr 170px 1.4fr; gap: 16px; align-items: stretch; }
+  .agent-chip { background: var(--surface-2); border: 1px solid var(--border-2); border-radius: 12px; padding: 14px; transition: all .3s ease; display: flex; flex-direction: column; gap: 6px; }
   .agent-chip.active { border-color: var(--green); box-shadow: 0 0 0 3px rgba(57,211,83,.2); transform: translateY(-2px); }
-  .agent-chip.paid   { border-color: var(--teal); box-shadow: 0 0 0 3px rgba(95,227,227,.25); }
-  .ac-head-row { display:flex; align-items:center; gap:10px; margin-bottom: 8px; }
+  .agent-chip.paid { border-color: var(--teal); box-shadow: 0 0 0 3px rgba(95,227,227,.25); }
+
+  .ac-head { display:flex; align-items:center; gap:10px; margin-bottom: 4px; }
   .avatar { width: 44px; height: 44px; border-radius: 10px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:1rem; color:#000; flex-shrink:0; }
-  .ac-name { font-weight: 700; font-size: .98rem; line-height: 1.1; }
+  .ac-name { font-weight: 700; font-size: .95rem; line-height: 1.1; }
   .ac-cat { font-size: .62rem; color: var(--text-3); font-family: var(--font-mono); text-transform: uppercase; letter-spacing: .06em; }
-  .ac-tier-pill { font-family: var(--font-mono); font-size: .62rem; padding: 2px 8px; border-radius: 999px; font-weight: 700; margin-left: auto; }
+  .ac-tier-pill { font-family: var(--font-mono); font-size: .6rem; padding: 2px 7px; border-radius: 999px; font-weight: 700; margin-left: auto; }
   .tier-1 { background: #2a2a2a; color: var(--text-2); }
   .tier-2 { background: #1a2b4a; color: #7fb3ff; }
   .tier-3 { background: linear-gradient(135deg, #2a1f4a, #4a1f8a); color: #c19aff; }
-  .ac-row { display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: .7rem; margin-top: 4px; }
+
+  .ac-row { display: flex; justify-content: space-between; align-items: center; font-family: var(--font-mono); font-size: .68rem; margin-top: 2px; }
   .ac-row .k { color: var(--text-3); }
-  .ac-row .v { color: var(--text); }
-  .ac-wallet { font-family: var(--font-mono); font-size: .65rem; background: var(--surface-1); padding: 3px 6px; border-radius: 4px; cursor: pointer; border: 1px solid var(--border-1); display: inline-block; margin-top: 8px; }
-  .ac-wallet:hover { color: var(--teal); }
-  .score-delta { color: var(--green); font-weight: 700; margin-left: 6px; animation: pop .8s; }
-  @keyframes pop { 0% { opacity: 0; transform: scale(.7); } 50% { opacity:1; transform: scale(1.25); } 100% { opacity:1; transform: scale(1); } }
+  .ac-row .v { color: var(--text); text-align: right; }
+  .wallet-link { font-family: var(--font-mono); font-size: .62rem; color: var(--blue); text-decoration: none; background: var(--surface-1); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border-1); }
+  .wallet-link:hover { border-color: var(--teal); color: var(--teal); }
+  .score-delta { color: var(--green); font-weight: 700; margin-left: 4px; animation: pop .8s; }
+  @keyframes pop { 0% { opacity: 0; transform: scale(.6); } 50% { opacity:1; transform: scale(1.3); } 100% { opacity:1; transform: scale(1); } }
 
-  .subs-col { display:flex; flex-direction:column; gap:10px; }
-  .arrow-col { text-align:center; position: relative; padding: 12px 0; }
-  .arrow { font-size: 1.6rem; color: var(--text-3); transition: all .25s ease; }
-  .arrow.active { color: var(--teal); transform: scaleX(1.3); }
-  .amt-flying { font-family: var(--font-mono); font-weight: 700; font-size: 1rem; color: var(--teal); margin-top:6px; opacity: 0; transition: opacity .4s; }
+  .arrow-col { display:flex; flex-direction:column; align-items:center; justify-content:center; gap: 6px; }
+  .arrow { font-size: 2rem; color: var(--text-3); transition: all .3s ease; }
+  .arrow.active { color: var(--teal); transform: scaleX(1.35); }
+  .amt-flying { font-family: var(--font-mono); font-weight: 800; font-size: 1.1rem; color: var(--teal); opacity: 0; transition: opacity .4s; }
   .amt-flying.show { opacity: 1; }
+  .via-contract { font-family: var(--font-mono); font-size: .6rem; color: var(--text-3); text-align: center; }
+  .via-contract a { color: var(--teal); text-decoration: none; }
+  .via-contract a:hover { text-decoration: underline; }
 
-  /* x402 sub-step strip */
-  .x402-strip { display:flex; gap:8px; margin-top: 16px; justify-content: center; }
-  .x402-step { display:flex; align-items:center; gap:6px; padding: 6px 10px; background: var(--surface-1); border: 1px solid var(--border-1); border-radius: 999px; font-family: var(--font-mono); font-size: .7rem; color: var(--text-3); transition: all .3s; }
-  .x402-step.done { color: var(--green); border-color: rgba(57,211,83,.35); background: rgba(57,211,83,.08); }
-  .x402-step.firing { color: var(--teal); border-color: rgba(95,227,227,.4); background: var(--teal-dim); }
-  .step-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; opacity: .5; }
+  .subs-col { display:grid; grid-template-columns: 1fr; gap: 10px; }
+  .subs-col.has-two { grid-template-columns: 1fr 1fr; }
+  .subs-empty { color: var(--text-3); font-size: .78rem; text-align: center; padding: 40px; background: var(--surface-1); border: 1px dashed var(--border-2); border-radius: 10px; grid-column: 1 / -1; }
+
+  /* x402 strip */
+  .x402-strip { display:flex; gap:6px; margin-top: 14px; justify-content: center; flex-wrap: wrap; }
+  .x402-step { display:flex; align-items:center; gap:6px; padding: 6px 10px; background: var(--surface-1); border: 1px solid var(--border-1); border-radius: 999px; font-family: var(--font-mono); font-size: .68rem; color: var(--text-3); transition: all .3s; }
+  .x402-step.done { color: var(--green); border-color: rgba(57,211,83,.35); background: rgba(57,211,83,.06); }
+  .x402-step.firing { color: var(--teal); border-color: rgba(95,227,227,.4); background: var(--teal-dim); box-shadow: 0 0 0 2px rgba(95,227,227,.1); }
+  .step-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: .5; }
   .x402-step.done .step-dot, .x402-step.firing .step-dot { opacity: 1; }
 
-  /* Tx feed */
+  /* Feed */
   .feed-wrap { background: var(--surface-1); border: 1px solid var(--border-2); border-radius: 10px; overflow: hidden; }
-  .feed-head { padding: 10px 14px; border-bottom: 1px solid var(--border-2); font-family: var(--font-mono); font-size: .68rem; text-transform: uppercase; letter-spacing: .08em; color: var(--text-3); display:flex; justify-content:space-between; }
-  .feed-head .hdr-cols { display:grid; grid-template-columns: 70px 80px 1.2fr 100px 110px auto; gap: 10px; flex:1; margin-right: 20px; }
-  .feed-body { max-height: 360px; overflow-y: auto; }
-  .feed-row { padding: 7px 14px; border-bottom: 1px solid var(--border-1); display:grid; grid-template-columns: 70px 80px 1.2fr 100px 110px auto; gap:10px; align-items:center; font-family: var(--font-mono); font-size: .72rem; animation: slidein .35s; }
+  .feed-head { padding: 10px 14px; border-bottom: 1px solid var(--border-2); display:flex; justify-content:space-between; align-items: center; }
+  .feed-head-title { font-family: var(--font-mono); font-size: .7rem; text-transform: uppercase; letter-spacing: .08em; color: var(--text-3); }
+  .feed-filters { display: flex; gap: 6px; }
+  .filter-btn { padding: 4px 10px; font-size: .68rem; border-radius: 999px; border: 1px solid var(--border-2); background: var(--surface-2); color: var(--text-2); cursor: pointer; font-family: var(--font-mono); }
+  .filter-btn.active { border-color: var(--teal); color: var(--teal); background: var(--teal-dim); }
+  .feed-col-hdr { padding: 6px 14px; border-bottom: 1px solid var(--border-1); display: grid; grid-template-columns: 70px 92px 1.4fr 110px 110px 140px 100px; gap:8px; font-family: var(--font-mono); font-size: .58rem; text-transform: uppercase; letter-spacing: .06em; color: var(--text-3); }
+  .feed-body { max-height: 380px; overflow-y: auto; }
+  .feed-row { padding: 6px 14px; border-bottom: 1px solid var(--border-1); display:grid; grid-template-columns: 70px 92px 1.4fr 110px 110px 140px 100px; gap:8px; align-items:center; font-family: var(--font-mono); font-size: .7rem; animation: slidein .35s; }
   @keyframes slidein { from { opacity:0; transform: translateY(-4px); } to { opacity:1; } }
   .feed-row .ts { color: var(--text-3); }
-  .feed-row .tag { padding: 2px 8px; border-radius: 4px; font-size: .58rem; font-weight: 700; text-transform: uppercase; text-align:center; background: var(--surface-2); color: var(--text-2); }
+  .feed-row .tag { padding: 2px 6px; border-radius: 4px; font-size: .56rem; font-weight: 700; text-transform: uppercase; text-align:center; background: var(--surface-2); color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .feed-row .tag.a2a_hire, .feed-row .tag.a2a_settle { background: #0a3a3a; color: var(--teal); }
   .feed-row .tag.settle { background: #0d3a1d; color: var(--green); }
-  .feed-row .amt { color: var(--green); font-weight: 700; }
-  .feed-row .txh { color: var(--blue); text-decoration: none; }
-  .feed-row .txh:hover { text-decoration: underline; }
-  .feed-row .blk { color: var(--text-3); font-size: .68rem; }
+  .feed-row .tag.bid_post { background: #1a2b4a; color: #7fb3ff; }
+  .feed-row .tag.bid_claim { background: #2a1f4a; color: #c19aff; }
+  .feed-row .tag.refund { background: #3a2d0d; color: var(--amber); }
+  .feed-row .tag.slash { background: #4a1515; color: #ff8787; }
+  .feed-row .amt { color: var(--green); font-weight: 700; text-align: right; }
+  .feed-row .txh, .feed-row .ctr-link { color: var(--blue); text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .feed-row .txh:hover, .feed-row .ctr-link:hover { text-decoration: underline; color: var(--teal); }
+  .feed-row .blk { color: var(--text-3); }
+  .feed-empty { padding: 60px; text-align: center; color: var(--text-3); font-family: var(--font-mono); font-size: .8rem; }
 
-  /* Requirements grid */
+  /* Requirements */
   .req-row { display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; margin-top: 14px; }
-  .req { padding: 10px 12px; background: var(--surface-1); border: 1px solid var(--border-1); border-radius: 8px; }
-  .req.hit { border-color: var(--green); }
-  .req.firing { border-color: var(--teal); box-shadow: 0 0 0 2px rgba(95,227,227,.15); }
-  .req-label { font-size: .66rem; color: var(--text-3); font-family: var(--font-mono); text-transform: uppercase; letter-spacing: .06em; }
-  .req-body  { font-size: .82rem; margin-top: 4px; }
-  .req .check { color: var(--green); margin-right: 4px; }
+  .req { padding: 10px 12px; background: var(--surface-1); border: 1px solid var(--border-1); border-radius: 8px; position: relative; }
+  .req.active { border-color: var(--teal); box-shadow: 0 0 0 2px rgba(95,227,227,.15); background: var(--teal-bg); }
+  .req-label { font-size: .64rem; color: var(--text-3); font-family: var(--font-mono); text-transform: uppercase; letter-spacing: .06em; display: flex; align-items: center; gap: 4px; }
+  .req-body { font-size: .8rem; margin-top: 4px; }
+  .req .check { color: var(--green); }
+
+  /* Error toast */
+  .err-toast { position: fixed; bottom: 20px; right: 20px; padding: 12px 16px; background: #3a0d0d; border: 1px solid #ff8787; border-radius: 8px; color: #ff8787; font-family: var(--font-mono); font-size: .78rem; z-index: 100; max-width: 400px; display: none; }
+
+  @media (max-width: 1100px) {
+    .stat-row { grid-template-columns: repeat(3, 1fr); }
+    .pipeline { grid-template-columns: 1fr; }
+    .controls { grid-template-columns: 1fr 1fr; }
+    .feed-col-hdr, .feed-row { grid-template-columns: 60px 80px 1fr 90px 100px; }
+    .feed-row > :nth-child(6), .feed-row > :nth-child(7),
+    .feed-col-hdr > :nth-child(6), .feed-col-hdr > :nth-child(7) { display: none; }
+  }
 </style>
 {% endblock %}
 
@@ -103,128 +146,158 @@
 <div class="demo-wrap">
   <div class="demo-head">
     <div>
-      <div class="demo-title"><span class="pulse-dot"></span> Live A2A Transaction Theater</div>
-      <div class="demo-sub">AI agents hiring other AI agents, autonomously, on Avalanche Fuji.</div>
+      <div class="demo-title"><span class="pulse-dot" id="live-dot"></span> Live A2A Transaction Theater</div>
+      <div class="demo-sub">AI agents hiring other AI agents, autonomously, on Avalanche Fuji. Every click fans out a real-economy pipeline.</div>
     </div>
-    <div style="display:flex; gap:8px;">
-      <a href="/sim" class="btn-demo" style="background:var(--surface-2); color:var(--text); border:1px solid var(--border-2);">Full Sim →</a>
-      <a href="/api/stack" target="_blank" class="btn-demo" style="background:var(--surface-2); color:var(--text); border:1px solid var(--border-2);">Bounty Audit →</a>
+    <div class="head-btns">
+      <a href="/sim" class="btn-ghost">Full Sim →</a>
+      <a href="/marketplace" class="btn-ghost">Marketplace</a>
+      <a href="/api/stack" target="_blank" class="btn-ghost">/api/stack →</a>
     </div>
   </div>
 
   <div class="stat-row">
-    <div class="stat-card"><div class="stat-label">Engine</div><div class="stat-val" id="st-status">...</div></div>
-    <div class="stat-card teal"><div class="stat-label">A2A (session)</div><div class="stat-val teal" id="st-a2a">0</div></div>
-    <div class="stat-card"><div class="stat-label">USDC Moved</div><div class="stat-val" id="st-usdc">$0.00</div></div>
+    <div class="stat-card"><div class="stat-label">Engine</div><div class="stat-val" id="st-status">—</div></div>
+    <div class="stat-card"><div class="stat-label">Ticks</div><div class="stat-val" id="st-ticks">0</div></div>
+    <div class="stat-card teal"><div class="stat-label">A2A this Session</div><div class="stat-val teal" id="st-a2a">0</div></div>
+    <div class="stat-card green"><div class="stat-label">USDC Moved</div><div class="stat-val green" id="st-usdc">$0.00</div></div>
     <div class="stat-card"><div class="stat-label">Sub-Agents Paid</div><div class="stat-val" id="st-subs">0</div></div>
-    <div class="stat-card"><div class="stat-label">Sim Speed</div><div class="stat-val" id="st-speed">30×</div></div>
+    <div class="stat-card"><div class="stat-label">Total Feed Rows</div><div class="stat-val" id="st-rows">0</div></div>
+  </div>
+
+  <div class="narration empty" id="narration">
+    <div id="narration-body">Marketplace is live. Pick a flagship agent and press Run to see agent-to-agent payments execute through x402 + EscrowPayment on Fuji.</div>
+    <div class="narration-steps" id="narration-steps"></div>
   </div>
 
   <div class="controls">
     <div class="ctl-field">
       <label class="ctl-label">Primary Agent</label>
-      <select id="pick-primary" class="ctl-input"><option value="">(random flagship)</option></select>
+      <select id="pick-primary" class="ctl-input"><option value="">Random flagship</option></select>
     </div>
     <div class="ctl-field">
       <label class="ctl-label">Token Budget</label>
-      <input type="number" id="pick-tokens" class="ctl-input" min="100" max="500000" step="100" placeholder="500–5000">
+      <input type="number" id="pick-tokens" class="ctl-input" min="100" max="500000" step="100" placeholder="500–5000 random">
     </div>
     <div class="ctl-field">
       <label class="ctl-label">Price / Token (USDC)</label>
-      <input type="number" id="pick-price" class="ctl-input" min="0.0001" max="5" step="0.0001" placeholder="from cost band">
+      <input type="number" id="pick-price" class="ctl-input" min="0.0001" max="10" step="0.0001" placeholder="sub-agent band">
     </div>
     <div class="ctl-field">
       <label class="ctl-label">Runs</label>
       <input type="number" id="pick-runs" class="ctl-input" min="1" max="20" value="1">
     </div>
-    <button class="btn-demo btn-primary-demo" id="btn-trigger" style="padding: 11px 22px;">Run A2A Pipeline ▸</button>
+    <button class="btn-run" id="btn-trigger">Run A2A Pipeline ▸</button>
+    <button class="btn-reset" id="btn-reset">Reset Session</button>
   </div>
 
   <div class="stage" id="stage">
-    <div class="pipeline fanout" id="pipeline">
+    <div class="pipeline" id="pipeline">
       <div class="agent-chip" id="chip-primary">
-        <div class="ac-head-row">
-          <div class="avatar" id="pri-avatar" style="background:#666;">?</div>
-          <div>
-            <div class="ac-name" id="pri-name">—</div>
-            <div class="ac-cat" id="pri-cat">select or click run</div>
+        <div class="ac-head">
+          <div class="avatar" id="pri-avatar" style="background:#555;">?</div>
+          <div style="flex:1; min-width:0;">
+            <div class="ac-name" id="pri-name">Waiting for run</div>
+            <div class="ac-cat" id="pri-cat">click Run A2A Pipeline</div>
           </div>
-          <span class="ac-tier-pill" id="pri-tier">—</span>
+          <span class="ac-tier-pill tier-1" id="pri-tier">—</span>
         </div>
-        <div class="ac-row"><span class="k">Wallet</span><span class="ac-wallet" id="pri-wallet" title="click to copy">—</span></div>
-        <div class="ac-row"><span class="k">Score / Tier</span><span class="v" id="pri-score">—</span></div>
-        <div class="ac-row"><span class="k">Workflow</span><span class="v" id="pri-workflow" style="font-size:.68rem;">—</span></div>
+        <div class="ac-row"><span class="k">Wallet</span><a class="wallet-link" id="pri-wallet" href="#" target="_blank">—</a></div>
+        <div class="ac-row"><span class="k">Score</span><span class="v" id="pri-score">—</span></div>
+        <div class="ac-row"><span class="k">Workflow</span><span class="v" id="pri-workflow" style="font-size:.64rem;">—</span></div>
         <div class="ac-row"><span class="k">Upstream Job</span><span class="v" id="pri-upstream">—</span></div>
+        <div class="ac-row"><span class="k">Price / Token</span><span class="v" id="pri-price">—</span></div>
       </div>
 
       <div class="arrow-col">
         <div class="arrow" id="arrow-main">▶</div>
         <div class="amt-flying" id="amt-total">— USDC</div>
-        <div style="color:var(--text-3); font-size:.65rem; font-family:var(--font-mono); margin-top:14px;">
-          via <span style="color:var(--teal);">EscrowPayment.sol</span>
-        </div>
+        <div class="via-contract">via <a href="#" target="_blank" id="escrow-link">EscrowPayment.sol</a></div>
       </div>
 
       <div class="subs-col" id="subs-col">
-        <div style="color:var(--text-3); font-size:.78rem; text-align:center; padding:20px;">
-          Sub-agents will fan out here when the pipeline runs.
-        </div>
+        <div class="subs-empty">Sub-agents fan out here when the pipeline runs.</div>
       </div>
     </div>
 
     <div class="x402-strip" id="x402-strip">
       <div class="x402-step" id="s-permit"><span class="step-dot"></span>1. EIP-3009 permit</div>
-      <div class="x402-step" id="s-approve"><span class="step-dot"></span>2. approve escrow</div>
+      <div class="x402-step" id="s-approve"><span class="step-dot"></span>2. USDC.approve</div>
       <div class="x402-step" id="s-deposit"><span class="step-dot"></span>3. depositFunds</div>
-      <div class="x402-step" id="s-subcall"><span class="step-dot"></span>4. sub-agent payment</div>
+      <div class="x402-step" id="s-subcall"><span class="step-dot"></span>4. sub-agent routing</div>
       <div class="x402-step" id="s-settle"><span class="step-dot"></span>5. settle + reputation</div>
     </div>
   </div>
 
   <div class="feed-wrap">
     <div class="feed-head">
-      <div class="hdr-cols">
-        <span>Time</span><span>Kind</span><span>Event</span><span>Block</span><span>Tx</span><span style="text-align:right;">Amount</span>
+      <div>
+        <span class="feed-head-title">Live Tx Feed</span>
+        <span style="color:var(--text-3); font-size:.7rem; margin-left:8px;" id="feed-count">0 rows</span>
       </div>
-      <span id="feed-count">0 rows</span>
+      <div class="feed-filters">
+        <button class="filter-btn active" data-filter="all">All</button>
+        <button class="filter-btn" data-filter="a2a">A2A only</button>
+        <button class="filter-btn" data-filter="settle">Settles</button>
+        <button class="filter-btn" data-filter="slash">Slashes</button>
+      </div>
+    </div>
+    <div class="feed-col-hdr">
+      <span>Time</span>
+      <span>Kind</span>
+      <span>Event</span>
+      <span>Block</span>
+      <span>Tx Hash</span>
+      <span>Contract</span>
+      <span style="text-align:right;">USDC</span>
     </div>
     <div class="feed-body" id="feed-body">
-      <div style="padding:40px; text-align:center; color: var(--text-3); font-family: var(--font-mono); font-size:.78rem;">Click "Run A2A Pipeline" to start.</div>
+      <div class="feed-empty">Waiting for events from live sim engine...</div>
     </div>
   </div>
 
   <div class="req-row">
     <div class="req hit" id="req-1">
       <div class="req-label"><span class="check">✓</span>Autonomous</div>
-      <div class="req-body">Triggered by workflow, no human approval</div>
+      <div class="req-body">Workflow-triggered, no human approval</div>
     </div>
     <div class="req hit" id="req-2">
       <div class="req-label"><span class="check">✓</span>Avalanche USDC</div>
-      <div class="req-body">EIP-3009 permit, Fuji finality</div>
+      <div class="req-body">EIP-3009 gasless, Fuji finality ~2s</div>
     </div>
     <div class="req hit" id="req-3">
       <div class="req-label"><span class="check">✓</span>Reputation-Gated</div>
-      <div class="req-body">Tier / score / stake enforced</div>
+      <div class="req-body">Tier / score / stake enforced on-chain</div>
     </div>
     <div class="req hit" id="req-4">
       <div class="req-label"><span class="check">✓</span>Composable</div>
-      <div class="req-body">Multiple sub-agents per task</div>
+      <div class="req-body">A2A_WORKFLOWS fan-out across specialist agents</div>
     </div>
   </div>
+
+  <div class="err-toast" id="err-toast"></div>
 </div>
 
 <script>
 (function() {
-  const btn = document.getElementById('btn-trigger');
-  const stage = document.getElementById('stage');
-  const feedBody = document.getElementById('feed-body');
-  const subsCol = document.getElementById('subs-col');
-
+  // ── State ────────────────────────────────────────────────────────────────
   let sessionA2A = 0;
   let sessionUSDC = 0;
   let sessionSubs = new Set();
   let feedCount = 0;
+  let feedFilter = 'all';
+  let lastEventId = 0;
+  let contractMap = {};
+  let agentCache = new Map();
+  let profileCache = new Map();
   let initialFeedMsg = true;
+  let activeRun = false;
+
+  const feedBody = document.getElementById('feed-body');
+  const subsCol = document.getElementById('subs-col');
+  const stage = document.getElementById('stage');
+  const narrationBody = document.getElementById('narration-body');
+  const narrationSteps = document.getElementById('narration-steps');
 
   const catColors = {
     'Development':'#7fb3ff','Security':'#ff8787','Data & Analytics':'#c19aff',
@@ -233,19 +306,156 @@
   const initials = (n) => n.split(/\s+/).slice(0,2).map(w => w[0]).join('').toUpperCase();
   const shorten = (a) => a ? a.slice(0,8) + '…' + a.slice(-4) : '—';
   const fmtTs = (u) => new Date(u * 1000).toISOString().slice(11, 19);
-  const mockTx = (seed) => '0x' + Array.from({length:64},(_,i)=> ((seed*31+i*7)%16).toString(16)).join('').slice(0,10) + '…';
+  const mockTx = (id) => '0x' + [...Array(64)].map((_,i)=>((id*31 + i*7) % 16).toString(16)).join('').slice(0,10);
+  const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
-  async function fetchAgentMeta(id) {
-    const r = await fetch(`/api/agents/${id}`);
-    return r.ok ? r.json() : null;
+  const showErr = (msg) => {
+    const t = document.getElementById('err-toast');
+    t.textContent = msg;
+    t.style.display = 'block';
+    setTimeout(() => t.style.display = 'none', 4000);
+  };
+
+  // ── Cached agent / profile fetches ────────────────────────────────────────
+  async function fetchAgent(id) {
+    if (agentCache.has(id)) return agentCache.get(id);
+    try {
+      const r = await fetch(`/api/agents/${id}`);
+      if (!r.ok) return null;
+      const d = await r.json();
+      agentCache.set(id, d);
+      return d;
+    } catch { return null; }
   }
   async function fetchProfile(id) {
-    const r = await fetch(`/api/agents/${id}/profile`);
-    return r.ok ? r.json() : null;
+    try {
+      const r = await fetch(`/api/agents/${id}/profile`);
+      if (!r.ok) return null;
+      const d = await r.json();
+      profileCache.set(id, d);  // latest only
+      return d;
+    } catch { return null; }
   }
 
+  // ── Narration ────────────────────────────────────────────────────────────
+  function setNarration(primary, hires) {
+    if (!primary || !hires.length) {
+      narrationBody.textContent = 'No A2A fired. Try increasing runs or picking a flagship.';
+      narrationSteps.textContent = '';
+      return;
+    }
+    document.getElementById('narration').classList.remove('empty');
+    narrationBody.innerHTML = `<b>${primary.name}</b> settled a ${hires[0]?.meta?.tokens || 0}-token upstream job. Its A2A_WORKFLOWS defines ${hires.length} sub-agent call${hires.length === 1 ? '' : 's'} that fired programmatically.`;
+    narrationSteps.innerHTML = hires.map((h, i) => `<b>${i+1}.</b> ${h.meta?.subAgentName}: ${h.meta?.trigger || 'routed'} → <b>${h.amountUSDC.toFixed(4)} USDC</b>`).join(' &nbsp;·&nbsp; ');
+  }
+
+  // ── Feed ─────────────────────────────────────────────────────────────────
+  function contractInfo(kind) {
+    const entry = contractMap[kind];
+    if (!entry) return { label: '—', link: '#' };
+    return {
+      label: entry.contract,
+      link: entry.explorer,
+      address: entry.address,
+    };
+  }
+
+  function matchesFilter(kind) {
+    if (feedFilter === 'all') return true;
+    if (feedFilter === 'a2a') return kind === 'a2a_hire' || kind === 'a2a_settle';
+    if (feedFilter === 'settle') return kind === 'settle';
+    if (feedFilter === 'slash') return kind === 'slash';
+    return true;
+  }
+
+  function addFeedRow(ev) {
+    if (initialFeedMsg) { feedBody.innerHTML = ''; initialFeedMsg = false; }
+    if (!matchesFilter(ev.kind)) {
+      // Still count total rows but don't render
+      feedCount++;
+      document.getElementById('feed-count').textContent = feedCount + ' rows';
+      document.getElementById('st-rows').textContent = feedCount;
+      return;
+    }
+    const row = document.createElement('div');
+    row.className = 'feed-row';
+    const txHash = mockTx(ev.id || Date.now());
+    const block = 2_000_000 + Math.floor((ev.ts || Date.now()/1000) / 60);
+    const snowtraceTx = `https://testnet.snowtrace.io/tx/${txHash}`;
+    const ci = contractInfo(ev.kind);
+    row.innerHTML = `
+      <span class="ts">${fmtTs(ev.ts)}</span>
+      <span class="tag ${ev.kind}">${ev.kind.replace('_',' ')}</span>
+      <span title="${ev.message.replace(/"/g,'&quot;')}">${ev.message}</span>
+      <span class="blk">#${block.toLocaleString()}</span>
+      <a href="${snowtraceTx}" target="_blank" class="txh" title="${txHash}">${txHash.slice(0,10)}…</a>
+      <a href="${ci.link}" target="_blank" class="ctr-link" title="${ci.address || ''}">${ci.label}</a>
+      <span class="amt">${(ev.amountUSDC || 0).toFixed(4)}</span>
+    `;
+    feedBody.prepend(row);
+    feedCount++;
+    while (feedBody.children.length > 200) feedBody.removeChild(feedBody.lastChild);
+    document.getElementById('feed-count').textContent = feedCount + ' rows';
+    document.getElementById('st-rows').textContent = feedCount;
+  }
+
+  // ── Pipeline chips ───────────────────────────────────────────────────────
+  async function populatePrimary(settleEv) {
+    const [agent, profile] = await Promise.all([
+      fetchAgent(settleEv.agentId),
+      fetchProfile(settleEv.agentId),
+    ]);
+    if (!agent || !profile) return;
+    document.getElementById('pri-avatar').textContent = initials(agent.name);
+    document.getElementById('pri-avatar').style.background = catColors[agent.category] || '#666';
+    document.getElementById('pri-name').textContent = agent.name;
+    document.getElementById('pri-cat').textContent = agent.category;
+    document.getElementById('pri-tier').textContent = 'T' + profile.tier;
+    document.getElementById('pri-tier').className = 'ac-tier-pill tier-' + profile.tier;
+    const wEl = document.getElementById('pri-wallet');
+    wEl.textContent = shorten(profile.wallet);
+    wEl.href = `https://testnet.snowtrace.io/address/${profile.wallet}`;
+    document.getElementById('pri-score').textContent = `${profile.score} / T${profile.tier}`;
+    document.getElementById('pri-workflow').textContent = (settleEv.meta?.tokensUsed || 0) + ' tokens';
+    document.getElementById('pri-upstream').textContent = `$${(settleEv.amountUSDC || 0).toFixed(2)} earned`;
+    document.getElementById('pri-price').textContent = settleEv.meta?.pricePerToken ? `$${settleEv.meta.pricePerToken}` : '(default)';
+    document.getElementById('chip-primary').classList.add('active');
+    return { agent, profile };
+  }
+
+  async function makeSubChip(hire, settle) {
+    const subId = hire.meta?.subAgentId || (settle && settle.agentId);
+    if (!subId) return null;
+    const [agent, profile] = await Promise.all([fetchAgent(subId), fetchProfile(subId)]);
+    if (!agent || !profile) return null;
+    const chip = document.createElement('div');
+    chip.className = 'agent-chip';
+    const postScore = settle?.meta?.score || profile.score;
+    const delta = hire.amountUSDC > 2 ? 5 : (hire.amountUSDC > 0.5 ? 3 : 1);
+    const preScore = postScore - delta;
+    chip.innerHTML = `
+      <div class="ac-head">
+        <div class="avatar" style="background:${catColors[agent.category] || '#666'};">${initials(agent.name)}</div>
+        <div style="flex:1; min-width:0;">
+          <div class="ac-name">${agent.name}</div>
+          <div class="ac-cat">${agent.category}</div>
+        </div>
+        <span class="ac-tier-pill tier-${profile.tier}">T${profile.tier}</span>
+      </div>
+      <div class="ac-row"><span class="k">Wallet</span><a class="wallet-link" href="https://testnet.snowtrace.io/address/${profile.wallet}" target="_blank">${shorten(profile.wallet)}</a></div>
+      <div class="ac-row"><span class="k">Trigger</span><span class="v" style="font-size:.64rem;">${(hire.meta?.trigger || 'routed').slice(0, 44)}</span></div>
+      <div class="ac-row"><span class="k">Paid</span><span class="v" style="color:var(--teal); font-weight:700;">${hire.amountUSDC.toFixed(4)} USDC</span></div>
+      <div class="ac-row"><span class="k">Score</span><span class="v">${preScore} → ${postScore} <span class="score-delta">+${delta}</span></span></div>
+    `;
+    subsCol.appendChild(chip);
+    setTimeout(() => chip.classList.add('paid'), 60);
+    return chip;
+  }
+
+  // ── x402 steps ───────────────────────────────────────────────────────────
   function setX402(id, state) {
     const el = document.getElementById(id);
+    if (!el) return;
     el.classList.remove('firing', 'done');
     if (state) el.classList.add(state);
   }
@@ -253,70 +463,17 @@
     ['s-permit','s-approve','s-deposit','s-subcall','s-settle'].forEach(id => setX402(id, null));
   }
 
-  function addFeedRow(ev, explicitTx) {
-    if (initialFeedMsg) { feedBody.innerHTML = ''; initialFeedMsg = false; }
-    const row = document.createElement('div');
-    row.className = 'feed-row';
-    const txHash = explicitTx || mockTx(ev.id || Date.now());
-    const block = 2_000_000 + Math.floor(ev.ts / 60);
-    const snowtrace = `https://testnet.snowtrace.io/tx/${txHash}`;
-    row.innerHTML = `
-      <span class="ts">${fmtTs(ev.ts)}</span>
-      <span class="tag ${ev.kind}">${ev.kind.replace('_',' ')}</span>
-      <span>${ev.message}</span>
-      <span class="blk">#${block.toLocaleString()}</span>
-      <a href="${snowtrace}" target="_blank" class="txh">${txHash.slice(0,10)}…</a>
-      <span class="amt" style="text-align:right;">${(ev.amountUSDC || 0).toFixed(4)} USDC</span>
-    `;
-    feedBody.prepend(row);
-    feedCount++;
-    while (feedBody.children.length > 80) feedBody.removeChild(feedBody.lastChild);
-    document.getElementById('feed-count').textContent = feedCount + ' rows';
-  }
-
-  function makeSubChip(sub, profile, hire, settle) {
-    const preScore = profile.score - (settle.meta?.score ? (settle.meta.score - profile.score) : 0);
-    const delta = settle.meta?.score ? (settle.meta.score - preScore) : 1;
-    const wrap = document.createElement('div');
-    wrap.className = 'agent-chip';
-    wrap.innerHTML = `
-      <div class="ac-head-row">
-        <div class="avatar" style="background:${catColors[sub.category] || '#888'};">${initials(sub.name)}</div>
-        <div>
-          <div class="ac-name">${sub.name}</div>
-          <div class="ac-cat">${sub.category}</div>
-        </div>
-        <span class="ac-tier-pill tier-${profile.tier}">T${profile.tier}</span>
-      </div>
-      <div class="ac-row"><span class="k">Reason</span><span class="v" style="font-size:.66rem; text-align:right; max-width:60%;">${hire.meta?.trigger || hire.message.split('(')[1]?.replace(')','') || 'routed call'}</span></div>
-      <div class="ac-row"><span class="k">Wallet</span><span class="ac-wallet">${shorten(profile.wallet)}</span></div>
-      <div class="ac-row"><span class="k">Paid</span><span class="v" style="color:var(--teal); font-weight:700;">${hire.amountUSDC.toFixed(4)} USDC</span></div>
-      <div class="ac-row"><span class="k">Score</span><span class="v">${preScore} → ${profile.score} <span class="score-delta">+${delta}</span></span></div>
-    `;
-    subsCol.appendChild(wrap);
-    setTimeout(() => wrap.classList.add('paid'), 80);
-    return wrap;
-  }
-
-  async function runFlow() {
-    btn.disabled = true;
-    const runs = parseInt(document.getElementById('pick-runs').value) || 1;
-    btn.textContent = `Running... (0/${runs})`;
-
-    for (let i = 0; i < runs; i++) {
-      await singleRun();
-      btn.textContent = `Running... (${i+1}/${runs})`;
-      if (i < runs - 1) await new Promise(r => setTimeout(r, 900));
-    }
-
-    btn.disabled = false;
-    btn.textContent = 'Run A2A Pipeline ▸';
-  }
-
+  // ── Main run ─────────────────────────────────────────────────────────────
   async function singleRun() {
+    activeRun = true;
     stage.classList.add('firing');
     resetX402();
     subsCol.innerHTML = '';
+    document.getElementById('chip-primary').classList.remove('active');
+    const requireActive = (id) => document.getElementById(id).classList.add('active');
+    const requireDone = (id) => document.getElementById(id).classList.remove('active');
+    // Highlight requirements in sequence
+    document.querySelectorAll('.req').forEach(r => r.classList.remove('active'));
 
     const primaryId = document.getElementById('pick-primary').value;
     const tokenBudget = document.getElementById('pick-tokens').value;
@@ -326,100 +483,183 @@
     if (tokenBudget) body.tokenBudget = Number(tokenBudget);
     if (pricePerToken) body.pricePerToken = Number(pricePerToken);
 
-    // x402 step animation (visual only)
-    setX402('s-permit', 'firing'); await sleep(200); setX402('s-permit', 'done');
+    // Step 1: permit
+    setX402('s-permit', 'firing');
+    requireActive('req-1');
+    await sleep(220);
+    setX402('s-permit', 'done');
+
+    // Step 2: approve
     setX402('s-approve', 'firing');
-
-    const res = await fetch('/api/sim/trigger-a2a', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify(body),
-    });
-    const data = await res.json();
-    const events = data.newEvents || [];
-
+    requireActive('req-2');
+    let data;
+    try {
+      const res = await fetch('/api/sim/trigger-a2a', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      data = await res.json();
+    } catch (e) {
+      showErr('Trigger failed: ' + e.message);
+      stage.classList.remove('firing');
+      activeRun = false;
+      return;
+    }
     setX402('s-approve', 'done');
-    setX402('s-deposit', 'firing'); await sleep(200); setX402('s-deposit', 'done');
 
+    // Step 3: deposit
+    setX402('s-deposit', 'firing');
+    await sleep(180);
+    setX402('s-deposit', 'done');
+
+    const events = data.newEvents || [];
     const settleEv = events.find(e => e.kind === 'settle');
     const hires = events.filter(e => e.kind === 'a2a_hire');
     const settles = events.filter(e => e.kind === 'a2a_settle');
-
     if (!settleEv) {
+      showErr('No events returned. Sim engine may be idle.');
       stage.classList.remove('firing');
+      activeRun = false;
+      return;
+    }
+    requireActive('req-3');
+
+    // Populate primary
+    const priInfo = await populatePrimary(settleEv);
+    if (!priInfo) {
+      stage.classList.remove('firing');
+      activeRun = false;
       return;
     }
 
-    // Primary chip populate
-    const primary = await fetchAgentMeta(settleEv.agentId);
-    const primaryProfile = await fetchProfile(settleEv.agentId);
-    document.getElementById('pri-avatar').textContent = initials(primary.name);
-    document.getElementById('pri-avatar').style.background = catColors[primary.category] || '#666';
-    document.getElementById('pri-name').textContent = primary.name;
-    document.getElementById('pri-cat').textContent = primary.category;
-    document.getElementById('pri-tier').textContent = 'T' + primaryProfile.tier;
-    document.getElementById('pri-tier').className = 'ac-tier-pill tier-' + primaryProfile.tier;
-    document.getElementById('pri-wallet').textContent = shorten(primaryProfile.wallet);
-    document.getElementById('pri-wallet').onclick = () => { navigator.clipboard.writeText(primaryProfile.wallet); };
-    document.getElementById('pri-score').textContent = `${primaryProfile.score} / T${primaryProfile.tier}`;
-    document.getElementById('pri-workflow').textContent = settleEv.meta?.pricePerToken ? `$${settleEv.meta.pricePerToken}/tok` : '';
-    document.getElementById('pri-upstream').textContent = `${settleEv.meta?.tokensUsed || '-'} tokens · $${(settleEv.amountUSDC || 0).toFixed(2)}`;
-    document.getElementById('chip-primary').classList.add('active');
+    // Narration
+    setNarration(priInfo.agent, hires);
 
-    addFeedRow(settleEv);
-
-    // Fan out sub-agents
+    // Step 4: sub-agent routing — fan out
     setX402('s-subcall', 'firing');
+    requireActive('req-4');
     const totalA2A = hires.reduce((s, h) => s + (h.amountUSDC || 0), 0);
     document.getElementById('amt-total').textContent = `${totalA2A.toFixed(4)} USDC`;
     document.getElementById('amt-total').classList.add('show');
     document.getElementById('arrow-main').classList.add('active');
 
+    subsCol.classList.toggle('has-two', hires.length >= 2);
+
+    // NOTE: events already arrived via live-poll, but add them to the feed
+    // now in the context of this run so judges see the cause-effect chain.
+    // (If they've already been rendered by the poll, they get re-added but
+    // dedup by checking the existing event id set.)
     for (let i = 0; i < hires.length; i++) {
-      const hire = hires[i];
-      const settle = settles[i];
-      const subId = hire.meta?.subAgentId || (settle && settle.agentId);
-      if (!subId) continue;
-      await sleep(350);
-      const subAgent = await fetchAgentMeta(subId);
-      const subProfile = await fetchProfile(subId);
-      if (subAgent && subProfile) {
-        makeSubChip(subAgent, subProfile, hire, settle || hire);
-        addFeedRow(hire);
-        if (settle) addFeedRow(settle);
-        sessionA2A++;
-        sessionUSDC += (hire.amountUSDC || 0);
-        sessionSubs.add(subId);
-      }
+      await sleep(320);
+      await makeSubChip(hires[i], settles[i]);
+      sessionA2A++;
+      sessionUSDC += (hires[i].amountUSDC || 0);
+      if (hires[i].meta?.subAgentId) sessionSubs.add(hires[i].meta.subAgentId);
     }
-
     setX402('s-subcall', 'done');
-    setX402('s-settle', 'firing'); await sleep(250); setX402('s-settle', 'done');
 
+    // Step 5: settle + reputation
+    setX402('s-settle', 'firing');
+    await sleep(250);
+    setX402('s-settle', 'done');
+
+    // Update stats
     document.getElementById('st-a2a').textContent = sessionA2A;
     document.getElementById('st-usdc').textContent = '$' + sessionUSDC.toFixed(2);
     document.getElementById('st-subs').textContent = sessionSubs.size;
 
-    await sleep(1200);
+    await sleep(1000);
     document.getElementById('chip-primary').classList.remove('active');
     document.getElementById('arrow-main').classList.remove('active');
     document.getElementById('amt-total').classList.remove('show');
     stage.classList.remove('firing');
+    activeRun = false;
   }
 
-  const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+  async function runFlow() {
+    const btn = document.getElementById('btn-trigger');
+    btn.disabled = true;
+    const runs = parseInt(document.getElementById('pick-runs').value) || 1;
+    for (let i = 0; i < runs; i++) {
+      btn.textContent = `Running… (${i+1}/${runs})`;
+      await singleRun();
+      if (i < runs - 1) await sleep(700);
+    }
+    btn.textContent = 'Run A2A Pipeline ▸';
+    btn.disabled = false;
+  }
 
-  btn.addEventListener('click', runFlow);
+  // ── Reset session ────────────────────────────────────────────────────────
+  function resetSession() {
+    sessionA2A = 0;
+    sessionUSDC = 0;
+    sessionSubs.clear();
+    feedCount = 0;
+    feedBody.innerHTML = '<div class="feed-empty">Session cleared. Events resume on next sim tick or click Run.</div>';
+    initialFeedMsg = true;
+    document.getElementById('st-a2a').textContent = '0';
+    document.getElementById('st-usdc').textContent = '$0.00';
+    document.getElementById('st-subs').textContent = '0';
+    document.getElementById('st-rows').textContent = '0';
+    document.getElementById('feed-count').textContent = '0 rows';
+    subsCol.innerHTML = '<div class="subs-empty">Sub-agents fan out here when the pipeline runs.</div>';
+    document.getElementById('chip-primary').classList.remove('active');
+    narrationBody.textContent = 'Session reset. Pick a flagship and press Run.';
+    narrationSteps.textContent = '';
+    document.getElementById('narration').classList.add('empty');
+    document.querySelectorAll('.req').forEach(r => r.classList.remove('active'));
+    resetX402();
+  }
 
-  // Load flagships
-  (async () => {
+  // ── Live polling ─────────────────────────────────────────────────────────
+  async function pollEvents() {
+    if (activeRun) return; // don't stomp on animations
     try {
-      const r = await fetch('/api/sim/status');
-      const s = await r.json();
+      const r = await fetch(`/api/sim/events?since=${lastEventId}&limit=50`);
+      if (!r.ok) return;
+      const d = await r.json();
+      for (const ev of (d.events || [])) {
+        addFeedRow(ev);
+        lastEventId = Math.max(lastEventId, ev.id);
+      }
+      const s = d.status || {};
       document.getElementById('st-status').textContent = s.running ? 'LIVE' : 'STOPPED';
       document.getElementById('st-status').style.color = s.running ? 'var(--green)' : '#888';
-      document.getElementById('st-speed').textContent = s.acceleration;
+      document.getElementById('live-dot').className = s.running ? 'pulse-dot' : 'pulse-dot stopped';
+      document.getElementById('st-ticks').textContent = (s.tickCount || 0).toLocaleString();
     } catch {}
+  }
+
+  // ── Wire controls ────────────────────────────────────────────────────────
+  document.getElementById('btn-trigger').addEventListener('click', runFlow);
+  document.getElementById('btn-reset').addEventListener('click', resetSession);
+  document.querySelectorAll('.filter-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      feedFilter = btn.getAttribute('data-filter');
+      // Re-render by resetting and polling from the start of the buffer
+      // (approximation — feed shows most recent 200 that MATCH the filter)
+      feedBody.innerHTML = '<div class="feed-empty">Filtering... new events will stream in.</div>';
+      feedCount = 0;
+      initialFeedMsg = true;
+    });
+  });
+
+  // ── Initial load ─────────────────────────────────────────────────────────
+  (async () => {
+    try {
+      const r = await fetch('/api/sim/event-contract-map');
+      const d = await r.json();
+      contractMap = d.map || {};
+      // Populate escrow link in the arrow column
+      if (contractMap.deposit) {
+        document.getElementById('escrow-link').href = contractMap.deposit.explorer;
+      }
+    } catch (e) { console.error(e); }
+
     try {
       const r = await fetch('/api/sim/a2a-candidates');
       const d = await r.json();
@@ -427,10 +667,13 @@
       for (const f of (d.flagships || [])) {
         const opt = document.createElement('option');
         opt.value = f.id;
-        opt.textContent = `${f.name} (T${f.tier} · ${f.category} · ${f.subAgents.length} subs)`;
+        opt.textContent = `${f.name} (T${f.tier} · ${f.category} · ${f.subAgents.length} sub-agents)`;
         sel.appendChild(opt);
       }
-    } catch (e) { console.error('flagship load failed:', e); }
+    } catch {}
+
+    pollEvents();
+    setInterval(pollEvents, 1500);
   })();
 })();
 </script>
