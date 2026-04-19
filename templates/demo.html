@@ -82,8 +82,12 @@
   .hist-stats .v.teal { color: var(--teal); }
   .hist-body { max-height: 380px; overflow-y: auto; }
   .hist-cols { padding: 6px 14px; display: grid; grid-template-columns: 62px 92px 1.3fr 90px 110px 110px; gap: 8px; font-family: var(--font-mono); font-size: .56rem; color: var(--text-3); text-transform: uppercase; letter-spacing: .08em; border-bottom: 1px solid var(--border-1); }
-  .row { padding: 8px 14px; display: grid; grid-template-columns: 62px 92px 1.3fr 90px 110px 110px; gap: 8px; align-items: center; font-family: var(--font-mono); font-size: .72rem; border-bottom: 1px solid var(--border-1); animation: slidein .4s; }
-  @keyframes slidein { from { opacity: 0; transform: translateY(-4px); background: rgba(95,227,227,.06); } to { opacity: 1; } }
+  .row { padding: 8px 14px; display: grid; grid-template-columns: 62px 92px 1.3fr 90px 110px 110px; gap: 8px; align-items: center; font-family: var(--font-mono); font-size: .72rem; border-bottom: 1px solid var(--border-1); animation: fade-in .9s ease-out; }
+  @keyframes fade-in {
+    0% { opacity: 0; background: rgba(95,227,227,.08); }
+    50% { background: rgba(95,227,227,.03); }
+    100% { opacity: 1; background: transparent; }
+  }
   .row .ts { color: var(--text-3); }
   .row .tag { padding: 2px 7px; border-radius: 4px; font-size: .56rem; font-weight: 700; text-transform: uppercase; text-align: center; }
   .tag.settle { background: #0d3a1d; color: var(--green); }
@@ -535,7 +539,7 @@
     try {
       const r = await fetch('/api/sim/status');
       const s = await r.json();
-      $('s-engine').textContent = s.running ? 'live' : 'stopped';
+      $('s-engine').textContent = s.running ? ('live · ' + (s.acceleration || '15×')) : 'stopped';
       $('s-engine').style.color = s.running ? 'var(--green)' : '#888';
     } catch {}
   }
@@ -708,10 +712,12 @@
     // Restore any persisted history
     renderStoredHistory();
 
-    pollEngine(); setInterval(pollEngine, 3000);
-    refreshBids(); setInterval(refreshBids, 2500);
-    refreshWinners(); setInterval(refreshWinners, 2500);
-    refreshSurge(); setInterval(refreshSurge, 3500);
+    // Slow, readable polling — judges should see the marketplace
+    // breathing, not flickering. Panels update once every few seconds.
+    pollEngine();   setInterval(pollEngine, 4000);
+    refreshBids();   setInterval(refreshBids, 6000);
+    refreshWinners();setInterval(refreshWinners, 6000);
+    refreshSurge();  setInterval(refreshSurge, 8000);
   })();
 })();
 </script>
