@@ -2159,23 +2159,59 @@ def api_sim_speed():
 @app.route("/api/sim/trigger-a2a", methods=["POST"])
 def api_sim_trigger_a2a():
     """Fire one agent-to-agent flow on demand (for the live demo).
-    Returns the latest a2a events generated plus the primary agent's state
+    Accepts JSON {primaryId?, tokenBudget?, pricePerToken?} to parameterize
+    the transaction so amounts aren't hardcoded. Returns the events generated
     so the demo UI can animate the transaction."""
     from sim_engine import get_engine
     eng = get_engine(app)
     if not eng.is_running():
         eng.start()
-    # Capture the latest event id before firing so we can return only the new events
+    data = request.get_json(silent=True) or {}
+    primary_id = data.get("primaryId")
+    token_budget = data.get("tokenBudget")
+    price_per_token = data.get("pricePerToken")
     before_id = eng._event_id
     with app.app_context():
         try:
-            eng._fire_demo_a2a_flow()
+            eng._fire_demo_a2a_flow(
+                primary_id=int(primary_id) if primary_id else None,
+                token_budget=int(token_budget) if token_budget else None,
+                price_per_token=float(price_per_token) if price_per_token else None,
+            )
             db.session.commit()
         except Exception as e:
             app.logger.warning("trigger-a2a error: %s", e)
             return jsonify({"error": str(e)}), 500
     new_events = [ev.to_dict() for ev in eng.events if ev.id > before_id]
     return jsonify({"triggered": True, "newEvents": new_events, "count": len(new_events)})
+
+
+@app.route("/api/sim/a2a-candidates")
+def api_sim_a2a_candidates():
+    """Return the flagship composable agents + their sub-agents for the
+    demo picker."""
+    from models import Agent as AgentModel, OnchainProfile
+    flagships = []
+    for fid, wf in A2A_WORKFLOWS.items():
+        a = AgentModel.query.get(fid)
+        p = OnchainProfile.query.get(fid)
+        if not a or not p:
+            continue
+        subs = []
+        for sa in wf.get("sub_agents", []):
+            sub = AgentModel.query.get(sa["id"])
+            if sub:
+                subs.append({"id": sub.id, "name": sub.name, "category": sub.category,
+                             "billing": sa.get("billing"),
+                             "estCostLow":  sa.get("est_cost_low"),
+                             "estCostHigh": sa.get("est_cost_high")})
+        flagships.append({
+            "id": a.id, "name": a.name, "category": a.category,
+            "tier": p.tier, "score": p.score, "wallet": p.wallet_address,
+            "workflowLabel": wf.get("workflow_label"),
+            "subAgents": subs,
+        })
+    return jsonify({"flagships": flagships})
 
 
 @app.route("/demo")

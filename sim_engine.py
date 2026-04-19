@@ -213,10 +213,14 @@ class SimulationEngine:
             self._apply_decay(agents)
             self._expire_bids()
 
-    def _fire_demo_a2a_flow(self) -> None:
-        """Pick one flagship composable agent and run its A2A sub-agent
-        call pattern. Makes agent-to-agent commerce always-visible even
-        when the matching lottery doesn't pick flagships naturally."""
+    def _fire_demo_a2a_flow(self, primary_id: int | None = None,
+                              token_budget: int | None = None,
+                              price_per_token: float | None = None) -> None:
+        """Fire an A2A flow. When called with no args, picks a random
+        flagship and generates a random-budget job. All three args can be
+        overridden by the /demo UI so judges can see any specific agent
+        pair and any dollar amount they want.
+        """
         try:
             from app import A2A_WORKFLOWS
         except Exception:
@@ -224,18 +228,24 @@ class SimulationEngine:
         flagship_ids = list(A2A_WORKFLOWS.keys())
         if not flagship_ids:
             return
-        # Shuffle and pick the first non-banned one. Also unban any flagship
-        # that got unlucky in the slash lottery — they anchor the A2A story.
-        self._rng.shuffle(flagship_ids)
+
+        # If caller specified a flagship, use it; otherwise round-robin
+        ordered: list[int] = []
+        if primary_id and primary_id in flagship_ids:
+            ordered = [primary_id]
+        else:
+            self._rng.shuffle(flagship_ids)
+            ordered = flagship_ids
+
         primary = primary_profile = None
-        for candidate_id in flagship_ids:
+        for candidate_id in ordered:
             a = db.session.get(Agent, candidate_id)
             p = db.session.get(OnchainProfile, candidate_id)
             if not a or not p:
                 continue
             if p.banned:
-                # Rehabilitate: flagships can't stay banned — the A2A flow
-                # needs them. Reset incident count and restore stake.
+                # Rehabilitate: flagships can't stay banned, the A2A story
+                # depends on them. Reset incident count and restore stake.
                 p.banned = False
                 p.accepting_work = True
                 p.stake_incident_count = max(0, p.stake_incident_count - 1)
@@ -245,21 +255,26 @@ class SimulationEngine:
             break
         if not primary or not primary_profile:
             return
-        # Synth a session so the method has what it needs
+
+        # Budget + price — caller-driven when provided, randomized otherwise
+        tokens = token_budget if token_budget and token_budget > 0 else self._rng.choice([500, 1000, 2000, 5000])
+        upstream_price = (price_per_token if price_per_token and price_per_token > 0
+                          else primary.min_price)
+        tokens_used = int(tokens * self._rng.uniform(0.8, 1.0))
         synth_session = {
-            "tokens": self._rng.choice([1000, 2000, 5000]),
-            "price": primary.min_price,
+            "tokens": tokens,
+            "price": upstream_price,
             "deposit": 0,
-            "buyer": "0x" + hashlib.sha256(f"demo-buyer-{self.tick_count}".encode()).hexdigest()[:40],
+            "buyer": "0x" + hashlib.sha256(f"demo-buyer-{self.tick_count}-{tokens}".encode()).hexdigest()[:40],
             "bid_id": f"DEMO-{self.tick_count}",
+            "price_per_token_override": price_per_token,  # consumed by sub-agent call
         }
-        tokens_used = int(synth_session["tokens"] * self._rng.uniform(0.8, 1.0))
-        # Log a pseudo-settle for the flagship so the A2A flow has upstream context
         self._log_event(
             "settle", primary.id,
             f"{primary.name} settled a {tokens_used}-token job, now routing sub-calls",
-            amount=tokens_used * primary.min_price,
-            meta={"tokensUsed": tokens_used, "demo": True},
+            amount=tokens_used * upstream_price,
+            meta={"tokensUsed": tokens_used, "demo": True,
+                  "pricePerToken": round(upstream_price, 6)},
         )
         self._fire_a2a_subagent_calls(primary, primary_profile, tokens_used, synth_session)
 
@@ -549,11 +564,15 @@ class SimulationEngine:
             if not sub_agent or not sub_profile or sub_profile.banned:
                 continue
 
-            # Fee is a slice of what the primary just billed the user for.
-            # Roughly: sub_agent.est_cost_mid * tokens_used
-            cost_lo = float(sub_spec.get("est_cost_low", 0.003))
-            cost_hi = float(sub_spec.get("est_cost_high", 0.01))
-            per_token = self._rng.uniform(cost_lo, cost_hi)
+            # Fee: caller-driven price-per-token when provided, otherwise
+            # a random draw from this sub-agent's published cost band.
+            override = session.get("price_per_token_override")
+            if override and override > 0:
+                per_token = float(override)
+            else:
+                cost_lo = float(sub_spec.get("est_cost_low", 0.003))
+                cost_hi = float(sub_spec.get("est_cost_high", 0.01))
+                per_token = self._rng.uniform(cost_lo, cost_hi)
             # For sub-agents billed per-minute, use a fixed 2-3 min engagement
             if sub_spec.get("billing") == "per_minute":
                 amount_usdc = per_token * self._rng.uniform(2, 4)

@@ -147,6 +147,25 @@
     </div>
     <div class="trigger-reason" id="trigger-reason">Click "Run A2A Flow" to fire a live transaction.</div>
 
+    <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; max-width:720px; margin:22px auto 0;">
+      <div style="display:flex; flex-direction:column; gap:4px;">
+        <label style="font-size:.66rem; color:var(--text-3); font-family:var(--font-mono); text-transform:uppercase; letter-spacing:.08em;">Primary Agent</label>
+        <select id="pick-primary" style="padding:9px 10px; background:var(--surface-1); border:1px solid var(--border-2); border-radius:7px; color:var(--text); font-family:var(--font-mono); font-size:.82rem;">
+          <option value="">(random flagship)</option>
+        </select>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:4px;">
+        <label style="font-size:.66rem; color:var(--text-3); font-family:var(--font-mono); text-transform:uppercase; letter-spacing:.08em;">Token Budget</label>
+        <input type="number" id="pick-tokens" min="100" max="100000" step="100" placeholder="random 500-5000"
+               style="padding:9px 10px; background:var(--surface-1); border:1px solid var(--border-2); border-radius:7px; color:var(--text); font-family:var(--font-mono); font-size:.82rem;">
+      </div>
+      <div style="display:flex; flex-direction:column; gap:4px;">
+        <label style="font-size:.66rem; color:var(--text-3); font-family:var(--font-mono); text-transform:uppercase; letter-spacing:.08em;">Price / Token (USDC)</label>
+        <input type="number" id="pick-price" min="0.0001" max="1" step="0.0001" placeholder="from sub-agent band"
+               style="padding:9px 10px; background:var(--surface-1); border:1px solid var(--border-2); border-radius:7px; color:var(--text); font-family:var(--font-mono); font-size:.82rem;">
+      </div>
+    </div>
+
     <div class="demo-actions">
       <button class="btn-demo btn-primary-demo" id="btn-trigger">Run A2A Flow</button>
     </div>
@@ -213,16 +232,15 @@
     } catch { return null; }
   }
 
-  function addFeedRow(ev, primaryName, subName) {
+  function addFeedRow(ev) {
     const ts = new Date(ev.ts * 1000).toISOString().slice(11, 19);
     const row = document.createElement('div');
     row.className = 'feed-row';
-    const txShort = '0x' + Math.floor(Math.random() * 0xffffffff).toString(16).padStart(8, '0') + '…';
     row.innerHTML = `
       <span class="ts">${ts}</span>
       <span class="tag">${ev.kind.replace('_', ' ')}</span>
       <span>${ev.message}</span>
-      <span class="amt">${ev.amountUSDC.toFixed(2)} USDC</span>
+      <span class="amt">${(ev.amountUSDC || 0).toFixed(2)} USDC</span>
     `;
     feedBody.prepend(row);
     while (feedBody.children.length > 30) feedBody.removeChild(feedBody.lastChild);
@@ -233,7 +251,19 @@
     btn.textContent = 'Running...';
     stage.classList.add('firing');
 
-    const res = await fetch('/api/sim/trigger-a2a', { method: 'POST' });
+    const primaryId = document.getElementById('pick-primary').value;
+    const tokenBudget = document.getElementById('pick-tokens').value;
+    const pricePerToken = document.getElementById('pick-price').value;
+    const body = {};
+    if (primaryId) body.primaryId = Number(primaryId);
+    if (tokenBudget) body.tokenBudget = Number(tokenBudget);
+    if (pricePerToken) body.pricePerToken = Number(pricePerToken);
+
+    const res = await fetch('/api/sim/trigger-a2a', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
     const data = await res.json();
     if (!data.newEvents) {
       btn.disabled = false;
@@ -298,10 +328,10 @@
       document.getElementById('chip-sub').classList.add('paid');
     }, 1100);
 
-    // Feed rows
+    // Feed rows — show every event generated this trigger (settle + a2a_*)
     for (const e of events) {
+      addFeedRow(e);
       if (e.kind === 'a2a_hire' || e.kind === 'a2a_settle') {
-        addFeedRow(e, primaryAgent.name, subAgent.name);
         sessionCount++;
         sessionUSDC += (e.amountUSDC || 0);
       }
@@ -324,7 +354,7 @@
 
   btn.addEventListener('click', runFlow);
 
-  // Initial status
+  // Initial status + populate flagship dropdown
   (async () => {
     try {
       const r = await fetch('/api/sim/status');
@@ -332,6 +362,17 @@
       document.getElementById('st-status').textContent = s.running ? 'LIVE' : 'STOPPED';
       document.getElementById('st-status').style.color = s.running ? 'var(--green)' : '#888';
       document.getElementById('st-speed').textContent = s.acceleration;
+    } catch {}
+    try {
+      const r = await fetch('/api/sim/a2a-candidates');
+      const d = await r.json();
+      const sel = document.getElementById('pick-primary');
+      for (const f of (d.flagships || [])) {
+        const opt = document.createElement('option');
+        opt.value = f.id;
+        opt.textContent = `${f.name} (T${f.tier} · ${f.category})`;
+        sel.appendChild(opt);
+      }
     } catch {}
   })();
 })();
