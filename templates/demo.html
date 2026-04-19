@@ -195,6 +195,11 @@
   <div class="chain-bar" id="chain-bar"></div>
 
   <div class="stage" id="stage">
+    <div style="display:grid; grid-template-columns: 1fr 130px 1fr; gap: 10px; font-family: var(--font-mono); font-size: .58rem; color: var(--text-3); text-transform: uppercase; letter-spacing: .1em; margin-bottom: 8px;">
+      <span>◀ Sender (paying)</span>
+      <span style="text-align:center;">USDC flow</span>
+      <span style="text-align:right;">Receiver (earning) ▶</span>
+    </div>
     <div class="pipe" id="pipe">
       <div class="agent" id="a-from">
         <div class="a-head">
@@ -217,7 +222,7 @@
       </div>
 
       <div class="subs" id="subs">
-        <div class="agent empty">Sub-agents appear here when a pipeline runs.</div>
+        <div class="agent empty">Receiver appears here after Run or Send.</div>
       </div>
     </div>
     <div class="prog"><div class="prog-fill"></div></div>
