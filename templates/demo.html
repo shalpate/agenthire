@@ -789,22 +789,39 @@
   $('btn-force-surge').onclick = forceSurge;
   $('btn-slash').onclick = slashAgent;
 
-  // Live-writes toggle — OFF by default so idle testing doesn't drain AVAX
+  // Live-writes toggle — state persists on disk across server restarts
+  function renderLiveWritesBadge(on) {
+    let bar = document.getElementById('live-bar');
+    if (on) {
+      if (!bar) {
+        bar = document.createElement('div');
+        bar.id = 'live-bar';
+        bar.style.cssText = 'margin:0 0 14px; padding:10px 14px; background:linear-gradient(90deg, rgba(57,211,83,.12), rgba(57,211,83,.04)); border:1px solid rgba(57,211,83,.45); border-radius:8px; color:var(--green); font-family:var(--font-mono); font-size:.8rem; display:flex; align-items:center; gap:10px;';
+        bar.innerHTML = '<span style="font-size:1rem;">●</span> <b>LIVE WRITE MODE</b> · Each Send now submits a real tx to Fuji and costs gas. Uncheck the toggle below to pause.';
+        const anchor = document.querySelector('.onchain-strip');
+        if (anchor) anchor.after(bar);
+      }
+    } else {
+      if (bar) bar.remove();
+    }
+  }
+
   $('live-writes').addEventListener('change', async (e) => {
     try {
       await fetch('/api/sim/live-mode', {
         method: 'POST', headers: {'Content-Type':'application/json'},
         body: JSON.stringify({ enabled: e.target.checked }),
       });
-      if (e.target.checked) showErr('Live writes ENABLED — each Send now costs gas. Uncheck when done.');
+      renderLiveWritesBadge(e.target.checked);
     } catch {}
   });
-  // Sync initial state
+
   (async () => {
     try {
       const r = await fetch('/api/sim/live-mode');
       const d = await r.json();
       $('live-writes').checked = !!d.liveWritesEnabled;
+      renderLiveWritesBadge(!!d.liveWritesEnabled);
     } catch {}
   })();
 

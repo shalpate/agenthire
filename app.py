@@ -2168,20 +2168,59 @@ def api_sim_speed():
     return jsonify(get_engine(app).status())
 
 
-# Global toggle for submitting real on-chain writes per click. Default OFF
-# so idle testing doesn't drain the facilitator wallet. Flipped on via
-# POST /api/sim/live-mode when the user is about to demo to a group.
-_LIVE_WRITES_ENABLED = {"on": False}
+# Live-writes toggle persisted to disk so Flask restarts mid-demo don't
+# silently flip the mode. User can override via POST /api/sim/live-mode.
+from pathlib import Path as _LWPath
+_LIVE_WRITES_FILE = _LWPath(__file__).parent / "instance" / ".live_writes"
+
+def _live_writes_on() -> bool:
+    try:
+        return _LIVE_WRITES_FILE.read_text().strip() == "on"
+    except Exception:
+        return False
+
+def _live_writes_set(on: bool) -> None:
+    try:
+        _LIVE_WRITES_FILE.parent.mkdir(exist_ok=True)
+        _LIVE_WRITES_FILE.write_text("on" if on else "off")
+    except Exception:
+        pass
+
+# Back-compat shim — existing reads like _LIVE_WRITES_ENABLED["on"] still work
+class _LWToggle:
+    def __getitem__(self, k): return _live_writes_on() if k == "on" else None
+    def __setitem__(self, k, v):
+        if k == "on": _live_writes_set(bool(v))
+_LIVE_WRITES_ENABLED = _LWToggle()
 
 
 @app.route("/api/sim/live-mode", methods=["GET", "POST"])
 def api_sim_live_mode():
     """Toggle whether _chain_overlay_for submits a real registerAgent tx
-    on every click. Always-off default preserves facilitator AVAX."""
+    on every click. Persisted across restarts. Frontend flips it via POST."""
     if request.method == "POST":
         data = request.get_json(silent=True) or {}
-        _LIVE_WRITES_ENABLED["on"] = bool(data.get("enabled", False))
-    return jsonify({"liveWritesEnabled": _LIVE_WRITES_ENABLED["on"]})
+        _live_writes_set(bool(data.get("enabled", False)))
+    return jsonify({"liveWritesEnabled": _live_writes_on()})
+
+
+# Auto-enable live writes at boot if the facilitator is funded, unless the
+# user has explicitly disabled it. This removes the forget-to-toggle foot-gun
+# without taking control away.
+def _maybe_autoenable_live_writes():
+    try:
+        if _LIVE_WRITES_FILE.exists():
+            return  # respect user's explicit choice
+        from onchain import OnChain
+        oc = OnChain.from_env()
+        if not oc.facilitator:
+            return
+        bal = oc.w3.eth.get_balance(oc.facilitator.address) / 1e18
+        if bal >= 0.1:
+            _live_writes_set(True)
+            log.info("Live writes AUTO-ENABLED (facilitator has %.4f AVAX)", bal)
+    except Exception as e:
+        log.warning("autoenable live writes skipped: %s", e)
 
 
 def _chain_overlay_for(new_events, from_wallet=None, to_wallet=None, amount_usdc=0):
@@ -2940,6 +2979,10 @@ if os.environ.get("WERKZEUG_RUN_MAIN") == "true" or not app.debug:
         log.info("Live simulation engine running.")
     except Exception as _sim_err:
         log.warning("Live sim autostart failed: %s", _sim_err)
+
+# Auto-enable live writes at boot time (runs unconditionally — cheap check,
+# self-guards on facilitator balance + existing state file).
+_maybe_autoenable_live_writes()
 
 
 if __name__ == "__main__":
