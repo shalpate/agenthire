@@ -229,10 +229,12 @@
     </div>
   </div>
 
+  <div id="chain-banner" style="display:none; margin-bottom:10px; padding:10px 14px; border-radius:8px; font-family:var(--font-mono); font-size:.78rem;"></div>
+
   <div class="feed-wrap">
     <div class="feed-head">
       <div>
-        <span class="feed-head-title">Live Tx Feed</span>
+        <span class="feed-head-title">Tx History (this session)</span>
         <span style="color:var(--text-3); font-size:.7rem; margin-left:8px;" id="feed-count">0 rows</span>
       </div>
       <div class="feed-filters">
@@ -349,6 +351,30 @@
     narrationSteps.innerHTML = hires.map((h, i) => `<b>${i+1}.</b> ${h.meta?.subAgentName}: ${h.meta?.trigger || 'routed'} → <b>${h.amountUSDC.toFixed(4)} USDC</b>`).join(' &nbsp;·&nbsp; ');
   }
 
+  // ── Chain status banner ──────────────────────────────────────────────────
+  function setChainStatus(chain) {
+    const b = document.getElementById('chain-banner');
+    if (!chain || chain.mode === 'simulation') {
+      b.style.display = 'none';
+      return;
+    }
+    const isLive = chain.mode === 'live-write';
+    const color = isLive ? 'var(--green)' : 'var(--amber)';
+    const bg = isLive ? 'rgba(57,211,83,.05)' : 'rgba(255,170,0,.06)';
+    const border = isLive ? 'rgba(57,211,83,.35)' : 'rgba(255,170,0,.3)';
+    b.style.display = 'block';
+    b.style.color = color;
+    b.style.background = bg;
+    b.style.border = `1px solid ${border}`;
+    const rep = chain.onChainReputation;
+    const repLine = rep ? ` · agent ${rep.agentId} on-chain score ${rep.score} T${rep.tier}` : '';
+    const modeLabel = isLive ? 'LIVE WRITE' : 'READ-ONLY';
+    b.innerHTML = `
+      <b>${modeLabel}</b> · Fuji block <a href="${chain.explorer}" target="_blank" style="color:inherit; text-decoration:underline;">#${chain.block?.toLocaleString()}</a>${repLine}
+      <div style="color:var(--text-3); font-size:.7rem; margin-top:4px;">${chain.note || ''}</div>
+    `;
+  }
+
   // ── Feed ─────────────────────────────────────────────────────────────────
   function contractInfo(kind) {
     const entry = contractMap[kind];
@@ -368,10 +394,9 @@
     return true;
   }
 
-  function addFeedRow(ev) {
+  function addFeedRow(ev, explicitTx, explicitSnowtrace) {
     if (initialFeedMsg) { feedBody.innerHTML = ''; initialFeedMsg = false; }
     if (!matchesFilter(ev.kind)) {
-      // Still count total rows but don't render
       feedCount++;
       document.getElementById('feed-count').textContent = feedCount + ' rows';
       document.getElementById('st-rows').textContent = feedCount;
@@ -379,16 +404,18 @@
     }
     const row = document.createElement('div');
     row.className = 'feed-row';
-    const txHash = mockTx(ev.id || Date.now());
+    const txHash = explicitTx || mockTx(typeof ev.id === 'number' ? ev.id : Date.now());
     const block = 2_000_000 + Math.floor((ev.ts || Date.now()/1000) / 60);
-    const snowtraceTx = `https://testnet.snowtrace.io/tx/${txHash}`;
+    const snowtraceTx = explicitSnowtrace || `https://testnet.snowtrace.io/tx/${txHash}`;
     const ci = contractInfo(ev.kind);
+    const isLiveTx = !!explicitTx;
+    const txLabel = isLiveTx ? txHash.slice(0,10) + '… ✓' : txHash.slice(0,10) + '…';
     row.innerHTML = `
       <span class="ts">${fmtTs(ev.ts)}</span>
       <span class="tag ${ev.kind}">${ev.kind.replace('_',' ')}</span>
       <span title="${ev.message.replace(/"/g,'&quot;')}">${ev.message}</span>
       <span class="blk">#${block.toLocaleString()}</span>
-      <a href="${snowtraceTx}" target="_blank" class="txh" title="${txHash}">${txHash.slice(0,10)}…</a>
+      <a href="${snowtraceTx}" target="_blank" class="txh" title="${txHash}" ${isLiveTx ? 'style="color:var(--green); font-weight:700;"' : ''}>${txLabel}</a>
       <a href="${ci.link}" target="_blank" class="ctr-link" title="${ci.address || ''}">${ci.label}</a>
       <span class="amt">${(ev.amountUSDC || 0).toFixed(4)}</span>
     `;
@@ -526,6 +553,25 @@
     }
     requireActive('req-3');
 
+    // Add every event from this run to the feed (only user-triggered txs show here)
+    for (const ev of events) addFeedRow(ev);
+
+    // Live-chain overlay: show real Fuji block + real-tx receipt if the
+    // facilitator is funded. Always-true narration: "we hit Fuji on this click."
+    if (data.chain) {
+      setChainStatus(data.chain);
+      if (data.chain.liveTx && data.chain.liveTx.txHash) {
+        addFeedRow({
+          id: 'chain-' + Date.now(),
+          ts: Math.floor(Date.now() / 1000),
+          kind: 'registerAgent',
+          agentId: null,
+          message: `LIVE FUJI TX · registerAgent  block #${data.chain.block}`,
+          amountUSDC: 0,
+        }, data.chain.liveTx.txHash, data.chain.liveTx.snowtrace);
+      }
+    }
+
     // Populate primary
     const priInfo = await populatePrimary(settleEv);
     if (!priInfo) {
@@ -613,18 +659,12 @@
     resetX402();
   }
 
-  // ── Live polling ─────────────────────────────────────────────────────────
-  async function pollEvents() {
-    if (activeRun) return; // don't stomp on animations
+  // ── Status polling only — feed shows ONLY user-triggered runs ───────────
+  async function pollStatus() {
     try {
-      const r = await fetch(`/api/sim/events?since=${lastEventId}&limit=50`);
+      const r = await fetch('/api/sim/status');
       if (!r.ok) return;
-      const d = await r.json();
-      for (const ev of (d.events || [])) {
-        addFeedRow(ev);
-        lastEventId = Math.max(lastEventId, ev.id);
-      }
-      const s = d.status || {};
+      const s = await r.json();
       document.getElementById('st-status').textContent = s.running ? 'LIVE' : 'STOPPED';
       document.getElementById('st-status').style.color = s.running ? 'var(--green)' : '#888';
       document.getElementById('live-dot').className = s.running ? 'pulse-dot' : 'pulse-dot stopped';
@@ -672,8 +712,8 @@
       }
     } catch {}
 
-    pollEvents();
-    setInterval(pollEvents, 1500);
+    pollStatus();
+    setInterval(pollStatus, 2000);
   })();
 })();
 </script>

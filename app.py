@@ -4,6 +4,18 @@ import os
 import random
 import time
 
+# Load .env manually (no python-dotenv dependency). Must happen BEFORE onchain
+# or any module that reads FACILITATOR_PRIVATE_KEY at import time.
+from pathlib import Path as _Path
+_env_file = _Path(__file__).parent / ".env"
+if _env_file.exists():
+    for _line in _env_file.read_text().splitlines():
+        _line = _line.strip()
+        if not _line or _line.startswith("#") or "=" not in _line:
+            continue
+        _k, _v = _line.split("=", 1)
+        os.environ.setdefault(_k, _v)
+
 from config import config as _config_map
 from extensions import db, cors, limiter
 from auth import require_api_key
@@ -2160,8 +2172,15 @@ def api_sim_speed():
 def api_sim_trigger_a2a():
     """Fire one agent-to-agent flow on demand (for the live demo).
     Accepts JSON {primaryId?, tokenBudget?, pricePerToken?} to parameterize
-    the transaction so amounts aren't hardcoded. Returns the events generated
-    so the demo UI can animate the transaction."""
+    the transaction so amounts aren't hardcoded.
+
+    Also reaches out to live Fuji on every click:
+      - Always: reads current block number + agent 1's getCreditProfile
+        so the demo proves the chain link even when the wallet is unfunded.
+      - When facilitator is funded: performs an on-chain write (AgentRegistry
+        `registerAgent` with a throwaway name) and returns the real tx hash
+        + Snowtrace URL so each click lands on Fuji for real.
+    """
     from sim_engine import get_engine
     eng = get_engine(app)
     if not eng.is_running():
@@ -2183,7 +2202,64 @@ def api_sim_trigger_a2a():
             app.logger.warning("trigger-a2a error: %s", e)
             return jsonify({"error": str(e)}), 500
     new_events = [ev.to_dict() for ev in eng.events if ev.id > before_id]
-    return jsonify({"triggered": True, "newEvents": new_events, "count": len(new_events)})
+
+    # ── Live-chain overlay ───────────────────────────────────────────────
+    chain_info = {"mode": "simulation"}
+    oc = _get_onchain()
+    if oc:
+        try:
+            # Always-on read — proves we're actually talking to Fuji
+            block = oc.w3.eth.block_number
+            if oc.facilitator:
+                bal_wei = oc.w3.eth.get_balance(oc.facilitator.address)
+            else:
+                bal_wei = 0
+            bal_avax = bal_wei / 1e18
+            chain_info = {
+                "mode": "read-only" if bal_avax < 0.01 else "live-write",
+                "block": block,
+                "facilitator": oc.facilitator.address if oc.facilitator else None,
+                "facilitatorBalanceAVAX": round(bal_avax, 6),
+                "explorer": f"https://testnet.snowtrace.io/block/{block}",
+                "note": "Live Fuji read succeeded" + (
+                    "" if bal_avax >= 0.01 else
+                    f" — fund {oc.facilitator.address} with ~2 AVAX at https://faucet.avax.network/ to enable real writes"
+                ),
+            }
+            # Pull real on-chain credit profile for the primary agent to show
+            # the ReputationContract is responsive.
+            try:
+                settle = next((e for e in new_events if e["kind"] == "settle"), None)
+                target_id = settle["agentId"] if settle else 1
+                p = oc.get_credit_profile(int(target_id))
+                chain_info["onChainReputation"] = {"agentId": target_id, **p}
+            except Exception as rep_err:
+                chain_info["onChainReputationError"] = str(rep_err)[:120]
+
+            # If funded, actually write something on-chain per click
+            if bal_avax >= 0.01:
+                try:
+                    import time as _t
+                    ident = f"demo-click-{int(_t.time())}"
+                    endpoint = f"https://agenthire.io/demo/{ident}"
+                    result = oc.register_agent(oc.facilitator.address, ident, endpoint)
+                    chain_info["liveTx"] = {
+                        "kind": "registerAgent",
+                        "txHash": result.get("txHash"),
+                        "snowtrace": result.get("snowtrace"),
+                        "onChainAgentId": result.get("agentId"),
+                    }
+                except Exception as wx:
+                    chain_info["liveTxError"] = str(wx)[:200]
+        except Exception as e:
+            chain_info = {"mode": "simulation", "chainError": str(e)[:200]}
+
+    return jsonify({
+        "triggered": True,
+        "newEvents": new_events,
+        "count": len(new_events),
+        "chain": chain_info,
+    })
 
 
 @app.route("/api/sim/event-contract-map")
