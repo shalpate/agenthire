@@ -1582,21 +1582,42 @@ def api_stack():
 
 @app.route("/api/agents/<int:agent_id>/erc8004")
 def api_agent_erc8004(agent_id):
-    """ERC-8004 Trustless Agents adapter. Returns identity + score + reputation
-    in the shape defined by the EIP-8004 draft, delegating to the deployed
-    AgentRegistry and ReputationContract under the hood."""
+    """ERC-8004 Trustless Agents adapter. Returns identity + score +
+    reputation in the shape defined by the EIP-8004 draft, delegating
+    to the deployed AgentRegistry and ReputationContract. Also includes
+    ERC-165 interface probe and per-category scores (our extension)."""
     oc = _get_onchain()
     if not oc:
-        return jsonify({"error": "on-chain not configured",
-                        "hint": "set FACILITATOR_PRIVATE_KEY and fund the wallet"}), 503
+        return jsonify({"error": "on-chain not configured"}), 503
     try:
-        from erc8004 import ERC8004Adapter
+        from erc8004 import ERC8004Adapter, INTERFACE_ID, EXTENDED_INTERFACE_ID
         std = ERC8004Adapter(oc)
+        # Probe all 7 categories — shows specialist profile
+        category_scores = {}
+        CATS = ["Development","Data & Analytics","Content","Finance",
+                "Research","Security","Automation"]
+        for cid, cname in enumerate(CATS):
+            try:
+                category_scores[cname] = std.get_category_score(agent_id, cid)
+            except Exception:
+                pass
         return jsonify({
-            "interfaceId":  std.interface_id,
-            "identity":     std.get_identity(agent_id),
-            "score":        std.get_score(agent_id),
-            "reputation":   std.get_reputation(agent_id),
+            "standard": "EIP-8004 (draft) — Trustless Agents",
+            "interfaceId": std.interface_id,
+            "extendedInterfaceId": "0x" + EXTENDED_INTERFACE_ID.hex(),
+            "supportsInterface": {
+                "IERC8004":  std.supports_interface(INTERFACE_ID),
+                "ERC-165":   std.supports_interface("0x01ffc9a7"),
+                "bogus-id":  std.supports_interface("0xdeadbeef"),
+            },
+            "identity":      std.get_identity(agent_id),
+            "score":         std.get_score(agent_id),
+            "reputation":    std.get_reputation(agent_id),
+            "categoryScores": category_scores,
+            "notes":
+                "identity + score + reputation + supportsInterface form the "
+                "canonical IERC8004 surface. getCategoryScore is our extension "
+                "(extendedInterfaceId) for per-category specialization.",
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 502
@@ -2934,6 +2955,71 @@ def api_sim_trigger_a2a():
         "count": len(new_events),
         "chain": chain_info,
     })
+
+
+@app.route("/api/x402/demo-execute/<int:agent_id>", methods=["GET", "POST"])
+def api_x402_demo_execute(agent_id):
+    """A real x402-gated endpoint. First call (no X-Payment header) returns
+    HTTP 402 with a full challenge body. Second call with a signed EIP-3009
+    permit in X-Payment header: executes the permit on-chain, returns 200
+    with an X-Payment-Receipt header and the 'work product' body."""
+    from x402 import require_x402
+    from onchain import ADDRESSES
+
+    # Dynamic pricing — use the agent's own current_price
+    from models import Agent as A
+    agent = A.query.get(agent_id)
+    price_usdc = 0.01
+    if agent and agent.current_price:
+        # 100 tokens worth of work at the agent's current rate
+        price_usdc = round(agent.current_price * 100, 4)
+
+    @require_x402(
+        price_per_call_usdc=price_usdc,
+        resource_id=f"agent-{agent_id}-execute",
+        recipient_resolver=lambda r, kw: ADDRESSES["EscrowPayment"],
+        notes=f"Execute {agent.name if agent else 'agent '+str(agent_id)} · {price_usdc} USDC per 100-token call",
+    )
+    def _inner():
+        from flask import g
+        receipt = getattr(g, "x402_receipt", {})
+        return jsonify({
+            "ok": True,
+            "agentId": agent_id,
+            "agentName": agent.name if agent else None,
+            "result": f"{agent.name if agent else 'Agent'} produced a 100-token response (simulated output).",
+            "x402Receipt": {
+                "sessionId": receipt.get("sessionId"),
+                "txHashes": receipt.get("txHashes"),
+                "snowtrace": receipt.get("snowtrace"),
+            },
+        })
+    return _inner()
+
+
+@app.route("/api/x402/auto-sign", methods=["POST"])
+def api_x402_auto_sign():
+    """Convenience for the demo UI: generate a valid EIP-3009 permit signed
+    by the facilitator (as both buyer and payer for demo purposes). The UI
+    then retries the gated endpoint with this permit as X-Payment header."""
+    data = request.get_json(silent=True) or {}
+    try:
+        amount = float(data.get("amountUSDC", 0.01))
+        agent_id = int(data.get("agentId", 0))
+    except (TypeError, ValueError):
+        return jsonify({"error": "amountUSDC + agentId required"}), 400
+    from x402 import auto_sign_demo_permit
+    from onchain import ADDRESSES
+    try:
+        permit = auto_sign_demo_permit(
+            recipient=ADDRESSES["EscrowPayment"],
+            amount_usdc=amount,
+            agent_id=agent_id,
+            category_id=int(data.get("categoryId", 0)),
+        )
+        return jsonify({"ok": True, "permit": permit})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)[:200]}), 500
 
 
 @app.route("/api/sim/event-contract-map")

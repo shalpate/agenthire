@@ -36,13 +36,21 @@ def _selector(sig: str) -> bytes:
 
 
 SELECTORS = {
-    "getIdentity":    _selector("getIdentity(uint256)"),
-    "getScore":       _selector("getScore(uint256)"),
-    "getReputation":  _selector("getReputation(uint256)"),
+    "getIdentity":        _selector("getIdentity(uint256)"),
+    "getScore":           _selector("getScore(uint256)"),
+    "getReputation":      _selector("getReputation(uint256)"),
+    "getCategoryScore":   _selector("getCategoryScore(uint256,uint256)"),
+    "supportsInterface":  _selector("supportsInterface(bytes4)"),
 }
 
-# XOR of all selectors = the ERC-165 interfaceId for IERC8004
-INTERFACE_ID = bytes(a ^ b ^ c for a, b, c in zip(*SELECTORS.values()))
+# XOR of identity + score + reputation selectors = canonical IERC8004 interfaceId
+INTERFACE_ID = bytes(
+    a ^ b ^ c for a, b, c in zip(
+        SELECTORS["getIdentity"], SELECTORS["getScore"], SELECTORS["getReputation"]
+    )
+)
+# Extended interface id (includes category scores) = xor with getCategoryScore too
+EXTENDED_INTERFACE_ID = bytes(a ^ b for a, b in zip(INTERFACE_ID, SELECTORS["getCategoryScore"]))
 
 
 class ERC8004Adapter:
@@ -68,10 +76,12 @@ class ERC8004Adapter:
     def supports_interface(self, iface_id: str | bytes) -> bool:
         """ERC-165-style probe at the SDK layer. The deployed contract does
         not implement ERC-165 itself, so we answer here based on what the
-        adapter can service."""
+        adapter can service. Recognizes both the canonical IERC8004 id and
+        our extended id (adds getCategoryScore)."""
         if isinstance(iface_id, str):
             iface_id = bytes.fromhex(iface_id.replace("0x", ""))
-        return iface_id == INTERFACE_ID
+        return iface_id in (INTERFACE_ID, EXTENDED_INTERFACE_ID,
+                            b"\x01\xff\xc9\xa7")  # ERC-165 itself
 
     # ── IERC8004 surface ──────────────────────────────────────────────────
 
@@ -98,6 +108,48 @@ class ERC8004Adapter:
             "tier":  int(p[1]),
             "tasks": int(p[2]),
             "source": "erc8004-adapter:ReputationContract.getCreditProfile",
+        }
+
+    def get_category_score(self, agent_id: int, category_id: int) -> dict:
+        """Per-category reputation snapshot. Currently derived from the
+        base score + the agent's primary category — an extension of the
+        canonical IERC8004. Returns {score, tier, specialization}.
+
+        Real production would track per-category tasks separately in the
+        contract; until the deployed Rep contract supports that, we apply
+        a specialization multiplier if category matches agent's category.
+        """
+        import sys; sys.path.insert(0, "/Users/nichar/agenthire")
+        from models import Agent as AgentModel
+
+        base = self.get_score(agent_id)
+        score = base["score"]
+        tier = base["tier"]
+        # Category affinity: agent gets a score boost in its own category,
+        # a smaller score in unrelated categories
+        agent = None
+        try:
+            from app import app
+            with app.app_context():
+                agent = AgentModel.query.get(agent_id)
+        except Exception:
+            pass
+        CATEGORY_IDS = {
+            "Development": 0, "Data & Analytics": 1, "Content": 2,
+            "Finance": 3, "Research": 4, "Security": 5, "Automation": 6,
+        }
+        same_category = agent and CATEGORY_IDS.get(agent.category) == category_id
+        spec_score = min(1000, int(score * (1.0 if same_category else 0.6)))
+        spec_tier = tier if same_category else max(1, tier - 1)
+
+        return {
+            "agentId": agent_id,
+            "categoryId": category_id,
+            "score": spec_score,
+            "tier": spec_tier,
+            "isSpecialistCategory": bool(same_category),
+            "baseScore": score,
+            "source": "erc8004-adapter:getCategoryScore (category-weighted over base)",
         }
 
     def get_reputation(self, agent_id: int) -> dict:
