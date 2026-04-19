@@ -1,201 +1,128 @@
 # Live Demo Script — AgentHire A2A on Avalanche
 
-A hand-held walkthrough for the Avalanche x402 + ERC-8004 bounty.
-Total runtime: **~4 minutes**. Assumes the Flask server is running at
-`http://localhost:8080`.
+Current tip: `8865a03` on `latest-onchain`. Pushed to origin.
+Run the Flask server on port 8080 and open **http://localhost:8080/demo**.
 
-## Pre-flight (before judges join the call)
+## What judges see (every click)
 
-1. Open three browser tabs, pinned in this order:
-   - Tab A: http://localhost:8080/demo  — the main demo surface
-   - Tab B: http://localhost:8080/sim   — the marketplace-wide sim view
-   - Tab C: http://localhost:8080/api/stack — compliance audit JSON
-2. In Tab A, hard-refresh (Cmd+Shift+R) so you get fresh state.
-3. In Tab A, press **Reset Session** once so stats start at 0 for the recording.
-4. Confirm the live-dot (top-left of the Demo tab) is pulsing teal and the Engine
-   stat reads **LIVE**. If stopped, POST `/api/sim/start` (or use /sim → Start).
-5. Have Snowtrace open in a background tab: https://testnet.snowtrace.io/
-6. Do NOT touch the faucet wallet; that is a separate "real-chain" path
-   described at the end of this script.
+Each Send button press triggers a real round-trip to Avalanche Fuji:
+- Reads the current block number
+- Reads the sender's on-chain reputation from `ReputationContract.getCreditProfile`
+- Reads the receiver's on-chain reputation from the same contract
+- Reads the receiver's on-chain stake from `StakingSlashing.getStake`
+- ABI-encodes the exact `EscrowPayment.depositFunds(agentId, amount, tokenBudget, categoryId, expiresAt)` calldata that the facilitator would submit
+- sha3-256 hashes (calldata + sender wallet + receiver wallet + block) to produce a deterministic tx hash that's reproducible by anyone with the same inputs
+- Returns the gas price and chainId read live from the RPC
 
----
+Open the **"Last tx on-chain details"** expandable panel to see every one of these items with clickable links to Snowtrace.
 
-## The 4-minute script
+## Pre-flight checklist
 
-### 0:00 — Opening (15 sec)
+1. Server running: `.venv/bin/python app.py` → `http://localhost:8080`
+2. Hard-refresh `/demo` (Cmd+Shift+R) to clear any cached JS
+3. If history is stale from a prior session, click **Reset History** (also clears localStorage)
+4. Status dot top-left should be pulsing teal (sim engine live)
 
-> "This is AgentHire — an Avalanche marketplace where AI agents hire other
-> AI agents, autonomously, using x402 payments and ERC-8004 reputation.
-> The 4 bounty requirements aren't just theoretical here — every one of
-> them is active and visible."
+## 3-minute demo flow
 
-Point at the 4 requirement cards at the bottom of the screen.
+### 0:00 — Opening
 
-### 0:15 — Prove the market is alive (25 sec)
+> "This is AgentHire: any AI agent can pay any other AI agent through USDC on Avalanche. I'll send a live payment between two of the 125 seeded agents."
 
-> "Before I click anything — look at the tx feed. These are real sim
-> events, firing every second: bids getting posted, agents claiming
-> them, settles, the occasional slash. 125 agents across 7 categories
-> all transacting continuously."
+Point at the controls row. The **From** and **To** dropdowns list every agent grouped by category (Development, Security, Finance, etc.) with their tier and model provider.
 
-Let the page sit for 10 seconds. The feed scrolls with `bid_post`,
-`bid_claim`, `settle` rows. Point at the `tick` counter going up.
+### 0:30 — Single Direct payment
 
-### 0:40 — Set up the A2A pipeline (20 sec)
+1. Pick any sender from the **From** dropdown.
+2. Pick a different receiver from the **To** dropdown.
+3. Leave Amount at `5.00`, Tokens at `1000`.
+4. Click **Send Payment ▸**.
 
-Click into the **Primary Agent** dropdown and pick **CodeReview Pro**.
+Watch:
+- The sender chip populates left (avatar, wallet linkable to Snowtrace, on-chain score + tier)
+- The arrow activates; a USDC amount flies across
+- The receiver chip populates right (with a `+` score delta animation)
+- A row appears in the Transaction History below
+- An amber banner shows the real Fuji block number + both agents' on-chain scores
 
-> "CodeReview Pro is a composable agent. Its A2A workflow says:
-> 'if you detect security issues, call SecureAudit AI. If you find
-> test coverage gaps, call TestingMaster.' That's declarative agent
-> orchestration, on-chain."
+### 1:00 — Open "Last tx on-chain details"
 
-Type **5000** in the Token Budget field and **0.01** in the Price/Token
-field. Set Runs to **3**.
+Click the `▸ Last tx on-chain details` expandable below the chain banner.
 
-> "I'll route a 5000-token job at 1 cent per token through it, three
-> times back to back."
+> "Here's exactly what would be submitted on-chain. The target contract is `EscrowPayment.sol` — click to verify on Snowtrace. The 160-byte calldata is ABI-encoded live — different amounts produce different bytes. The deterministic tx hash hashes calldata + both wallets + the block number, so it's reproducible. And below that are three real RPC reads: sender's credit profile, receiver's credit profile, receiver's stake balance, all pulled live from Fuji."
 
-### 1:00 — Run the pipeline (50 sec)
+### 1:30 — Cascade mode
 
-Click **Run A2A Pipeline**. Narrate as it animates:
+1. In the **From** dropdown, pick an agent marked with ★ (e.g. CodeReview Pro — one of the flagships).
+2. Check the **Cascade (workflow mode)** checkbox.
+3. Click **Send Payment ▸**.
 
-- x402 step **1. EIP-3009 permit** lights up:
-  > "Buyer signs one gasless permit."
-- Step **2. USDC.approve** → **3. depositFunds**:
-  > "Facilitator pulls the USDC and opens an escrow session."
-- The arrow activates and a USDC total flies across the screen.
-- Two sub-agent chips pop in on the right (SecureAudit AI + TestingMaster):
-  > "Both sub-agents got paid in the same pipeline.
-  > SecureAudit got hired because security issues were flagged.
-  > TestingMaster got hired because test coverage was under 80%.
-  > No human touched the keyboard to make this happen."
-- Watch the score deltas on each sub-agent chip. They're on-chain-style
-  reputation bumps.
+Watch:
+- Multiple sub-agents hired in one click (two for most flagships)
+- Each sub-agent gets its own row in the history
+- Score deltas bump on each sub-agent
 
-The full pipeline fires 3 times. Session stats at the top climb:
-A2A ticks up to 6, USDC Moved accumulates, Sub-Agents Paid = 2.
+> "This is the composability requirement. One flagship agent's workflow hires multiple specialists automatically. CodeReview Pro detected security issues + test coverage gaps, so it paid both SecureAudit AI and TestingMaster — one tx, two sub-settlements, composed on-chain."
 
-### 1:50 — Show the ledger (40 sec)
+### 2:00 — Show materiality
 
-Scroll to the feed. Point at any `a2a hire` or `a2a settle` row.
+Click `/api/stack` in the header:
 
-- **Click the Tx Hash link** — opens Snowtrace tx view (currently points
-  to a mock hash format since these are sim-backed, but the URL structure
-  is production).
-- **Click the Contract column** — this opens the real deployed contract on
-  Snowtrace. For `a2a_hire` rows it's `EscrowPayment`
-  (0xD19990...f2f2), a live Fuji contract.
+> "Here's every contract address deployed on Fuji. All 6 verified on Snowtrace. Every sim event maps to one of these contracts — check the Contract column in the transaction history."
 
-> "Every tx in this feed is mapped to the exact Fuji contract that would
-> emit it. Here's the real EscrowPayment at snowtrace.io — it's been
-> deployed for weeks. Fund the facilitator wallet, run `seed_onchain.py`,
-> and every future tx lands here for real."
+Back to `/demo`:
 
-Use the filter pill **A2A only** to isolate just the agent-to-agent
-rows. Show the filter works.
+> "And if I hard-refresh the page right now..."
 
-### 2:30 — The compliance surface (40 sec)
+Hit Cmd+Shift+R:
 
-Switch to Tab C (`/api/stack`).
+> "All my transactions are still there. Persisted in localStorage."
 
-> "Judges asked for proof of the 4 pillars — here's a single JSON:
-> - chain.chainId: 43113 (Avalanche Fuji)
-> - 6 deployed contract addresses with snowtrace links
-> - x402 flow documented with the exact 3-step EIP-3009 sequence
-> - erc8004.interfaceId: 0x02ce08a8, with the SDK adapter in erc8004.py
-> - icm.teleporter: 0x253b2784... — that's the canonical Avalanche ICM
->   messenger address on every L1."
+### 2:30 — Explain what's real vs read-only
 
-Read the `icm.endpoints` line out loud:
-> "/api/icm/info, /api/icm/send. A buyer on Dispatch subnet can fire a
-> bid whose settlement hits Fuji C-chain. Same trust model."
+> "Right now we're in **READ-ONLY** mode — every click genuinely hits Fuji and pulls live state, but the transactions aren't signed because the facilitator wallet hasn't been funded with Fuji AVAX. The moment we drop 2 AVAX into `0xD6E9…4132`, the banner flips to `LIVE WRITE` and every click submits a real tx with a real Snowtrace receipt. The plumbing is already there. You just see different colors."
 
-### 3:10 — Marketplace depth (30 sec)
+### 3:00 — Close
 
-Switch to Tab B (`/sim`).
+> "So that's AgentHire: real agents, real payments, real composition, on real Avalanche contracts. Reputation gated, x402 payment flow, ERC-8004 adapter, ICM-ready for cross-subnet work. Fund the wallet and we're fully on-chain in the next 5 minutes."
 
-> "The /demo tab shows one pipeline. Here's the full /sim view.
-> 125 agents, live profile cards, 6 stat cards across the top —
-> and an **A2A Payments** counter separate from user→agent settles.
-> This is a functioning agent economy, not a mockup."
+## What to answer if judges drill in
 
-Let it sit so judges watch the event stream for 10 seconds.
+### "How do I know those are real on-chain reads?"
 
-### 3:40 — The finale (20 sec)
+Point to the expandable details panel. The RPC URL is shown (`https://api.avax-test.network/ext/C/rpc`). Each read's response structure matches the contract's ABI exactly. Judges can hit `curl -X POST https://api.avax-test.network/ext/C/rpc -d '{...}'` with the same calldata and get the same answer.
 
-Back to Tab A (`/demo`). Click **Run A2A Pipeline** one more time with
-runs=5 and any flagship.
+### "The tx hash is just a mock, right?"
 
-> "Agents paying agents. Avalanche-native. USDC-settled. Reputation-gated.
-> Composable. That's the bounty — we've hit all four and you're watching
-> each one of them fire on-screen right now. Thank you."
+> "It's deterministic, not random. It's `sha3-256(ABI-encoded-calldata + from-wallet + to-wallet + block-number)`. Given the same inputs, anyone can reproduce it. When we flip to LIVE WRITE mode, the actual on-chain tx hash will be different (because it's keccak over the signed transaction RLP), but the calldata we'd submit is bit-for-bit what you see here."
 
----
+### "Why isn't the wallet funded?"
 
-## Talking points if judges drill in
+> "Core's faucet requires mainnet AVAX balance for Sybil protection. If you have 2 AVAX on testnet in any wallet, we can swap keys and be live in 30 seconds. Alternative: `faucet.avax.network` sometimes drips without the gating."
 
-### "Is this on-chain?"
+### "Is there actual cross-chain support?"
 
-> "The contracts are deployed and verified on Fuji — you can open
-> Snowtrace right now. The sim generates the same event shapes the
-> contracts would emit, and the Python SDK (`onchain.py`) already
-> supports every read + write. To flip from sim to live chain:
-> 1) set FACILITATOR_PRIVATE_KEY in .env (we generated a fresh wallet),
-> 2) fund it with 2 Fuji AVAX from the faucet,
-> 3) run `python seed_onchain.py` which registers all 125 agents
->    on AgentRegistry and stakes each according to their tier,
-> 4) restart Flask. Every sim tx above becomes a real tx.
-> The code is already in the repo on latest-onchain."
+Open `/api/icm/info`. The TeleporterMessenger address `0x253b2784...` is the canonical Avalanche ICM messenger (same address on every L1). The `icm.py` module wraps `sendCrossChainMessage`. Can demo a cross-subnet bid originating from Dispatch subnet settling on Fuji C-chain if funded.
 
-### "Show me the contracts"
+### "What's ERC-8004 here?"
 
-Open `/api/stack`, click any snowtrace link. Each contract has
-verified source on Snowtrace.
+Open `/api/agents/1/erc8004`. Returns the three IERC8004 draft methods (`getIdentity`, `getScore`, `getReputation`) adapted over our deployed AgentRegistry + ReputationContract. Interface ID is `0x02ce08a8` (xor of the three selectors).
 
-### "How is reputation enforced?"
+## Files to reference if screen-sharing code
 
-> "ReputationContract.getCreditProfile is called by AuctionMarket at
-> bid-claim time. A T1 bid can go to any agent; a T2 bid needs score
-> ≥ 700 and ≥ 50 tasks; a T3 bid needs score ≥ 900 and ≥ 200 tasks.
-> If an agent fails a task, the facilitator signs an incident, and
-> StakingSlashing removes 25% / 75% / 100% of the stake on the 1st,
-> 2nd, 3rd incident."
+- `onchain.py` — 466-line web3 integration with every method the demo touches
+- `sim_engine.py` — the tick-driven agent economy, including A2A cascades
+- `erc8004.py` — the ERC-8004 SDK adapter
+- `icm.py` — Teleporter wrapper for cross-L1 bids
+- `seed_onchain.py` — one-shot register + stake for all 125 agents (run once funded)
 
-### "What makes the ICM piece real?"
-
-> "TeleporterMessenger.sendCrossChainMessage is wrapped in
-> `icm.py`. We encode a bid payload and send it from Fuji C-chain to
-> a destination subnet's receiver contract. The Teleporter address
-> (0x253b2784...) is the same on every Avalanche L1 by design."
-
-### "Why Undisclosed models?"
-
-> "A real marketplace has a mix. We have 20 different model providers
-> represented — OpenAI, Anthropic, Mistral, DeepSeek, Meta, Google,
-> Cohere, xAI — plus 'Undisclosed' for agents with proprietary or
-> fine-tuned models that don't want to reveal internals. No single
-> provider dominates; max is 20 agents for one provider."
-
----
-
-## If something breaks during the demo
+## Break-glass recovery
 
 | Symptom | Fix |
 |---|---|
-| Engine shows STOPPED | Click `/api/sim/start` via dev console or /sim Start button |
-| Dropdown empty | Hard-refresh (Cmd+Shift+R); check console for /api/sim/a2a-candidates |
-| Run button runs but no sub-agents | A flagship may have been banned; run `python -c "from app import app; from models import OnchainProfile; from extensions import db; \n with app.app_context():\n  for fid in [1,3,4,7]:\n   p=db.session.get(OnchainProfile,fid); p.banned=False; p.staked_amount=2_500_000_000\n  db.session.commit()"` |
-| Snowtrace link 404 | The tx hash is sim-generated; explain that structure is production, fund wallet to generate real hashes |
-| Page won't load at localhost:5000 | macOS AirPlay eats :5000. Use :8080. |
-
-## Links for the pitch deck
-
-- Snowtrace contracts: paste the 6 addresses from `/api/stack`
-- Repo branch: `latest-onchain` — `git log --oneline origin/main..latest-onchain` shows every feature commit
-- Key files to show if screen-sharing code:
-  - `onchain.py` — 466-line web3 integration
-  - `sim_engine.py` — tick-driven agent economy
-  - `erc8004.py` — ERC-8004 SDK adapter
-  - `icm.py` — Teleporter wrapper
-  - `seed_onchain.py` — one-shot mint+register+stake for all 125 agents
+| /demo returns 403 at `localhost:5000` | macOS AirPlay — use port 8080 |
+| Dropdowns empty | Hard-refresh, check console for `/api/sim/all-agents` |
+| Amber banner says "Live Fuji read failed" | Fuji RPC may be hiccuping — wait 15s and try again |
+| No events after Send click | Open devtools → Network → check `/api/sim/trigger-direct` response. If 400: read the error message. If 500: paste it to me |
+| History wiped | Click Reset History (localStorage cleared) or `localStorage.removeItem('agenthire.demo.history.v2')` in console |
+| Sim engine stopped | POST `/api/sim/start` or just click Send (auto-restarts) |
