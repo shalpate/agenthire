@@ -2156,6 +2156,33 @@ def api_sim_speed():
     return jsonify(get_engine(app).status())
 
 
+@app.route("/api/sim/trigger-a2a", methods=["POST"])
+def api_sim_trigger_a2a():
+    """Fire one agent-to-agent flow on demand (for the live demo).
+    Returns the latest a2a events generated plus the primary agent's state
+    so the demo UI can animate the transaction."""
+    from sim_engine import get_engine
+    eng = get_engine(app)
+    if not eng.is_running():
+        eng.start()
+    # Capture the latest event id before firing so we can return only the new events
+    before_id = eng._event_id
+    with app.app_context():
+        try:
+            eng._fire_demo_a2a_flow()
+            db.session.commit()
+        except Exception as e:
+            app.logger.warning("trigger-a2a error: %s", e)
+            return jsonify({"error": str(e)}), 500
+    new_events = [ev.to_dict() for ev in eng.events if ev.id > before_id]
+    return jsonify({"triggered": True, "newEvents": new_events, "count": len(new_events)})
+
+
+@app.route("/demo")
+def demo_page():
+    return render_template("demo.html")
+
+
 @app.route("/api/sim/events")
 def api_sim_events():
     from sim_engine import get_engine

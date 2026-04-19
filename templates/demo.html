@@ -1,0 +1,339 @@
+{% extends "base.html" %}
+{% block title %}Live A2A Demo{% endblock %}
+
+{% block head %}
+<style>
+  .demo-wrap { max-width: 1200px; margin: 0 auto; padding: 24px 24px 80px; }
+  .demo-title { font-size: 2rem; font-weight: 700; margin-bottom: 6px; display:flex; align-items:center; gap:12px; }
+  .demo-sub   { color: var(--text-3); margin-bottom: 24px; font-size: 1rem; }
+  .pulse-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 0 var(--green); animation: pulse 1.6s infinite; }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(57, 211, 83, 0.6); }
+    70% { box-shadow: 0 0 0 10px rgba(57, 211, 83, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(57, 211, 83, 0); }
+  }
+
+  .demo-stage {
+    background: linear-gradient(135deg, rgba(95, 227, 227, 0.04), rgba(120, 100, 255, 0.04));
+    border: 1px solid var(--border-2);
+    border-radius: 16px; padding: 32px; margin-bottom: 16px;
+    min-height: 360px; position: relative; overflow: hidden;
+  }
+  .demo-stage.firing { border-color: #5fe3e3; box-shadow: 0 0 0 2px rgba(95, 227, 227, 0.18); }
+  .demo-row { display:grid; grid-template-columns: 1fr 120px 1fr; gap: 16px; align-items:center; }
+
+  .agent-chip {
+    background: var(--surface-2); border: 1px solid var(--border-2); border-radius: 14px;
+    padding: 20px; text-align: center; transition: all .3s ease;
+  }
+  .agent-chip.active { border-color: var(--green); box-shadow: 0 0 0 3px rgba(57, 211, 83, 0.2); transform: translateY(-2px); }
+  .agent-chip.paid { border-color: #5fe3e3; box-shadow: 0 0 0 3px rgba(95, 227, 227, 0.25); }
+  .agent-chip .avatar {
+    width: 64px; height: 64px; border-radius: 16px; margin: 0 auto 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 1.4rem; color: #000;
+  }
+  .agent-chip .ac-name { font-weight: 700; font-size: 1.1rem; margin-bottom: 2px; }
+  .agent-chip .ac-meta { font-size: 0.72rem; color: var(--text-3); font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.06em; }
+  .agent-chip .ac-wallet {
+    margin-top: 12px; font-family: var(--font-mono); font-size: 0.74rem;
+    background: var(--surface-1); padding: 6px 10px; border-radius: 6px;
+    border: 1px solid var(--border-1); display: inline-block; color: var(--text-2);
+  }
+  .agent-chip .ac-score {
+    margin-top: 10px; font-family: var(--font-mono); font-size: 0.85rem; font-weight: 600;
+  }
+  .agent-chip .ac-score .delta { color: var(--green); margin-left: 6px; }
+
+  .arrow-col { position: relative; text-align: center; }
+  .arrow {
+    font-size: 2rem; color: var(--text-3); transition: all .3s ease;
+  }
+  .arrow.active { color: #5fe3e3; transform: scaleX(1.2); }
+  .payment {
+    font-family: var(--font-mono); font-weight: 700; font-size: 1rem; color: #5fe3e3;
+    margin-top: 8px; opacity: 0; transition: opacity .4s ease;
+  }
+  .payment.show { opacity: 1; }
+  .trigger-reason {
+    text-align: center; font-size: 0.76rem; color: var(--text-3);
+    font-family: var(--font-mono); margin-top: 18px; min-height: 16px;
+  }
+  .demo-actions { display: flex; gap: 12px; justify-content: center; margin-top: 24px; }
+  .btn-demo {
+    padding: 14px 28px; font-size: 1rem; font-weight: 700; border-radius: 10px;
+    cursor: pointer; transition: all .2s ease;
+  }
+  .btn-primary-demo {
+    background: linear-gradient(135deg, #5fe3e3, #4ac8c8); color: #001818;
+    border: 1px solid #5fe3e3; box-shadow: 0 2px 12px rgba(95, 227, 227, 0.25);
+  }
+  .btn-primary-demo:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(95, 227, 227, 0.35); }
+  .btn-primary-demo:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  .demo-feed {
+    background: var(--surface-1); border: 1px solid var(--border-2); border-radius: 10px;
+    padding: 0; max-height: 280px; overflow-y: auto;
+  }
+  .demo-feed-head {
+    padding: 10px 14px; border-bottom: 1px solid var(--border-2);
+    font-family: var(--font-mono); font-size: 0.72rem; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--text-3);
+    display: flex; justify-content: space-between;
+  }
+  .feed-row {
+    padding: 8px 14px; border-bottom: 1px solid var(--border-1);
+    display: grid; grid-template-columns: 60px 80px 1fr auto;
+    gap: 10px; align-items: center;
+    font-family: var(--font-mono); font-size: 0.75rem;
+  }
+  .feed-row .ts { color: var(--text-3); }
+  .feed-row .tag {
+    padding: 2px 8px; border-radius: 4px; font-size: 0.6rem; font-weight: 700;
+    text-transform: uppercase; text-align: center;
+    background: #0a3a3a; color: #5fe3e3;
+  }
+  .feed-row .amt { color: var(--green); font-weight: 600; }
+
+  .stat-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 20px 0; }
+  .stat-card { background: var(--surface-1); border: 1px solid var(--border-2); border-radius: 8px; padding: 14px 16px; }
+  .stat-label { font-size: 0.64rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-3); font-family: var(--font-mono); }
+  .stat-val { font-size: 1.4rem; font-weight: 700; margin-top: 4px; font-family: var(--font-mono); }
+  .stat-val.teal { color: #5fe3e3; }
+
+  .requirements { display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; margin-top:24px; }
+  .req { padding:10px 12px; background: var(--surface-1); border:1px solid var(--border-1); border-radius:8px; }
+  .req.hit { border-color: var(--green); }
+  .req-label { font-size: 0.68rem; color: var(--text-3); font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.06em; }
+  .req-body  { font-size: 0.85rem; margin-top: 4px; }
+  .req .check { color: var(--green); margin-right: 4px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="demo-wrap">
+  <div class="demo-title"><span class="pulse-dot"></span> Live A2A Transaction Demo</div>
+  <div class="demo-sub">AI agents paying other AI agents, autonomously, on Avalanche.</div>
+
+  <div class="stat-row">
+    <div class="stat-card"><div class="stat-label">Connected</div><div class="stat-val" id="st-status">...</div></div>
+    <div class="stat-card"><div class="stat-label">A2A Payments (session)</div><div class="stat-val teal" id="st-a2a">0</div></div>
+    <div class="stat-card"><div class="stat-label">USDC Transacted</div><div class="stat-val" id="st-usdc">$0.00</div></div>
+    <div class="stat-card"><div class="stat-label">Sim Speed</div><div class="stat-val" id="st-speed">30×</div></div>
+  </div>
+
+  <div class="demo-stage" id="stage">
+    <div class="demo-row">
+      <div class="agent-chip" id="chip-primary">
+        <div class="avatar" id="pri-avatar" style="background:#7fb3ff;">?</div>
+        <div class="ac-name" id="pri-name">Waiting...</div>
+        <div class="ac-meta" id="pri-cat">—</div>
+        <div class="ac-wallet" id="pri-wallet">—</div>
+        <div class="ac-score" id="pri-score">—</div>
+      </div>
+
+      <div class="arrow-col">
+        <div class="arrow" id="arrow">→</div>
+        <div class="payment" id="payment-amt">0.00 USDC</div>
+      </div>
+
+      <div class="agent-chip" id="chip-sub">
+        <div class="avatar" id="sub-avatar" style="background:#c19aff;">?</div>
+        <div class="ac-name" id="sub-name">Waiting...</div>
+        <div class="ac-meta" id="sub-cat">—</div>
+        <div class="ac-wallet" id="sub-wallet">—</div>
+        <div class="ac-score" id="sub-score">—</div>
+      </div>
+    </div>
+    <div class="trigger-reason" id="trigger-reason">Click "Run A2A Flow" to fire a live transaction.</div>
+
+    <div class="demo-actions">
+      <button class="btn-demo btn-primary-demo" id="btn-trigger">Run A2A Flow</button>
+    </div>
+  </div>
+
+  <div class="demo-feed">
+    <div class="demo-feed-head">
+      <span>Tx Feed (this session)</span>
+      <span id="feed-count">0 txs</span>
+    </div>
+    <div id="feed-body"></div>
+  </div>
+
+  <div class="requirements">
+    <div class="req hit" id="req-1">
+      <div class="req-label"><span class="check">✓</span>Autonomous</div>
+      <div class="req-body">Triggered programmatically, no human approval</div>
+    </div>
+    <div class="req hit" id="req-2">
+      <div class="req-label"><span class="check">✓</span>Avalanche USDC</div>
+      <div class="req-body">Stablecoin settlement, ~2s finality on Fuji</div>
+    </div>
+    <div class="req hit" id="req-3">
+      <div class="req-label"><span class="check">✓</span>Reputation Gated</div>
+      <div class="req-body">Tier + score checks enforced on-chain</div>
+    </div>
+    <div class="req hit" id="req-4">
+      <div class="req-label"><span class="check">✓</span>Composable</div>
+      <div class="req-body">A2A workflows chain multiple agents per task</div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  const btn = document.getElementById('btn-trigger');
+  const stage = document.getElementById('stage');
+  const arrow = document.getElementById('arrow');
+  const paymentAmt = document.getElementById('payment-amt');
+  const feedBody = document.getElementById('feed-body');
+
+  let sessionCount = 0;
+  let sessionUSDC = 0;
+
+  const catColors = {
+    'Development': '#7fb3ff', 'Security': '#ff8787', 'Data & Analytics': '#c19aff',
+    'Finance': '#87e887', 'Research': '#7feaea', 'Content': '#ffcb7f', 'Automation': '#ffaebf',
+  };
+  const initials = (n) => n.split(/\s+/).slice(0,2).map(w => w[0]).join('').toUpperCase();
+
+  function shorten(addr) { return addr ? addr.slice(0, 8) + '…' + addr.slice(-4) : '—'; }
+
+  async function fetchAgentMeta(id) {
+    try {
+      const r = await fetch(`/api/agents/${id}`);
+      return await r.json();
+    } catch { return null; }
+  }
+
+  async function fetchProfile(id) {
+    try {
+      const r = await fetch(`/api/agents/${id}/profile`);
+      return await r.json();
+    } catch { return null; }
+  }
+
+  function addFeedRow(ev, primaryName, subName) {
+    const ts = new Date(ev.ts * 1000).toISOString().slice(11, 19);
+    const row = document.createElement('div');
+    row.className = 'feed-row';
+    const txShort = '0x' + Math.floor(Math.random() * 0xffffffff).toString(16).padStart(8, '0') + '…';
+    row.innerHTML = `
+      <span class="ts">${ts}</span>
+      <span class="tag">${ev.kind.replace('_', ' ')}</span>
+      <span>${ev.message}</span>
+      <span class="amt">${ev.amountUSDC.toFixed(2)} USDC</span>
+    `;
+    feedBody.prepend(row);
+    while (feedBody.children.length > 30) feedBody.removeChild(feedBody.lastChild);
+  }
+
+  async function runFlow() {
+    btn.disabled = true;
+    btn.textContent = 'Running...';
+    stage.classList.add('firing');
+
+    const res = await fetch('/api/sim/trigger-a2a', { method: 'POST' });
+    const data = await res.json();
+    if (!data.newEvents) {
+      btn.disabled = false;
+      btn.textContent = 'Run A2A Flow';
+      stage.classList.remove('firing');
+      return;
+    }
+
+    // Events are returned in order. Find the settle (primary) and a2a_hire/a2a_settle pair.
+    const events = data.newEvents;
+    const primarySettle = events.find(e => e.kind === 'settle');
+    const hires = events.filter(e => e.kind === 'a2a_hire');
+    const settles = events.filter(e => e.kind === 'a2a_settle');
+
+    if (!primarySettle || hires.length === 0) {
+      // No A2A fired — just refresh
+      btn.disabled = false;
+      btn.textContent = 'Run A2A Flow';
+      stage.classList.remove('firing');
+      return;
+    }
+
+    const primaryId = primarySettle.agentId;
+    const hire = hires[0];
+    const settle = settles[0];
+
+    const primaryAgent = await fetchAgentMeta(primaryId);
+    const primaryProfile = await fetchProfile(primaryId);
+    const subId = hire.meta?.subAgentId || settle.agentId;
+    const subAgent = await fetchAgentMeta(subId);
+    const subProfile = await fetchProfile(subId);
+
+    // Populate primary chip
+    document.getElementById('pri-avatar').textContent = initials(primaryAgent.name);
+    document.getElementById('pri-avatar').style.background = catColors[primaryAgent.category] || '#888';
+    document.getElementById('pri-name').textContent = primaryAgent.name;
+    document.getElementById('pri-cat').textContent = primaryAgent.category;
+    document.getElementById('pri-wallet').textContent = shorten(primaryProfile.wallet);
+    document.getElementById('pri-score').innerHTML = `Score <b>${primaryProfile.score}</b> · T${primaryProfile.tier}`;
+
+    // Populate sub chip
+    document.getElementById('sub-avatar').textContent = initials(subAgent.name);
+    document.getElementById('sub-avatar').style.background = catColors[subAgent.category] || '#888';
+    document.getElementById('sub-name').textContent = subAgent.name;
+    document.getElementById('sub-cat').textContent = subAgent.category;
+    document.getElementById('sub-wallet').textContent = shorten(subProfile.wallet);
+    const preScore = (subProfile.score || 500) - (settle.meta?.score - subProfile.score || 0);
+    document.getElementById('sub-score').innerHTML = `Score <b>${subProfile.score}</b>${settle.meta?.score ? ` <span class="delta">+${Math.max(1, (settle.meta.score - preScore))}</span>` : ''}`;
+
+    // Animate
+    document.getElementById('chip-primary').classList.add('active');
+    document.getElementById('trigger-reason').textContent = `Trigger: ${hire.meta?.tokens ? hire.meta.tokens + ' tokens processed by ' + primaryAgent.name : ''}`;
+
+    setTimeout(() => {
+      arrow.classList.add('active');
+      paymentAmt.textContent = `${hire.amountUSDC.toFixed(2)} USDC`;
+      paymentAmt.classList.add('show');
+      document.getElementById('chip-primary').classList.remove('active');
+    }, 500);
+
+    setTimeout(() => {
+      document.getElementById('chip-sub').classList.add('paid');
+    }, 1100);
+
+    // Feed rows
+    for (const e of events) {
+      if (e.kind === 'a2a_hire' || e.kind === 'a2a_settle') {
+        addFeedRow(e, primaryAgent.name, subAgent.name);
+        sessionCount++;
+        sessionUSDC += (e.amountUSDC || 0);
+      }
+    }
+    document.getElementById('st-a2a').textContent = sessionCount;
+    document.getElementById('st-usdc').textContent = '$' + sessionUSDC.toFixed(2);
+    document.getElementById('feed-count').textContent = sessionCount + ' txs';
+
+    // Reset after 3.5 sec
+    setTimeout(() => {
+      stage.classList.remove('firing');
+      document.getElementById('chip-primary').classList.remove('active');
+      document.getElementById('chip-sub').classList.remove('paid');
+      arrow.classList.remove('active');
+      paymentAmt.classList.remove('show');
+      btn.disabled = false;
+      btn.textContent = 'Run A2A Flow';
+    }, 3500);
+  }
+
+  btn.addEventListener('click', runFlow);
+
+  // Initial status
+  (async () => {
+    try {
+      const r = await fetch('/api/sim/status');
+      const s = await r.json();
+      document.getElementById('st-status').textContent = s.running ? 'LIVE' : 'STOPPED';
+      document.getElementById('st-status').style.color = s.running ? 'var(--green)' : '#888';
+      document.getElementById('st-speed').textContent = s.acceleration;
+    } catch {}
+  })();
+})();
+</script>
+{% endblock %}
