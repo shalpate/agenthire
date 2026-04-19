@@ -215,7 +215,8 @@ class SimulationEngine:
 
     def _fire_demo_a2a_flow(self, primary_id: int | None = None,
                               token_budget: int | None = None,
-                              price_per_token: float | None = None) -> None:
+                              price_per_token: float | None = None,
+                              force_all: bool = True) -> None:
         """Fire an A2A flow. When called with no args, picks a random
         flagship and generates a random-budget job. All three args can be
         overridden by the /demo UI so judges can see any specific agent
@@ -276,7 +277,8 @@ class SimulationEngine:
             meta={"tokensUsed": tokens_used, "demo": True,
                   "pricePerToken": round(upstream_price, 6)},
         )
-        self._fire_a2a_subagent_calls(primary, primary_profile, tokens_used, synth_session)
+        self._fire_a2a_subagent_calls(primary, primary_profile, tokens_used, synth_session,
+                                       force_all=force_all)
 
     # ── tick sub-steps ────────────────────────────────────────────────────
 
@@ -524,7 +526,8 @@ class SimulationEngine:
     # ── Agent-to-Agent: a primary agent hires sub-agents after settling ────
 
     def _fire_a2a_subagent_calls(self, primary_agent: Agent, primary_profile: OnchainProfile,
-                                  tokens_used: int, session: dict) -> None:
+                                  tokens_used: int, session: dict,
+                                  force_all: bool = False) -> None:
         """When a composable agent settles its own work, it programmatically
         pays sub-agents per A2A_WORKFLOWS. No human approval; pure agentic
         commerce on Avalanche.
@@ -554,8 +557,9 @@ class SimulationEngine:
             if not sub_spec:
                 continue
             # Fire probability: "Always -..." triggers always fire; others 55%
+            # unless force_all=True (demo button wants the full pipeline).
             always = "always" in (trigger.get("condition") or "").lower()
-            if not always and self._rng.random() > 0.55:
+            if not always and not force_all and self._rng.random() > 0.55:
                 continue
 
             sub_id = int(sub_spec["id"])
