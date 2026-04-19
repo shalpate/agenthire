@@ -2168,6 +2168,56 @@ def api_sim_speed():
     return jsonify(get_engine(app).status())
 
 
+def _chain_overlay_for(new_events):
+    """Compute the live-Fuji chain overlay for a trigger response.
+    Safe to call from any endpoint — always returns a dict with at
+    least {"mode": "simulation"} even when onchain isn't configured."""
+    chain_info = {"mode": "simulation"}
+    oc = _get_onchain()
+    if not oc:
+        return chain_info
+    try:
+        block = oc.w3.eth.block_number
+        bal_wei = oc.w3.eth.get_balance(oc.facilitator.address) if oc.facilitator else 0
+        bal_avax = bal_wei / 1e18
+        chain_info = {
+            "mode": "read-only" if bal_avax < 0.01 else "live-write",
+            "block": block,
+            "facilitator": oc.facilitator.address if oc.facilitator else None,
+            "facilitatorBalanceAVAX": round(bal_avax, 6),
+            "explorer": f"https://testnet.snowtrace.io/block/{block}",
+            "note": "Live Fuji read succeeded" + (
+                "" if bal_avax >= 0.01 else
+                f" — fund {oc.facilitator.address} with ~2 AVAX at https://faucet.avax.network/ to enable real writes"
+            ),
+        }
+        # Pull real on-chain credit profile for whichever agent we touched
+        try:
+            settle = next((e for e in new_events if e["kind"] == "settle"), None)
+            target_id = settle["agentId"] if settle else 1
+            p = oc.get_credit_profile(int(target_id))
+            chain_info["onChainReputation"] = {"agentId": target_id, **p}
+        except Exception as rep_err:
+            chain_info["onChainReputationError"] = str(rep_err)[:120]
+        if bal_avax >= 0.01:
+            try:
+                import time as _t
+                ident = f"demo-click-{int(_t.time())}"
+                endpoint = f"https://agenthire.io/demo/{ident}"
+                result = oc.register_agent(oc.facilitator.address, ident, endpoint)
+                chain_info["liveTx"] = {
+                    "kind": "registerAgent",
+                    "txHash": result.get("txHash"),
+                    "snowtrace": result.get("snowtrace"),
+                    "onChainAgentId": result.get("agentId"),
+                }
+            except Exception as wx:
+                chain_info["liveTxError"] = str(wx)[:200]
+    except Exception as e:
+        chain_info = {"mode": "simulation", "chainError": str(e)[:200]}
+    return chain_info
+
+
 @app.route("/api/sim/trigger-direct", methods=["POST"])
 def api_sim_trigger_direct():
     """Direct agent-to-agent payment — caller picks sender, receiver, and
@@ -2210,7 +2260,9 @@ def api_sim_trigger_direct():
         if not r.get("ok"):
             return jsonify(r), 400
         new_events = [ev.to_dict() for ev in eng.events if ev.id > before_id]
-        return jsonify({"triggered": True, "newEvents": new_events, "count": len(new_events), **r})
+        chain_info = _chain_overlay_for(new_events)
+        return jsonify({"triggered": True, "newEvents": new_events,
+                        "count": len(new_events), "chain": chain_info, **r})
     except Exception as e:
         app.logger.warning("trigger-direct error: %s", e)
         return jsonify({"error": str(e)}), 500
@@ -2296,57 +2348,7 @@ def api_sim_trigger_a2a():
             app.logger.warning("trigger-a2a error: %s", e)
             return jsonify({"error": str(e)}), 500
     new_events = [ev.to_dict() for ev in eng.events if ev.id > before_id]
-
-    # ── Live-chain overlay ───────────────────────────────────────────────
-    chain_info = {"mode": "simulation"}
-    oc = _get_onchain()
-    if oc:
-        try:
-            # Always-on read — proves we're actually talking to Fuji
-            block = oc.w3.eth.block_number
-            if oc.facilitator:
-                bal_wei = oc.w3.eth.get_balance(oc.facilitator.address)
-            else:
-                bal_wei = 0
-            bal_avax = bal_wei / 1e18
-            chain_info = {
-                "mode": "read-only" if bal_avax < 0.01 else "live-write",
-                "block": block,
-                "facilitator": oc.facilitator.address if oc.facilitator else None,
-                "facilitatorBalanceAVAX": round(bal_avax, 6),
-                "explorer": f"https://testnet.snowtrace.io/block/{block}",
-                "note": "Live Fuji read succeeded" + (
-                    "" if bal_avax >= 0.01 else
-                    f" — fund {oc.facilitator.address} with ~2 AVAX at https://faucet.avax.network/ to enable real writes"
-                ),
-            }
-            # Pull real on-chain credit profile for the primary agent to show
-            # the ReputationContract is responsive.
-            try:
-                settle = next((e for e in new_events if e["kind"] == "settle"), None)
-                target_id = settle["agentId"] if settle else 1
-                p = oc.get_credit_profile(int(target_id))
-                chain_info["onChainReputation"] = {"agentId": target_id, **p}
-            except Exception as rep_err:
-                chain_info["onChainReputationError"] = str(rep_err)[:120]
-
-            # If funded, actually write something on-chain per click
-            if bal_avax >= 0.01:
-                try:
-                    import time as _t
-                    ident = f"demo-click-{int(_t.time())}"
-                    endpoint = f"https://agenthire.io/demo/{ident}"
-                    result = oc.register_agent(oc.facilitator.address, ident, endpoint)
-                    chain_info["liveTx"] = {
-                        "kind": "registerAgent",
-                        "txHash": result.get("txHash"),
-                        "snowtrace": result.get("snowtrace"),
-                        "onChainAgentId": result.get("agentId"),
-                    }
-                except Exception as wx:
-                    chain_info["liveTxError"] = str(wx)[:200]
-        except Exception as e:
-            chain_info = {"mode": "simulation", "chainError": str(e)[:200]}
+    chain_info = _chain_overlay_for(new_events)
 
     return jsonify({
         "triggered": True,
