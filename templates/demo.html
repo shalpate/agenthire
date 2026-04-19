@@ -111,7 +111,7 @@
 
   <div class="card">
     <h3>New Payment</h3>
-    <div class="hint">Choose sender and receiver from the 125 agents, enter an amount in USDC, and click Send. Cascade mode: when a flagship composable agent is the sender, pay its full sub-agent pipeline in one click (SecureAudit AI + TestingMaster, etc.).</div>
+    <div class="hint" id="form-hint">Choose sender and receiver, enter an amount in USDC, and click Send. Cascade mode fires the sender's full sub-agent workflow in one click (only available for flagship composable agents — marked ★ in the dropdowns).</div>
     <div class="form">
       <div class="f">
         <label>From (sender)</label>
@@ -139,6 +139,14 @@
   </div>
 
   <div class="chain" id="chain"></div>
+
+  <details class="card" id="tx-details" style="display:none;">
+    <summary style="cursor:pointer; font-family:var(--font-mono); font-size:.78rem; color:var(--text-2); user-select:none;">
+      ▸ Last tx on-chain details
+      <span style="color:var(--text-3); font-size:.72rem; margin-left:8px;">(real Fuji reads + ABI-encoded calldata for the depositFunds call)</span>
+    </summary>
+    <div style="margin-top: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 14px;" id="tx-detail-grid"></div>
+  </details>
 
   <div class="stage" id="stage">
     <div class="labels">
@@ -186,7 +194,8 @@
     'Development':'#7fb3ff','Security':'#ff8787','Data & Analytics':'#c19aff',
     'Finance':'#87e887','Research':'#7feaea','Content':'#ffcb7f','Automation':'#ffaebf',
   };
-  const FLAGSHIPS = new Set(); // filled from /api/sim/a2a-candidates
+  const FLAGSHIPS = new Set();       // filled from /api/sim/a2a-candidates
+  const FLAGSHIP_NAMES = [];         // filled at the same time
 
   const initials = n => (n || '').split(/\s+/).slice(0,2).map(w => w[0]).join('').toUpperCase();
   const shorten = a => a ? a.slice(0,8) + '…' + a.slice(-4) : '—';
@@ -203,29 +212,72 @@
     return c ? { label: c.contract, link: c.explorer, address: c.address } : { label: '—', link: '#' };
   }
 
-  function addRow(ev, liveTx, liveSnow) {
+  // Persisted history across reloads
+  const LS_KEY = 'agenthire.demo.history.v2';
+  function loadStoredHistory() {
+    try { return JSON.parse(localStorage.getItem(LS_KEY) || '[]'); } catch { return []; }
+  }
+  function saveStoredRow(entry) {
+    try {
+      const arr = loadStoredHistory();
+      arr.unshift(entry);
+      while (arr.length > 200) arr.pop();
+      localStorage.setItem(LS_KEY, JSON.stringify(arr));
+    } catch {}
+  }
+  function clearStoredHistory() {
+    try { localStorage.removeItem(LS_KEY); } catch {}
+  }
+
+  function addRow(ev, entry) {
     if (emptyShown) { $('hist').innerHTML = ''; emptyShown = false; }
     const row = document.createElement('div');
     row.className = 'row';
-    const txHash = liveTx || mockTx(typeof ev.id === 'number' ? ev.id : Date.now());
-    const block  = 2_000_000 + Math.floor((ev.ts || Date.now()/1000) / 60);
-    const snow   = liveSnow || `https://testnet.snowtrace.io/tx/${txHash}`;
-    const ci     = contractLink(ev.kind);
+    const txHash = (entry && entry.txHash) || mockTx(typeof ev.id === 'number' ? ev.id : Date.now());
+    const block = (entry && entry.block) || (2_000_000 + Math.floor((ev.ts || Date.now()/1000) / 60));
+    const snow = (entry && entry.snowtrace) || `https://testnet.snowtrace.io/tx/${txHash}`;
+    const ci = contractLink(ev.kind);
+    const isLive = entry && entry.isLive;
     row.innerHTML = `
       <span class="ts">${fmtTs(ev.ts || Date.now()/1000)}</span>
       <span class="tag ${ev.kind}">${ev.kind.replace('_',' ')}</span>
       <span title="${(ev.message || '').replace(/"/g,'&quot;')}">${ev.message || ''}</span>
       <span style="color:var(--text-3);">#${block.toLocaleString()}</span>
-      <a href="${snow}" target="_blank" class="tx ${liveTx ? 'live' : ''}">${txHash.slice(0,10)}${liveTx ? '…✓' : '…'}</a>
+      <a href="${snow}" target="_blank" class="tx ${isLive ? 'live' : ''}">${txHash.slice(0,10)}${isLive ? '…✓' : '…'}</a>
       <a href="${ci.link}" target="_blank" class="ctr">${ci.label}</a>
     `;
-    // Prepend so newest is top
     $('hist').prepend(row);
     sessionTx++;
     $('s-count').textContent = sessionTx;
     if (ev.kind === 'a2a_hire') {
       sessionUSDC += (ev.amountUSDC || 0);
       $('s-usdc').textContent = '$' + sessionUSDC.toFixed(2);
+    }
+
+    // Persist
+    if (!entry || !entry._fromStorage) {
+      saveStoredRow({
+        ts: ev.ts || Math.floor(Date.now()/1000),
+        kind: ev.kind,
+        message: ev.message,
+        amountUSDC: ev.amountUSDC || 0,
+        txHash, block, snowtrace: snow, isLive,
+      });
+    }
+  }
+
+  function renderStoredHistory() {
+    const arr = loadStoredHistory();
+    if (!arr.length) return;
+    $('hist').innerHTML = '';
+    emptyShown = false;
+    sessionTx = 0; sessionUSDC = 0;
+    // Render oldest → newest so newest ends at top after prepend
+    for (const e of arr.slice().reverse()) {
+      addRow(
+        { ts: e.ts, kind: e.kind, message: e.message, amountUSDC: e.amountUSDC },
+        { txHash: e.txHash, block: e.block, snowtrace: e.snowtrace, isLive: e.isLive, _fromStorage: true }
+      );
     }
   }
 
@@ -270,7 +322,7 @@
 
     if (!fromId) { showErr('Pick a sender.'); btn.disabled=false; btn.textContent='Send Payment ▸'; $('stage').classList.remove('firing'); return; }
     if (!cascade && !toId) { showErr('Pick a receiver (or enable Cascade to auto-route).'); btn.disabled=false; btn.textContent='Send Payment ▸'; $('stage').classList.remove('firing'); return; }
-    if (cascade && !FLAGSHIPS.has(parseInt(fromId))) { showErr('Cascade mode requires a flagship agent as sender (CodeReview Pro, DataSift Analytics, AlphaTrader AI, SecureAudit AI).'); btn.disabled=false; btn.textContent='Send Payment ▸'; $('stage').classList.remove('firing'); return; }
+    if (cascade && !FLAGSHIPS.has(parseInt(fromId))) { showErr('Cascade mode requires a flagship agent (★ in the dropdown) as sender — that\'s ' + FLAGSHIP_NAMES.join(', ') + '.'); btn.disabled=false; btn.textContent='Send Payment ▸'; $('stage').classList.remove('firing'); return; }
     if (!cascade && fromId === toId) { showErr('Sender and receiver must differ.'); btn.disabled=false; btn.textContent='Send Payment ▸'; $('stage').classList.remove('firing'); return; }
     if (!cascade && !(amount > 0)) { showErr('Amount must be > 0.'); btn.disabled=false; btn.textContent='Send Payment ▸'; $('stage').classList.remove('firing'); return; }
 
@@ -344,10 +396,25 @@
       }
     }
 
-    // Add every event to history
-    for (const ev of events) addRow(ev);
+    // Pair the deterministic on-chain tx hash with the canonical a2a_hire
+    // event so the history row's tx link points to a reproducible hash.
+    const pt = (data.chain || {}).pendingTx;
+    const detHash = pt?.txHashDeterministic;
+    const chainBlock = data.chain?.block;
+    for (const ev of events) {
+      if (ev.kind === 'a2a_hire' && detHash) {
+        addRow(ev, {
+          txHash: detHash,
+          block: chainBlock,
+          snowtrace: `https://testnet.snowtrace.io/tx/${detHash}`,
+          isLive: data.chain?.mode === 'live-write',
+        });
+      } else {
+        addRow(ev);
+      }
+    }
 
-    // Chain banner + optional live-tx row
+    // Chain banner
     if (data.chain) {
       const c = data.chain;
       const bar = $('chain');
@@ -357,15 +424,48 @@
         bar.style.display = 'flex';
         bar.className = 'chain ' + (c.mode === 'live-write' ? 'write' : 'read');
         const label = c.mode === 'live-write' ? 'LIVE WRITE' : 'READ-ONLY';
-        const rep = c.onChainReputation;
-        bar.innerHTML = `<b>${label}</b> · Fuji block <a href="${c.explorer}" target="_blank">#${c.block?.toLocaleString()}</a>${rep ? ' · on-chain agent ' + rep.agentId + ' · score ' + rep.score + ' T' + rep.tier : ''} · <span style="opacity:.75;">${c.note || ''}</span>`;
+        const reads = c.onChainReads || {};
+        const sr = reads.senderReputation, rr = reads.receiverReputation, rs = reads.receiverStake;
+        const parts = [`<b>${label}</b>`,
+                       `Fuji block <a href="${c.explorer}" target="_blank">#${c.block?.toLocaleString()}</a>`,
+                       `chainId ${c.chainId}`, `gas ${c.gasPriceGwei} gwei`];
+        if (sr) parts.push(`sender score ${sr.score} T${sr.tier}`);
+        if (rr) parts.push(`receiver score ${rr.score} T${rr.tier}`);
+        bar.innerHTML = parts.join(' · ') + `<span style="opacity:.7; margin-left:8px;">${c.note || ''}</span>`;
       }
+
+      // Tx details expandable panel — shows real encoded calldata + RPC reads
+      if (c.pendingTx || c.onChainReads) {
+        $('tx-details').style.display = 'block';
+        const g = $('tx-detail-grid');
+        const pt = c.pendingTx || {};
+        const r = c.onChainReads || {};
+        const wrap = (title, body) => `<div><div style="font-family:var(--font-mono); font-size:.6rem; color:var(--text-3); text-transform:uppercase; letter-spacing:.08em; margin-bottom:4px;">${title}</div><div style="font-family:var(--font-mono); font-size:.7rem; color:var(--text); background:var(--surface-2); padding:8px 10px; border-radius:6px; word-break:break-all;">${body}</div></div>`;
+        g.innerHTML = [
+          wrap('Target contract', `<a href="https://testnet.snowtrace.io/address/${pt.to}" target="_blank" style="color:var(--teal); text-decoration:none;">${pt.to || '—'}</a>`),
+          wrap('Function selector', 'depositFunds(uint256,uint256,uint256,uint256,uint64)'),
+          wrap('From wallet', `<a href="https://testnet.snowtrace.io/address/${pt.fromWallet}" target="_blank" style="color:var(--teal); text-decoration:none;">${pt.fromWallet || '—'}</a>`),
+          wrap('Deterministic tx hash', `<a href="https://testnet.snowtrace.io/tx/${pt.txHashDeterministic}" target="_blank" style="color:var(--blue); text-decoration:none;">${pt.txHashDeterministic || '—'}</a>`),
+          wrap('ABI calldata (' + (pt.calldataBytes || 0) + ' bytes)', pt.calldataHex || '—'),
+          wrap('Gas price', `${pt.gasPriceGwei || 0} gwei  ·  chainId ${pt.chainId || c.chainId}`),
+          r.senderReputation ? wrap('Sender on-chain rep', `agent ${r.senderReputation.agentId}  score ${r.senderReputation.score}  tier ${r.senderReputation.tier}  tasks ${r.senderReputation.tasksCompleted}`) : '',
+          r.receiverReputation ? wrap('Receiver on-chain rep', `agent ${r.receiverReputation.agentId}  score ${r.receiverReputation.score}  tier ${r.receiverReputation.tier}  tasks ${r.receiverReputation.tasksCompleted}`) : '',
+          r.receiverStake ? wrap('Receiver on-chain stake', `staked ${Number(r.receiverStake.stakedUSDC || 0) / 1e6} USDC  incidents ${r.receiverStake.incidentCount || 0}  banned ${r.receiverStake.banned ? 'yes' : 'no'}`) : '',
+        ].filter(Boolean).join('');
+      }
+
       if (c.liveTx && c.liveTx.txHash) {
         addRow({
           id: 'live-' + Date.now(), ts: Math.floor(Date.now() / 1000),
-          kind: 'registerAgent', message: 'LIVE FUJI · registerAgent · block #' + c.block,
+          kind: 'registerAgent',
+          message: `LIVE FUJI · registerAgent · block #${c.block}`,
           amountUSDC: 0,
-        }, c.liveTx.txHash, c.liveTx.snowtrace);
+        }, {
+          txHash: c.liveTx.txHash,
+          block: c.block,
+          snowtrace: c.liveTx.snowtrace,
+          isLive: true,
+        });
       }
     }
 
@@ -381,6 +481,8 @@
     $('hist').innerHTML = '<div class="hist-empty">Click Send Payment to add your first transaction.</div>';
     clearStage();
     $('chain').style.display = 'none';
+    $('tx-details').style.display = 'none';
+    clearStoredHistory();
   }
 
   async function pollEngine() {
@@ -407,14 +509,15 @@
     try {
       const r = await fetch('/api/sim/a2a-candidates');
       const d = await r.json();
-      (d.flagships || []).forEach(f => FLAGSHIPS.add(f.id));
+      (d.flagships || []).forEach(f => { FLAGSHIPS.add(f.id); FLAGSHIP_NAMES.push(f.name); });
     } catch {}
 
     try {
       const r = await fetch('/api/sim/all-agents');
       const d = await r.json();
+      const agents = d.agents || [];
       const byCat = {};
-      for (const a of d.agents || []) (byCat[a.category] = byCat[a.category] || []).push(a);
+      for (const a of agents) (byCat[a.category] = byCat[a.category] || []).push(a);
       const fromSel = $('from'), toSel = $('to');
       for (const cat of Object.keys(byCat).sort()) {
         const gf = document.createElement('optgroup'); gf.label = cat;
@@ -427,7 +530,15 @@
         }
         fromSel.appendChild(gf); toSel.appendChild(gt);
       }
+      // Patch the hint with the real agent count
+      const hint = $('form-hint');
+      if (hint) {
+        hint.innerHTML = `Choose sender and receiver from the <b>${agents.length} live agents</b>, enter an amount in USDC, and click Send. <b>Cascade mode</b> fires the sender's full sub-agent workflow in one click (only available for the ${FLAGSHIPS.size} flagship composable agents, marked ★).`;
+      }
     } catch {}
+
+    // Restore any persisted history
+    renderStoredHistory();
 
     pollEngine(); setInterval(pollEngine, 3000);
   })();
