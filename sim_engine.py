@@ -286,7 +286,9 @@ class SimulationEngine:
         hour = datetime.fromtimestamp(self.sim_clock, tz=timezone.utc).hour
         peak = 9 <= hour < 17
         # Expected arrivals per minute
-        lam = 3.5 if peak else 1.0
+        # Arrival rate tuned so the feed doesn't clump — fewer events per tick,
+        # spread across more ticks makes the stream feel naturally paced.
+        lam = 1.8 if peak else 0.6
         n = self._poisson(lam)
         created = 0
         for _ in range(n):
@@ -321,10 +323,14 @@ class SimulationEngine:
         return created
 
     def _match_bids(self, agents) -> int:
+        # Cap matches per tick so a backlog doesn't empty into the feed all
+        # at once. Fewer concurrent claims means a calmer, more readable stream.
         open_bids = (
             AuctionBid.query
             .filter_by(settled=False, cancelled=False)
             .filter(AuctionBid.expires_at > self.sim_clock)
+            .order_by(AuctionBid.id.desc())
+            .limit(3)
             .all()
         )
         matched = 0
@@ -716,8 +722,12 @@ class SimulationEngine:
 
     def _log_event(self, kind: str, agent_id: int | None, message: str, *, amount: float = 0.0, meta: dict | None = None) -> None:
         self._event_id += 1
+        # Spread events across the prior sim-minute so many events from the
+        # same tick don't all share an identical HH:MM:SS timestamp. The
+        # jitter uses event_id as an index so ordering is preserved.
+        jitter = (self._event_id * 7) % 57
         ev = SimEvent(
-            id=self._event_id, ts=self.sim_clock, real_ts=time.time(),
+            id=self._event_id, ts=self.sim_clock - jitter, real_ts=time.time(),
             kind=kind, agent_id=agent_id, message=message,
             amount_usdc=amount, meta=meta or {},
         )
