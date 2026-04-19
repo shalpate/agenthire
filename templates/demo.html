@@ -636,13 +636,20 @@
       $('oc-lastcall').textContent = now + ' · ' + rpcCallCount + ' calls';
       const rep = d.reputation || {};
       const stake = d.stake || {};
-      const stakedUsdc = Number(stake.stakedUSDC || 0) / 1e6;
+      const stakedUsdc = Number(stake.stakedUSDC ?? stake.stakedUSDCDisplay ?? 0) / (stake.stakedUSDCDisplay ? 1 : 1e6);
+      const onchain = d.source === 'on-chain';
+      const badgeText = onchain
+        ? `Fuji ✓ #${d.block?.toLocaleString()}`
+        : `sim (not yet on-chain)`;
+      const badgeStyle = onchain
+        ? ''
+        : 'background:rgba(255,170,0,.15); border-color:rgba(255,170,0,.35); color:var(--amber);';
       el.innerHTML = `
-        <span class="vl-badge">Fuji ✓ #${d.block?.toLocaleString()}</span>
+        <span class="vl-badge" style="${badgeStyle}">${badgeText}</span>
         <span class="vl-metric"><span class="k">score</span><span class="v">${rep.score ?? '—'}</span></span>
         <span class="vl-metric"><span class="k">tier</span><span class="v">T${rep.tier ?? '—'}</span></span>
-        <span class="vl-metric"><span class="k">tasks</span><span class="v">${rep.tasksCompleted ?? '—'}</span></span>
-        <span class="vl-metric"><span class="k">stake</span><span class="v">${stakedUsdc.toFixed(0)} USDC</span></span>
+        <span class="vl-metric"><span class="k">tasks</span><span class="v">${(rep.tasksCompleted ?? 0).toLocaleString()}</span></span>
+        <span class="vl-metric"><span class="k">stake</span><span class="v">${(stake.stakedUSDCDisplay ?? (Number(stake.stakedUSDC || 0)/1e6)).toLocaleString()} USDC</span></span>
         <span class="vl-metric"><span class="k">incidents</span><span class="v">${stake.incidentCount ?? 0}</span></span>
       `;
     } catch (e) {

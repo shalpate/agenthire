@@ -2339,34 +2339,88 @@ def api_sim_trigger_direct():
 
 @app.route("/api/sim/agent-onchain/<int:agent_id>")
 def api_sim_agent_onchain(agent_id):
-    """Per-agent live Fuji read. Used by the /demo picker so each
-    dropdown selection triggers a visible RPC round-trip and surfaces
-    on-chain rep + stake right next to the dropdown."""
+    """Per-agent profile. Tries to read live from the deployed Fuji
+    contracts; falls back to the DB-backed OnchainProfile for agents
+    not yet registered on-chain so judges see each agent's real
+    dynamic state, not a default-zero fill.
+    """
+    from models import Agent as AgentModel, OnchainProfile
+    a = AgentModel.query.get(agent_id)
+    if not a:
+        return jsonify({"error": "agent not found"}), 404
+
+    db_profile = OnchainProfile.query.get(agent_id)
+
+    out = {"agentId": agent_id, "name": a.name, "category": a.category}
     oc = _get_onchain()
-    if not oc:
-        return jsonify({"mode": "offline", "error": "on-chain not configured"}), 503
-    out = {
-        "mode": "read-only",
-        "agentId": agent_id,
-        "rpcUrl": str(oc.w3.provider.endpoint_uri),
-        "chainId": int(oc.w3.eth.chain_id),
-    }
-    try:
-        out["block"] = int(oc.w3.eth.block_number)
-    except Exception as e:
-        return jsonify({"error": str(e)[:120]}), 502
-    try:
-        out["reputation"] = oc.get_credit_profile(agent_id)
-    except Exception as e:
-        out["reputationError"] = str(e)[:120]
-    try:
-        out["stake"] = oc.get_stake(agent_id)
-    except Exception as e:
-        out["stakeError"] = str(e)[:120]
-    try:
-        out["listing"] = oc.get_listing(agent_id)
-    except Exception as e:
-        out["listingError"] = str(e)[:120]
+
+    # On-chain reads (real Fuji)
+    chain_rep = chain_stake = chain_listing = None
+    chain_block = None
+    if oc:
+        try:
+            chain_block = int(oc.w3.eth.block_number)
+            out["block"] = chain_block
+            out["chainId"] = int(oc.w3.eth.chain_id)
+            out["rpcUrl"] = str(oc.w3.provider.endpoint_uri)
+        except Exception as e:
+            out["chainError"] = str(e)[:120]
+        try:
+            chain_rep = oc.get_credit_profile(agent_id)
+        except Exception as e:
+            out["reputationError"] = str(e)[:120]
+        try:
+            chain_stake = oc.get_stake(agent_id)
+        except Exception as e:
+            out["stakeError"] = str(e)[:120]
+        try:
+            chain_listing = oc.get_listing(agent_id)
+        except Exception as e:
+            out["listingError"] = str(e)[:120]
+
+    # An agent is "actually on-chain" when the contract has non-default
+    # state for it. Default profile = score 500, tier 1, tasks 0.
+    on_chain = False
+    if chain_rep:
+        on_chain = (chain_rep.get("score", 500) != 500
+                    or chain_rep.get("tasksCompleted", 0) != 0
+                    or chain_rep.get("incidentCount", 0) != 0)
+
+    if on_chain:
+        out["source"] = "on-chain"
+        out["reputation"] = chain_rep
+        out["stake"] = chain_stake or {}
+        out["listing"] = chain_listing or {}
+    elif db_profile:
+        # Fall through to the simulation's dynamic state. Shape matches
+        # the on-chain reads so UI code is unaware of the difference
+        # beyond the source label.
+        out["source"] = "simulated (not yet registered on-chain)"
+        out["reputation"] = {
+            "score": db_profile.score,
+            "tier": db_profile.tier,
+            "tasksCompleted": db_profile.tasks_completed,
+            "incidentCount": db_profile.rep_incident_count,
+            "lastDecayTs": db_profile.last_decay_ts or 0,
+            "projectedScore": db_profile.score,
+        }
+        out["stake"] = {
+            "stakedUSDC": str(db_profile.staked_amount),
+            "stakedUSDCDisplay": round(db_profile.staked_amount / 1_000_000, 2),
+            "incidentCount": db_profile.stake_incident_count,
+            "banned": db_profile.banned,
+            "unstakeRequest": {"amount": "0", "availableAt": 0},
+        }
+        out["listing"] = {
+            "acceptingWork": db_profile.accepting_work,
+            "minPricePerToken": str(int(a.min_price * 1_000_000)),
+            "nonce": 0,
+        }
+        out["wallet"] = db_profile.wallet_address
+    else:
+        out["source"] = "no profile"
+        out["reputation"] = {}
+        out["stake"] = {}
     return jsonify(out)
 
 
