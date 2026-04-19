@@ -2337,6 +2337,65 @@ def api_sim_trigger_direct():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/api/sim/agent-onchain/<int:agent_id>")
+def api_sim_agent_onchain(agent_id):
+    """Per-agent live Fuji read. Used by the /demo picker so each
+    dropdown selection triggers a visible RPC round-trip and surfaces
+    on-chain rep + stake right next to the dropdown."""
+    oc = _get_onchain()
+    if not oc:
+        return jsonify({"mode": "offline", "error": "on-chain not configured"}), 503
+    out = {
+        "mode": "read-only",
+        "agentId": agent_id,
+        "rpcUrl": str(oc.w3.provider.endpoint_uri),
+        "chainId": int(oc.w3.eth.chain_id),
+    }
+    try:
+        out["block"] = int(oc.w3.eth.block_number)
+    except Exception as e:
+        return jsonify({"error": str(e)[:120]}), 502
+    try:
+        out["reputation"] = oc.get_credit_profile(agent_id)
+    except Exception as e:
+        out["reputationError"] = str(e)[:120]
+    try:
+        out["stake"] = oc.get_stake(agent_id)
+    except Exception as e:
+        out["stakeError"] = str(e)[:120]
+    try:
+        out["listing"] = oc.get_listing(agent_id)
+    except Exception as e:
+        out["listingError"] = str(e)[:120]
+    return jsonify(out)
+
+
+@app.route("/api/sim/chain-health")
+def api_sim_chain_health():
+    """Lightweight endpoint polled by the always-on chain strip.
+    Returns current block + gas + facilitator balance — fast single-read."""
+    oc = _get_onchain()
+    if not oc:
+        return jsonify({"mode": "offline"}), 503
+    try:
+        block = int(oc.w3.eth.block_number)
+        gas = int(oc.w3.eth.gas_price)
+        bal = 0
+        if oc.facilitator:
+            bal = int(oc.w3.eth.get_balance(oc.facilitator.address))
+        return jsonify({
+            "mode": "live-write" if bal / 1e18 >= 0.01 else "read-only",
+            "block": block,
+            "gasPriceGwei": round(gas / 1e9, 3),
+            "facilitator": oc.facilitator.address if oc.facilitator else None,
+            "facilitatorAVAX": round(bal / 1e18, 6),
+            "chainId": int(oc.w3.eth.chain_id),
+            "rpcUrl": str(oc.w3.provider.endpoint_uri),
+        })
+    except Exception as e:
+        return jsonify({"mode": "offline", "error": str(e)[:120]}), 502
+
+
 @app.route("/api/sim/post-bid", methods=["POST"])
 def api_sim_post_bid():
     """User-initiated bid post. Creates an AuctionBid that the sim engine

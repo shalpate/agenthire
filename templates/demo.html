@@ -100,6 +100,33 @@
   .hist-empty { padding: 50px; text-align: center; color: var(--text-3); font-family: var(--font-mono); font-size: .8rem; }
 
   .err { position: fixed; bottom: 20px; right: 20px; padding: 11px 14px; background: #3a0d0d; border: 1px solid #ff8787; border-radius: 7px; color: #ff8787; font-family: var(--font-mono); font-size: .78rem; z-index: 100; display: none; max-width: 360px; }
+
+  /* Always-on on-chain strip */
+  .onchain-strip { background: linear-gradient(90deg, rgba(95,227,227,.06), rgba(95,227,227,.02)); border: 1px solid rgba(95,227,227,.25); border-radius: 10px; padding: 10px 14px; margin-bottom: 14px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; font-family: var(--font-mono); font-size: .72rem; }
+  .onchain-strip .oc-k { color: var(--text-3); text-transform: uppercase; letter-spacing: .06em; font-size: .58rem; margin-right: 4px; }
+  .onchain-strip .oc-v { color: var(--text); font-weight: 700; }
+  .onchain-strip .oc-v.teal { color: var(--teal); }
+  .onchain-strip .oc-v.green { color: var(--green); }
+  .onchain-strip a { color: var(--blue); text-decoration: none; }
+  .onchain-strip a:hover { color: var(--teal); text-decoration: underline; }
+  .onchain-strip .new-block { animation: flashTeal .8s ease-out; }
+  @keyframes flashTeal { 0% { color: var(--teal); text-shadow: 0 0 6px rgba(95,227,227,.7); } 100% { color: var(--text); } }
+  .contract-dropdown { position: relative; cursor: pointer; }
+  .contract-dropdown:hover .cd-menu { display: block; }
+  .cd-menu { display: none; position: absolute; top: 100%; right: 0; background: var(--surface-2); border: 1px solid var(--border-2); border-radius: 7px; padding: 6px; z-index: 20; min-width: 280px; box-shadow: 0 6px 20px rgba(0,0,0,.3); margin-top: 4px; }
+  .cd-menu a { display: block; padding: 6px 10px; border-radius: 5px; color: var(--text) !important; font-family: var(--font-mono); font-size: .68rem; }
+  .cd-menu a:hover { background: var(--surface-1); }
+  .cd-menu .ctr-name { color: var(--teal); font-weight: 700; }
+  .cd-menu .ctr-addr { color: var(--text-3); font-size: .62rem; }
+
+  /* Per-pick verification under dropdown */
+  .verify-line { margin-top: 6px; padding: 7px 10px; background: rgba(95,227,227,.04); border: 1px solid rgba(95,227,227,.18); border-radius: 6px; font-family: var(--font-mono); font-size: .66rem; display: none; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .verify-line.show { display: flex; }
+  .verify-line .vl-badge { padding: 2px 6px; background: rgba(95,227,227,.15); border: 1px solid rgba(95,227,227,.35); border-radius: 4px; color: var(--teal); font-size: .58rem; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; }
+  .verify-line .vl-loading { color: var(--amber); }
+  .verify-line .vl-metric { display: inline-flex; gap: 4px; align-items: center; }
+  .verify-line .vl-metric .k { color: var(--text-3); }
+  .verify-line .vl-metric .v { color: var(--text); font-weight: 700; }
 </style>
 {% endblock %}
 
@@ -113,6 +140,20 @@
     <button class="btn ghost" id="btn-reset">Reset History</button>
   </div>
 
+  <div class="onchain-strip" id="onchain-strip">
+    <span><span class="oc-k">Chain</span><span class="oc-v" id="oc-chain">Avalanche Fuji (43113)</span></span>
+    <span><span class="oc-k">Block</span><a class="oc-v teal" id="oc-block" href="#" target="_blank">—</a></span>
+    <span><span class="oc-k">Gas</span><span class="oc-v" id="oc-gas">—</span></span>
+    <span><span class="oc-k">Mode</span><span class="oc-v" id="oc-mode">—</span></span>
+    <span><span class="oc-k">Facilitator</span><a class="oc-v" id="oc-facilitator" href="#" target="_blank" style="font-size:.66rem;">—</a></span>
+    <span><span class="oc-k">Last RPC</span><span class="oc-v" id="oc-lastcall">never</span></span>
+    <span style="flex:1;"></span>
+    <div class="contract-dropdown">
+      <span class="oc-v teal" style="cursor:pointer;">Contracts ▾</span>
+      <div class="cd-menu" id="cd-menu"></div>
+    </div>
+  </div>
+
   <div class="card">
     <h3>New Payment</h3>
     <div class="hint" id="form-hint">Choose sender and receiver, enter an amount in USDC, and click Send. Cascade mode fires the sender's full sub-agent workflow in one click (only available for flagship composable agents — marked ★ in the dropdowns).</div>
@@ -120,10 +161,12 @@
       <div class="f">
         <label>From (sender)</label>
         <select id="from"><option value="">Choose sender…</option></select>
+        <div class="verify-line" id="verify-from"></div>
       </div>
       <div class="f">
         <label>To (receiver)</label>
         <select id="to"><option value="">Choose receiver…</option></select>
+        <div class="verify-line" id="verify-to"></div>
       </div>
       <div class="f">
         <label>Amount (USDC)</label>
@@ -544,8 +587,75 @@
     } catch {}
   }
 
+  // ── Always-on chain strip: live block, gas, facilitator ──────────────────
+  let lastBlockSeen = 0;
+  let rpcCallCount = 0;
+  async function pollChainHealth() {
+    try {
+      const r = await fetch('/api/sim/chain-health');
+      if (!r.ok) return;
+      const s = await r.json();
+      rpcCallCount++;
+      const blockEl = $('oc-block');
+      if (s.block && s.block !== lastBlockSeen) {
+        lastBlockSeen = s.block;
+        blockEl.classList.remove('new-block'); void blockEl.offsetWidth;
+        blockEl.classList.add('new-block');
+      }
+      blockEl.textContent = '#' + (s.block?.toLocaleString() || '—');
+      blockEl.href = 'https://testnet.snowtrace.io/block/' + s.block;
+      $('oc-gas').textContent = (s.gasPriceGwei ?? 0) + ' gwei';
+      $('oc-mode').textContent = s.mode === 'live-write' ? 'LIVE WRITE' : 'READ-ONLY';
+      $('oc-mode').className = 'oc-v ' + (s.mode === 'live-write' ? 'green' : 'teal');
+      if (s.facilitator) {
+        $('oc-facilitator').textContent = s.facilitator.slice(0, 8) + '…' + s.facilitator.slice(-4);
+        $('oc-facilitator').href = 'https://testnet.snowtrace.io/address/' + s.facilitator;
+        $('oc-facilitator').title = `${s.facilitator}\n${s.facilitatorAVAX} AVAX`;
+      }
+      const now = new Date();
+      $('oc-lastcall').textContent = now.toISOString().slice(11, 19) + ' · ' + rpcCallCount + ' calls';
+    } catch {}
+  }
+
+  // ── Per-pick on-chain verification ───────────────────────────────────────
+  async function verifyAgentOnChain(agentId, slotId) {
+    const el = $(slotId);
+    if (!agentId) { el.classList.remove('show'); el.innerHTML = ''; return; }
+    el.classList.add('show');
+    el.innerHTML = '<span class="vl-badge">verifying</span><span class="vl-loading">reading Fuji…</span>';
+    try {
+      const r = await fetch(`/api/sim/agent-onchain/${agentId}`);
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({}));
+        el.innerHTML = '<span class="vl-badge" style="background:rgba(255,135,135,.15); color:#ff8787;">off-chain only</span><span class="vl-loading">' + (err.error || 'no chain data') + '</span>';
+        return;
+      }
+      const d = await r.json();
+      rpcCallCount++;
+      const now = new Date().toISOString().slice(11, 19);
+      $('oc-lastcall').textContent = now + ' · ' + rpcCallCount + ' calls';
+      const rep = d.reputation || {};
+      const stake = d.stake || {};
+      const stakedUsdc = Number(stake.stakedUSDC || 0) / 1e6;
+      el.innerHTML = `
+        <span class="vl-badge">Fuji ✓ #${d.block?.toLocaleString()}</span>
+        <span class="vl-metric"><span class="k">score</span><span class="v">${rep.score ?? '—'}</span></span>
+        <span class="vl-metric"><span class="k">tier</span><span class="v">T${rep.tier ?? '—'}</span></span>
+        <span class="vl-metric"><span class="k">tasks</span><span class="v">${rep.tasksCompleted ?? '—'}</span></span>
+        <span class="vl-metric"><span class="k">stake</span><span class="v">${stakedUsdc.toFixed(0)} USDC</span></span>
+        <span class="vl-metric"><span class="k">incidents</span><span class="v">${stake.incidentCount ?? 0}</span></span>
+      `;
+    } catch (e) {
+      el.innerHTML = '<span class="vl-badge" style="background:rgba(255,135,135,.15); color:#ff8787;">error</span><span>' + e.message + '</span>';
+    }
+  }
+
   $('btn-send').onclick = send;
   $('btn-reset').onclick = reset;
+
+  // On-chain verify fires when user picks an agent in either dropdown
+  $('from').addEventListener('change', e => verifyAgentOnChain(e.target.value, 'verify-from'));
+  $('to').addEventListener('change', e => verifyAgentOnChain(e.target.value, 'verify-to'));
 
   // ── Live panels: open bids / winners / surge ────────────────────────────
   async function refreshBids() {
@@ -712,12 +822,26 @@
     // Restore any persisted history
     renderStoredHistory();
 
+    // Populate the Contracts dropdown in the always-on chain strip
+    try {
+      const r = await fetch('/api/stack');
+      const d = await r.json();
+      const menu = $('cd-menu');
+      for (const [name, info] of Object.entries(d.contracts || {})) {
+        const a = document.createElement('a');
+        a.href = info.snowtrace; a.target = '_blank';
+        a.innerHTML = `<div class="ctr-name">${name}</div><div class="ctr-addr">${info.address}</div>`;
+        menu.appendChild(a);
+      }
+    } catch {}
+
     // Slow, readable polling — judges should see the marketplace
     // breathing, not flickering. Panels update once every few seconds.
-    pollEngine();   setInterval(pollEngine, 4000);
-    refreshBids();   setInterval(refreshBids, 6000);
-    refreshWinners();setInterval(refreshWinners, 6000);
-    refreshSurge();  setInterval(refreshSurge, 8000);
+    pollEngine();       setInterval(pollEngine, 4000);
+    pollChainHealth();  setInterval(pollChainHealth, 3000);  // new block ~every 2s on Fuji
+    refreshBids();      setInterval(refreshBids, 6000);
+    refreshWinners();   setInterval(refreshWinners, 6000);
+    refreshSurge();     setInterval(refreshSurge, 8000);
   })();
 })();
 </script>
