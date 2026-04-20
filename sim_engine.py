@@ -242,6 +242,50 @@ class SimulationEngine:
 
         reason = reason or f"direct payment: {from_agent.name} → {to_agent.name}"
 
+        # ── If live-writes is on and facilitator has AVAX, fire a REAL Fuji
+        #    MockUSDC.transfer from the facilitator to the receiver's wallet.
+        #    The real tx hash replaces the synthetic one below so judges can
+        #    click through to Snowtrace and see a receipt.
+        real_tx_hash = None
+        real_block_number = None
+        live_error = None
+        try:
+            import os as _os, sys as _sys
+            if _os.environ.get("AGENTHIRE_LIVE_WRITES", "").lower() in ("1","true","yes"):
+                _sys.path.insert(0, "/Users/nichar/agenthire")
+                from onchain import OnChain, ADDRESSES
+                from web3 import Web3
+                oc = OnChain.from_env()
+                if oc and oc.facilitator:
+                    usdc_abi = [{"type":"function","name":"transfer","stateMutability":"nonpayable",
+                                 "inputs":[{"name":"to","type":"address"},{"name":"amt","type":"uint256"}],
+                                 "outputs":[{"type":"bool"}]}]
+                    usdc = oc.w3.eth.contract(
+                        address=Web3.to_checksum_address(ADDRESSES["MockUSDC"]),
+                        abi=usdc_abi,
+                    )
+                    recipient = to_profile.wallet_address
+                    # Normalise to a valid address; if sim wallet is garbage hex, use facilitator as sink
+                    try: recipient = Web3.to_checksum_address(recipient)
+                    except Exception: recipient = oc.facilitator.address
+                    tx = usdc.functions.transfer(recipient, amount_micro).build_transaction({
+                        "from": oc.facilitator.address,
+                        "nonce": oc.w3.eth.get_transaction_count(oc.facilitator.address),
+                        "chainId": oc.w3.eth.chain_id,
+                        "gasPrice": oc.w3.eth.gas_price,
+                        "gas": 100_000,
+                    })
+                    signed = oc.facilitator.sign_transaction(tx)
+                    raw = signed.raw_transaction if hasattr(signed,'raw_transaction') else signed.rawTransaction
+                    h = oc.w3.eth.send_raw_transaction(raw)
+                    r = oc.w3.eth.wait_for_transaction_receipt(h, timeout=45)
+                    real_tx_hash = h.hex() if hasattr(h,'hex') else str(h)
+                    if not real_tx_hash.startswith("0x"):
+                        real_tx_hash = "0x" + real_tx_hash
+                    real_block_number = int(r.blockNumber)
+        except Exception as _e:
+            live_error = str(_e)[:160]
+
         # Log as a pseudo-settle on the sender so the demo UI has context
         self._log_event(
             "settle", from_agent.id,
@@ -251,9 +295,11 @@ class SimulationEngine:
         )
 
         # Deposit-style tx from sender wallet → escrow
+        tx_hash_to_store = real_tx_hash or _mock_tx_hash(from_agent.id, 80_000 + self._event_id)
+        block_to_store = real_block_number or (2_000_000 + self.tick_count * 100 + self._event_id)
         db.session.add(ChainTransaction(
-            tx_hash=_mock_tx_hash(from_agent.id, 80_000 + self._event_id),
-            block_number=2_000_000 + self.tick_count * 100 + self._event_id,
+            tx_hash=tx_hash_to_store,
+            block_number=block_to_store,
             ts=self.sim_clock, kind="a2a_hire",
             agent_id=to_agent.id,
             from_addr=from_profile.wallet_address,
@@ -262,6 +308,8 @@ class SimulationEngine:
             meta=json.dumps({
                 "primaryAgentId": from_agent.id, "primaryAgentName": from_agent.name,
                 "subAgentName": to_agent.name, "trigger": reason, "direct": True,
+                "real": bool(real_tx_hash),
+                **({"liveError": live_error} if live_error else {}),
             }),
         ))
         self._log_event(

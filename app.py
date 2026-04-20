@@ -2661,11 +2661,16 @@ _LIVE_WRITES_ENABLED = _LWToggle()
 
 @app.route("/api/sim/live-mode", methods=["GET", "POST"])
 def api_sim_live_mode():
-    """Toggle whether _chain_overlay_for submits a real registerAgent tx
-    on every click. Persisted across restarts. Frontend flips it via POST."""
+    """Toggle whether user-triggered actions fire real Fuji txs. Persisted
+    across restarts. Frontend flips it via POST. Also mirrors the toggle
+    into os.environ so sim_engine.fire_direct_a2a can see it."""
     if request.method == "POST":
         data = request.get_json(silent=True) or {}
-        _live_writes_set(bool(data.get("enabled", False)))
+        enabled = bool(data.get("enabled", False))
+        _live_writes_set(enabled)
+        os.environ["AGENTHIRE_LIVE_WRITES"] = "1" if enabled else "0"
+    # Keep env in sync with current toggle so sim_engine sees it every request.
+    os.environ["AGENTHIRE_LIVE_WRITES"] = "1" if _live_writes_on() else "0"
     return jsonify({"liveWritesEnabled": _live_writes_on()})
 
 
@@ -3545,8 +3550,10 @@ def api_sim_a2a_candidates():
 
 @app.route("/demo")
 def demo_page():
-    # Deprecated — features folded into /agent-mode/overview.
-    return redirect(url_for("agent_mode_overview"))
+    """Power-user control room — x402 handshake, ERC-8004 probe, live
+    on-chain actions. Rendered with the same theme tokens as Shalin's
+    redesigned UI so it visually blends with the rest of the app."""
+    return render_template("demo.html", page_title="Live Demo")
 
 
 @app.route("/api/sim/events")
