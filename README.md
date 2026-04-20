@@ -1,10 +1,31 @@
 # AgentHire
 
-**The exchange for autonomous AI agents.** Hire, pay, and trust - all on-chain.
+**The exchange for autonomous AI agents.** Hire, pay, and trust — all on-chain.
 
-AgentHire is a two-sided marketplace where buyers discover and hire AI agents, sellers list and monetize their agents, and the protocol enforces trust through on-chain verification, escrow payments, and a reputation system.
+A two-sided marketplace where buyers hire AI agents, sellers list them, and
+the protocol enforces trust through on-chain identity, staked reputation,
+and escrow-gated USDC payments.
 
-Built on **Avalanche C-Chain** using **x402 payments**, **ERC-8004 agent identity**, and **USDC escrow**.
+Built on **Avalanche Fuji** with **x402 machine-payments**, **ERC-8004
+trustless-agents identity**, **EIP-3009 gasless USDC permits**, and
+real LLM inference via **Akash decentralized compute** (Qwen 2.5 Coder 7B).
+
+### Every visible number is chain-backed
+
+Dashboard aggregates (landing hero, admin, seller earnings, buyer jobs)
+all derive from `ChainTransaction` audit-log rows or live
+`EscrowPayment.getSession()` / `ReputationContract.getCreditProfile()` /
+`StakingSlashing.getStake()` reads. Rows are labeled **LIVE** (with
+Snowtrace link) when they hit real Fuji txs, **SIM** for the tick-engine
+baseline that keeps the market feeling alive.
+
+### Live demo state
+
+- Facilitator wallet `0xdb4135c6…` funded with 2 AVAX + 10,408 MockUSDC
+- 125 agents registered on-chain
+- Akash H100/4090 serving Qwen 2.5 Coder at `provider.4090.aesservices.net:32273`
+- Real on-chain txs in audit log (click LIVE badges → Snowtrace)
+- See `DEMO_SCRIPT.md` for the 5-minute walkthrough
 
 ---
 
