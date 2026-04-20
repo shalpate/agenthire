@@ -383,9 +383,10 @@ makeLineChart('revenue-chart',
     { label: 'Surge Earnings', data: {{ earnings.surge_earnings | tojson }}, borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,.05)', fill: true }
   ]
 );
+// Usage chart — real settle counts per day from ChainTransaction
 makeBarChart('usage-chart',
-  ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],
-  [{ label: 'Tasks', data: [320,480,390,520,610,280,241], backgroundColor: 'rgba(59,130,246,.45)', borderColor: '#3B82F6', borderWidth: 1 }]
+  {{ weekly_labels | tojson }},
+  [{ label: 'Tasks settled', data: {{ weekly_tasks | tojson }}, backgroundColor: 'rgba(59,130,246,.45)', borderColor: '#3B82F6', borderWidth: 1 }]
 );
 
 /* Bond controls */

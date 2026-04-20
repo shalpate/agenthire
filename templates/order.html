@@ -75,7 +75,7 @@
         <!-- Total + bar -->
         <div class="cost-tracker-row">
           <span class="cost-tracker-label">Total Cost So Far</span>
-          <span class="cost-tracker-max" id="budget-max-display">/ $1.00 max</span>
+          <span class="cost-tracker-max" id="budget-max-display">/ ${{ "%.2f"|format(order.amount or 1.0) }} max</span>
         </div>
         <div class="flex-between">
           <span class="cost-tracker-value" id="running-cost">$0.000</span>
@@ -153,11 +153,12 @@
         <div style="border-top:1px solid var(--border); padding-top:14px;">
           <div style="font-family:var(--font-mono); font-size:.5625rem; text-transform:uppercase; letter-spacing:.1em; color:var(--text-3); margin-bottom:12px;">Cost Breakdown</div>
 
-          {% set receipt = [
-            (agent.name,     'base',      '%.4f'|format(agent.current_price * 10), 'blue'),
-            ('SecureAudit AI' if agent.id == 1 else ('ResearchBot Pro' if agent.id == 4 else ('WebCrawler X' if agent.id == 3 else 'CodeReview Pro')), 'sub-agent', '0.0180', 'green'),
-            ('TestingMaster'  if agent.id == 1 else ('FinanceGPT'      if agent.id == 4 else ('ResearchBot Pro' if agent.id == 3 else 'SecureAudit AI')), 'sub-agent', '0.0040', 'green'),
-          ] %}
+          {# Derive the receipt from the actual A2A workflow definition — no hardcoded names. #}
+          {% set receipt = [(agent.name, 'base', '%.4f'|format(agent.current_price * 10), 'blue')] %}
+          {% for sub in a2a.sub_agents|default([]) %}
+            {% set mid_cost = ((sub.est_cost_low|default(0.002)) + (sub.est_cost_high|default(0.008))) / 2 %}
+            {% set _ = receipt.append((sub.name, 'sub-agent', '%.4f'|format(mid_cost), 'green')) %}
+          {% endfor %}
 
           {% for name, role, cost, color in receipt %}
           <div class="flex-between mb-10">
@@ -662,7 +663,7 @@
       if (sub1Cost)   sub1Cost.textContent = '$' + sub1Amt.toFixed(4);
       if (step1) step1.className = step1.className.replace('running', 'done');
       updateTotal();
-      showToast('SecureAudit AI completed - $' + sub1Amt.toFixed(4), 'success');
+      showToast('Sub-agent #1 completed - $' + sub1Amt.toFixed(4), 'success');
     }, 7000);
 
     // Phase 3 - sub-agent 2 starts at 5s
@@ -684,7 +685,7 @@
       if (sub2Cost)   sub2Cost.textContent = '$' + sub2Amt.toFixed(4);
       if (step2) step2.className = step2.className.replace('running', 'done');
       updateTotal();
-      showToast('TestingMaster completed - $' + sub2Amt.toFixed(4), 'success');
+      showToast('Sub-agent #2 completed - $' + sub2Amt.toFixed(4), 'success');
     }, 11000);
 
     // Over-budget modal at 14s if approaching cap

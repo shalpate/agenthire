@@ -1253,9 +1253,28 @@ def seller_earnings():
                 "snowtrace": f"https://testnet.snowtrace.io/tx/{r.tx_hash}" if r.tx_hash else None,
             })
 
+    # Weekly settle counts per day (last 7 days) for the usage chart — live from CT
+    import datetime as _dt
+    weekly_labels, weekly_tasks = [], []
+    for i in range(6, -1, -1):
+        day_start_dt = (_dt.datetime.utcnow() - _dt.timedelta(days=i)).replace(hour=0, minute=0, second=0, microsecond=0)
+        day_end_dt   = day_start_dt + _dt.timedelta(days=1)
+        day_start = int(day_start_dt.replace(tzinfo=_dt.timezone.utc).timestamp())
+        day_end   = int(day_end_dt.replace(tzinfo=_dt.timezone.utc).timestamp())
+        if my_agent_ids:
+            n = db.session.query(db.func.count(CT.id)).filter(
+                CT.agent_id.in_(my_agent_ids), CT.kind == "settle",
+                CT.ts >= day_start, CT.ts < day_end
+            ).scalar() or 0
+        else:
+            n = 0
+        weekly_labels.append(day_start_dt.strftime("%a"))
+        weekly_tasks.append(int(n))
+
     return render_template("seller/earnings.html", earnings=earnings,
                            agents=my_agents, orders=orders,
-                           tx_history=tx_history)
+                           tx_history=tx_history,
+                           weekly_labels=weekly_labels, weekly_tasks=weekly_tasks)
 
 
 @app.route("/seller/agents/<int:agent_id>", methods=["GET", "POST"])

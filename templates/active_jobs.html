@@ -42,9 +42,9 @@
       </div>
 
       <!-- Actions -->
-      <div style="display:flex; gap:8px; flex-shrink:0;">
-        {% if order.status == 'in_escrow' %}
-        <button class="btn btn-gradient btn-sm" onclick="showToast('Release flow coming soon', 'info')">Release Payment</button>
+      <div style="display:flex; gap:8px; flex-shrink:0; align-items:center;">
+        {% if order.txHash %}
+        <a href="{{ order.snowtrace }}" target="_blank" class="btn btn-ghost btn-sm" style="font-size:.72rem;">Snowtrace ↗</a>
         {% endif %}
         <a href="/order/{{ order.id }}" class="btn btn-ghost btn-sm">View →</a>
       </div>
