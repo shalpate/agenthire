@@ -1580,6 +1580,44 @@ def api_stack():
     })
 
 
+@app.route("/api/llm/status")
+def api_llm_status():
+    """Probe the Akash-hosted LLM endpoint — does the configured URL respond
+    and is our model loaded? Used to gate the /generate endpoint."""
+    from llm import health
+    return jsonify(health())
+
+
+@app.route("/api/agents/<int:agent_id>/generate", methods=["POST"])
+def api_agent_generate(agent_id):
+    """Have this specific agent respond to a prompt via the Akash-hosted LLM.
+    The same base model answers as 125 different agents by swapping per-agent
+    system prompts (name, category, bio). Returns the generated text plus
+    token usage + latency so the UI can show proof of real inference."""
+    from llm import generate as llm_generate
+    from models import Agent
+    agent = Agent.query.get_or_404(agent_id)
+    body = request.get_json(silent=True) or {}
+    prompt = (body.get("prompt") or "").strip()
+    if not prompt:
+        return jsonify({"error": "prompt required"}), 400
+    try:
+        out = llm_generate(
+            prompt,
+            agent_name=agent.name,
+            agent_category=agent.category,
+            agent_bio=getattr(agent, "description", "") or "",
+            max_tokens=int(body.get("maxTokens", 400)),
+            temperature=float(body.get("temperature", 0.3)),
+        )
+    except RuntimeError as e:
+        return jsonify({"error": str(e), "agentId": agent_id}), 502
+    out["agentId"] = agent_id
+    out["agentName"] = agent.name
+    out["agentCategory"] = agent.category
+    return jsonify(out)
+
+
 @app.route("/api/agents/<int:agent_id>/erc8004")
 def api_agent_erc8004(agent_id):
     """ERC-8004 Trustless Agents adapter. Returns identity + score +
