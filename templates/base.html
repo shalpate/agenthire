@@ -84,11 +84,56 @@
         <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
       </svg>
     </button>
-    <button class="wallet-btn" id="wallet-btn" data-connected="false">
+    <button class="wallet-btn" id="wallet-btn" data-connected="false" type="button" onclick="__agentHireConnect(event)">
       <span>Connect Wallet</span>
     </button>
   </div>
 </nav>
+
+<!-- Wallet connect fallback — inline so nothing can silently break it.
+     If web3.js already wired via addEventListener, this still runs; the two
+     paths are idempotent (both check AgentHire.connected). -->
+<script>
+window.__agentHireConnect = async function(e) {
+  if (e && e.preventDefault) e.preventDefault();
+  console.log('[agenthire-inline] wallet button clicked');
+  try {
+    if (window.AgentHire && window.AgentHire.connected) {
+      console.log('[agenthire-inline] already connected:', window.AgentHire.address);
+      return;
+    }
+    if (!window.ethereum) {
+      alert('No browser wallet detected.\n\nInstall MetaMask, Rabby, or Coinbase Wallet (any EIP-1193 wallet extension), then reload this page.');
+      return;
+    }
+    // Prefer the existing web3.js connect flow if it's loaded — it wires
+    // every contract for downstream calls. Fall back to a minimal request.
+    if (window.AgentHire && typeof window.AgentHire.connectWallet === 'function') {
+      console.log('[agenthire-inline] using AgentHire.connectWallet()');
+      await window.AgentHire.connectWallet();
+      return;
+    }
+    console.log('[agenthire-inline] using direct eth_requestAccounts fallback');
+    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+    if (accounts && accounts[0]) {
+      const addr = accounts[0];
+      const short = addr.slice(0, 6) + '…' + addr.slice(-4);
+      const btn = document.getElementById('wallet-btn');
+      if (btn) {
+        btn.innerHTML = '<span style="font-family:var(--font-mono)">' + short + '</span>';
+        btn.setAttribute('data-connected', 'true');
+      }
+      document.cookie = 'buyer_wallet=' + addr + '; path=/; max-age=604800; SameSite=Lax';
+      document.cookie = 'seller_wallet=' + addr + '; path=/; max-age=604800; SameSite=Lax';
+      console.log('[agenthire-inline] connected:', addr);
+    }
+  } catch (err) {
+    const msg = (err && err.message) ? err.message : String(err);
+    console.error('[agenthire-inline] connect error:', err);
+    alert('Connect failed: ' + msg);
+  }
+};
+</script>
 
 <!-- ── Page Content ───────────────────────────────────────────────────────── -->
 {% block content %}{% endblock %}
