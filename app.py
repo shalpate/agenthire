@@ -1038,28 +1038,100 @@ def list_your_agent():
 
 @app.route("/agent-mode")
 def agent_mode():
-    import random, time
-    # Live task queue shown in the feed
-    task_feed = [
-        {"id": "task-8812", "agent": "CodeReview Pro",    "buyer": "0x3f8a…c12d", "status": "running",  "amount": 12.40,  "elapsed": "1m 12s", "category": "Development"},
-        {"id": "task-8810", "agent": "AlphaTrader AI",    "buyer": "0x91bc…44fa", "status": "escrow",   "amount": 27.00,  "elapsed": "—",      "category": "Finance"},
-        {"id": "task-8809", "agent": "TranslateFlow",     "buyer": "0xa72e…9b3c", "status": "complete", "amount": 3.20,   "elapsed": "2m 04s", "category": "Content"},
-        {"id": "task-8807", "agent": "DataSift Analytics","buyer": "0x5c1d…f02a", "status": "running",  "amount": 18.00,  "elapsed": "4m 37s", "category": "Data & Analytics"},
-        {"id": "task-8805", "agent": "SecureAudit AI",    "buyer": "0x8e44…1c9f", "status": "complete", "amount": 45.00,  "elapsed": "8m 52s", "category": "Security"},
-        {"id": "task-8803", "agent": "ResearchBot Pro",   "buyer": "0x2fa9…77e1", "status": "running",  "amount": 9.50,   "elapsed": "0m 48s", "category": "Research"},
-    ]
-    # Network stats
+    """Agent Mode — the "live network" page. All stats pulled from ChainTransaction
+    (deposits/settles/refunds), task feed pulled from the most recent audit rows."""
+    from models import ChainTransaction as CT
+    from sqlalchemy import func as sfn
+
+    # ── Live stats from the audit log ────────────────────────────────────
+    now = int(time.time())
+    day_ago = now - 86400
+    try:
+        deposits_24h = db.session.query(sfn.count(CT.id)).filter(CT.kind == "deposit", CT.ts >= day_ago).scalar() or 0
+        settles_24h  = db.session.query(sfn.count(CT.id)).filter(CT.kind == "settle",  CT.ts >= day_ago).scalar() or 0
+        active_sess  = db.session.query(sfn.count(CT.id)).filter(CT.kind == "deposit").scalar() or 0
+        settled_total = db.session.query(sfn.count(CT.id)).filter(CT.kind == "settle").scalar() or 0
+        deposit_micro = db.session.query(sfn.sum(CT.amount_usdc)).filter(CT.kind == "deposit").scalar() or 0
+        settle_micro  = db.session.query(sfn.sum(CT.amount_usdc)).filter(CT.kind == "settle").scalar() or 0
+        escrow_locked = max(0, (deposit_micro - settle_micro) / 1_000_000)
+        success_rate = round((settled_total / active_sess * 100), 1) if active_sess else 0.0
+    except Exception:
+        deposits_24h = settles_24h = active_sess = 0
+        escrow_locked = 0.0
+        success_rate = 0.0
+
+    # avg_latency_ms — rough: for each recent settle, compute (settle_ts - deposit_ts)
+    # for the same agent. Proxy since we don't index by session_id here.
+    avg_latency_ms = 0
+    try:
+        recent_pairs = (db.session.query(CT.ts, CT.kind, CT.meta)
+                        .filter(CT.kind.in_(["deposit", "settle"]))
+                        .order_by(CT.id.desc())
+                        .limit(200).all())
+        import json as _json
+        session_times = {}  # session_id -> [deposit_ts, settle_ts]
+        for ts, kind, meta_str in recent_pairs:
+            try:
+                m = _json.loads(meta_str or "{}")
+            except Exception:
+                m = {}
+            sid = m.get("sessionId") or m.get("session_id")
+            if sid is None: continue
+            session_times.setdefault(sid, [None, None])
+            session_times[sid][0 if kind == "deposit" else 1] = ts
+        deltas = [s[1] - s[0] for s in session_times.values() if s[0] and s[1] and s[1] > s[0]]
+        if deltas:
+            avg_latency_ms = int(sum(deltas) / len(deltas) * 1000)
+    except Exception:
+        pass
+
+    # Surge agents — use the sim surge flag as a proxy (pulled from DB profiles)
+    try:
+        from models import OnchainProfile
+        surge_agents = OnchainProfile.query.filter_by(surge_active=True).count()
+    except Exception:
+        surge_agents = 0
+
     stats = {
-        "active_sessions": random.randint(38, 64),
-        "tasks_24h":       random.randint(1800, 2400),
-        "avg_latency_ms":  random.randint(280, 420),
-        "escrow_locked":   round(random.uniform(8200, 11400), 2),
-        "success_rate":    round(random.uniform(97.1, 99.2), 1),
-        "surge_agents":    random.randint(3, 8),
+        "active_sessions": int(active_sess) - int(settled_total),
+        "tasks_24h":       int(settles_24h + deposits_24h),
+        "avg_latency_ms":  int(avg_latency_ms),
+        "escrow_locked":   round(escrow_locked, 2),
+        "success_rate":    success_rate,
+        "surge_agents":    int(surge_agents),
     }
-    # Agent registry snapshot
-    agents = AGENTS[:12]
-    return render_template("agent_mode.html", task_feed=task_feed, stats=stats, agents=agents)
+
+    # ── Live task feed — most recent ChainTransaction rows with a session ─
+    task_feed = []
+    try:
+        rows = (CT.query.filter(CT.kind.in_(["deposit", "settle"]))
+                .order_by(CT.id.desc()).limit(24).all())
+        import json as _json
+        for r in rows:
+            try:
+                m = _json.loads(r.meta or "{}")
+            except Exception:
+                m = {}
+            sid = m.get("sessionId") or m.get("session_id") or r.id
+            agent = next((a for a in AGENTS if a["id"] == r.agent_id), None)
+            elapsed = max(0, now - int(r.ts or now))
+            el_m, el_s = divmod(elapsed, 60)
+            task_feed.append({
+                "id": f"task-{sid}",
+                "agent": agent["name"] if agent else f"Agent #{r.agent_id}",
+                "buyer": (r.from_addr[:6] + "…" + r.from_addr[-4:]) if r.from_addr else "—",
+                "status": "complete" if r.kind == "settle" else "running",
+                "amount": round((r.amount_usdc or 0) / 1_000_000, 2),
+                "elapsed": f"{el_m}m {el_s:02d}s" if el_m < 60 else f"{el_m//60}h",
+                "category": agent["category"] if agent else "Automation",
+                "txHash": r.tx_hash,
+                "snowtrace": f"https://testnet.snowtrace.io/tx/{r.tx_hash}" if r.tx_hash else None,
+            })
+            if len(task_feed) >= 8: break
+    except Exception:
+        pass
+
+    return render_template("agent_mode.html", task_feed=task_feed, stats=stats, agents=AGENTS[:12])
 
 # ── Seller ─────────────────────────────────────────────────────────────────────
 

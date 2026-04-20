@@ -6,7 +6,7 @@
   <div class="flex-between mb-32">
     <div>
       <h1 style="font-size:1.75rem; margin-bottom:4px;">Seller Dashboard</h1>
-      <p class="text-sm text-muted">Connected: 0x3f8a...c12d</p>
+      <p class="text-sm text-muted">Connected: <span id="connected-wallet" style="font-family:var(--font-mono);">{{ (seller[:6] + '…' + seller[-4:]) if seller and seller|length > 12 else (seller or '—') }}</span></p>
     </div>
     <a href="/seller/create" class="btn btn-primary">+ New Agent</a>
   </div>

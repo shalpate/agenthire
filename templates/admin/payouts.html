@@ -24,27 +24,28 @@
       </div>
     </div>
 
-    <!-- Stats -->
+    <!-- Stats — from ChainTransaction aggregates -->
+    {% set pending = stats.total_volume - stats.usdc_settled %}
     <div class="grid-4 mb-32">
       <div class="stat-card">
         <div class="text-xs text-muted mb-8" style="text-transform:uppercase; letter-spacing:.06em;">Pending Release</div>
-        <div class="stat-value" style="color:var(--warning);">$5,060.50</div>
-        <div class="text-xs text-muted mt-8">2 payouts</div>
+        <div class="stat-value" style="color:var(--warning);">${{ "{:,.2f}".format(pending if pending > 0 else 0) }}</div>
+        <div class="text-xs text-muted mt-8">{{ stats.active_orders }} escrow sessions</div>
       </div>
       <div class="stat-card">
-        <div class="text-xs text-muted mb-8" style="text-transform:uppercase; letter-spacing:.06em;">Released (30d)</div>
-        <div class="stat-value" style="color:var(--success);">$2,640.20</div>
-        <div class="stat-change up mt-8">↑ On time</div>
+        <div class="text-xs text-muted mb-8" style="text-transform:uppercase; letter-spacing:.06em;">Released (lifetime)</div>
+        <div class="stat-value" style="color:var(--success);">${{ "{:,.2f}".format(stats.usdc_settled) }}</div>
+        <div class="stat-change up mt-8">{{ stats.settle_count }} settle events</div>
       </div>
       <div class="stat-card">
-        <div class="text-xs text-muted mb-8" style="text-transform:uppercase; letter-spacing:.06em;">On Hold</div>
-        <div class="stat-value" style="color:var(--error);">$180.00</div>
-        <div class="text-xs text-muted mt-8">1 disputed</div>
+        <div class="text-xs text-muted mb-8" style="text-transform:uppercase; letter-spacing:.06em;">Slashed (cumulative)</div>
+        <div class="stat-value" style="color:var(--error);">{{ stats.slash_count }}</div>
+        <div class="text-xs text-muted mt-8">Gatekeeper-signed incidents</div>
       </div>
       <div class="stat-card">
         <div class="text-xs text-muted mb-8" style="text-transform:uppercase; letter-spacing:.06em;">Protocol Revenue</div>
-        <div class="stat-value" style="color:var(--accent);">$142.83</div>
-        <div class="text-xs text-muted mt-8">10 bps collected</div>
+        <div class="stat-value" style="color:var(--accent);">${{ "{:,.2f}".format(stats.platform_fees) }}</div>
+        <div class="text-xs text-muted mt-8">10 bps of ${{ "{:,.0f}".format(stats.total_volume) }}</div>
       </div>
     </div>
 
