@@ -94,43 +94,80 @@
      If web3.js already wired via addEventListener, this still runs; the two
      paths are idempotent (both check AgentHire.connected). -->
 <script>
+// Direct-to-wallet connect: bypasses web3.js entirely so no timing / load /
+// ensureFuji quirk can silently swallow the click.
 window.__agentHireConnect = async function(e) {
   if (e && e.preventDefault) e.preventDefault();
-  console.log('[agenthire-inline] wallet button clicked');
+  console.log('[agenthire] wallet click');
+
+  if (!window.ethereum) {
+    alert('No browser wallet detected.\n\nInstall MetaMask, Rabby, or Coinbase Wallet, then reload this page.');
+    return;
+  }
+
+  let accounts = [];
   try {
-    if (window.AgentHire && window.AgentHire.connected) {
-      console.log('[agenthire-inline] already connected:', window.AgentHire.address);
-      return;
-    }
-    if (!window.ethereum) {
-      alert('No browser wallet detected.\n\nInstall MetaMask, Rabby, or Coinbase Wallet (any EIP-1193 wallet extension), then reload this page.');
-      return;
-    }
-    // Prefer the existing web3.js connect flow if it's loaded — it wires
-    // every contract for downstream calls. Fall back to a minimal request.
-    if (window.AgentHire && typeof window.AgentHire.connectWallet === 'function') {
-      console.log('[agenthire-inline] using AgentHire.connectWallet()');
-      await window.AgentHire.connectWallet();
-      return;
-    }
-    console.log('[agenthire-inline] using direct eth_requestAccounts fallback');
-    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-    if (accounts && accounts[0]) {
-      const addr = accounts[0];
-      const short = addr.slice(0, 6) + '…' + addr.slice(-4);
-      const btn = document.getElementById('wallet-btn');
-      if (btn) {
-        btn.innerHTML = '<span style="font-family:var(--font-mono)">' + short + '</span>';
-        btn.setAttribute('data-connected', 'true');
-      }
-      document.cookie = 'buyer_wallet=' + addr + '; path=/; max-age=604800; SameSite=Lax';
-      document.cookie = 'seller_wallet=' + addr + '; path=/; max-age=604800; SameSite=Lax';
-      console.log('[agenthire-inline] connected:', addr);
-    }
+    accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
   } catch (err) {
     const msg = (err && err.message) ? err.message : String(err);
-    console.error('[agenthire-inline] connect error:', err);
+    console.error('[agenthire] requestAccounts error:', err);
     alert('Connect failed: ' + msg);
+    return;
+  }
+
+  if (!accounts || !accounts[0]) {
+    alert('Wallet returned no account. Unlock your wallet extension and try again.');
+    return;
+  }
+
+  const addr = accounts[0];
+  console.log('[agenthire] connected:', addr);
+
+  // Try to switch to Avalanche Fuji (43113 / 0xa869). If the user rejects,
+  // still finish the connection — they can switch manually.
+  try {
+    await window.ethereum.request({
+      method: 'wallet_switchEthereumChain',
+      params: [{ chainId: '0xa869' }],
+    });
+  } catch (switchErr) {
+    if (switchErr && switchErr.code === 4902) {
+      try {
+        await window.ethereum.request({
+          method: 'wallet_addEthereumChain',
+          params: [{
+            chainId: '0xa869', chainName: 'Avalanche Fuji C-Chain',
+            nativeCurrency: { name: 'AVAX', symbol: 'AVAX', decimals: 18 },
+            rpcUrls: ['https://avalanche-fuji-c-chain-rpc.publicnode.com'],
+            blockExplorerUrls: ['https://testnet.snowtrace.io'],
+          }],
+        });
+      } catch (addErr) { console.warn('[agenthire] addChain rejected:', addErr); }
+    } else {
+      console.warn('[agenthire] switchChain rejected (ignoring):', switchErr);
+    }
+  }
+
+  // Persist + update nav button. Works even if web3.js isn't loaded yet.
+  const short = addr.slice(0, 6) + '…' + addr.slice(-4);
+  const btn = document.getElementById('wallet-btn');
+  if (btn) {
+    btn.innerHTML = '<span style="font-family:var(--font-mono)">' + short + '</span>';
+    btn.setAttribute('data-connected', 'true');
+  }
+  document.cookie = 'buyer_wallet=' + addr + '; path=/; max-age=604800; SameSite=Lax';
+  document.cookie = 'seller_wallet=' + addr + '; path=/; max-age=604800; SameSite=Lax';
+  if (window.AgentHire) {
+    window.AgentHire.address = addr;
+    window.AgentHire.connected = true;
+  }
+  window.dispatchEvent(new CustomEvent('agenthire:connected', { detail: { address: addr } }));
+
+  // If we're on a wallet-scoped page, reload with wallet param so the
+  // server-rendered page shows this buyer's history.
+  const walletPages = ['/active-jobs', '/past-jobs', '/seller/earnings'];
+  if (walletPages.includes(location.pathname) && !new URLSearchParams(location.search).get('wallet')) {
+    location.href = location.pathname + '?wallet=' + addr;
   }
 };
 </script>
