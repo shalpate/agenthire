@@ -1038,11 +1038,19 @@ def agent_mode_overview():
         "success_rate":    success_rate,
         "surge_agents":    int(surge_agents),
     }
+    # Task feed — prefer REAL on-chain rows (meta has real:true) at the top,
+    # so judges see verifiable Snowtrace txs first; fall back to sim rows.
     task_feed = []
     try:
-        rows = (CT.query.filter(CT.kind.in_(["deposit", "settle"]))
-                .order_by(CT.id.desc()).limit(24).all())
-        for r in rows:
+        real_rows = (CT.query.filter(CT.kind.in_(["deposit", "settle", "stake"]))
+                     .filter(CT.meta.like('%"real": true%'))
+                     .order_by(CT.id.desc()).limit(8).all())
+        sim_rows  = (CT.query.filter(CT.kind.in_(["deposit", "settle"]))
+                     .filter(~CT.meta.like('%"real": true%'))
+                     .order_by(CT.id.desc()).limit(16).all())
+        combined = list(real_rows) + list(sim_rows)
+
+        for r in combined:
             try: m = _json.loads(r.meta or "{}")
             except Exception: m = {}
             sid = m.get("sessionId") or m.get("session_id") or r.id
@@ -1051,7 +1059,7 @@ def agent_mode_overview():
             el_m, el_s = divmod(elapsed, 60)
             task_feed.append({
                 "id": f"task-{sid}",
-                "agent": agent["name"] if agent else f"Agent #{r.agent_id}",
+                "agent": agent["name"] if agent else (f"Agent #{r.agent_id}" if r.agent_id else "—"),
                 "buyer": (r.from_addr[:6] + "…" + r.from_addr[-4:]) if r.from_addr else "—",
                 "status": "complete" if r.kind == "settle" else "running",
                 "amount": round((r.amount_usdc or 0) / 1_000_000, 2),
@@ -1059,8 +1067,10 @@ def agent_mode_overview():
                 "category": agent["category"] if agent else "Automation",
                 "txHash": r.tx_hash,
                 "snowtrace": f"https://testnet.snowtrace.io/tx/{r.tx_hash}" if r.tx_hash else None,
+                "real": bool(m.get("real")),
+                "kind": r.kind,
             })
-            if len(task_feed) >= 8: break
+            if len(task_feed) >= 12: break
     except Exception: pass
     return render_template("agent_mode.html", task_feed=task_feed, stats=stats, agents=AGENTS[:12])
 

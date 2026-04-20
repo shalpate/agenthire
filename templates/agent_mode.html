@@ -75,15 +75,13 @@
           <div style="text-align:right; flex-shrink:0;">
             <div style="font-family:var(--font-mono); font-size:.625rem; color:var(--text-3);">{{ task.elapsed }}</div>
           </div>
-          <!-- Amount + status badge -->
+          <!-- Amount + SIM/LIVE chain badge -->
           <div style="text-align:right; flex-shrink:0;">
             <div style="font-family:var(--font-mono); font-size:.875rem; font-weight:700; margin-bottom:3px;">${{ "%.2f"|format(task.amount) }}</div>
-            {% if task.status == 'running' %}
-            <span style="font-family:var(--font-mono); font-size:.45rem; font-weight:700; color:var(--green); text-transform:uppercase; letter-spacing:.08em;">Running</span>
-            {% elif task.status == 'escrow' %}
-            <span style="font-family:var(--font-mono); font-size:.45rem; font-weight:700; color:var(--amber); text-transform:uppercase; letter-spacing:.08em;">Escrow</span>
+            {% if task.real and task.snowtrace %}
+              <a href="{{ task.snowtrace }}" target="_blank" style="font-family:var(--font-mono); font-size:.45rem; font-weight:700; color:var(--green); text-transform:uppercase; letter-spacing:.08em; text-decoration:none; padding:2px 5px; border:1px solid var(--green); border-radius:3px; background:rgba(34,197,94,.08);">● LIVE</a>
             {% else %}
-            <span style="font-family:var(--font-mono); font-size:.45rem; font-weight:700; color:var(--text-3); text-transform:uppercase; letter-spacing:.08em;">Done</span>
+              <span style="font-family:var(--font-mono); font-size:.45rem; font-weight:700; color:var(--text-3); text-transform:uppercase; letter-spacing:.08em; padding:2px 5px; border:1px solid var(--border); border-radius:3px;">SIM</span>
             {% endif %}
           </div>
         </div>
