@@ -175,8 +175,29 @@
       <button class="entry-gate-btn" id="gate-seller-btn">Seller mode</button>
       <button class="entry-gate-btn entry-gate-btn-agent" id="gate-agent-btn">Agent mode</button>
     </div>
+    <p style="margin-top:18px; font-size:.75rem; color:var(--text-3);">
+      <a href="#" id="gate-skip" style="color:var(--text-2); text-decoration:underline;">Skip and browse</a>
+    </p>
   </div>
 </div>
+<script>
+// Entry gate: a 'Skip and browse' link so the overlay can be dismissed without
+// redirecting. Without this, users can't click Connect Wallet on the landing
+// page because the overlay sits at z-index 9999 and the mode buttons navigate
+// away before they can interact with anything.
+document.addEventListener('DOMContentLoaded', () => {
+  const skip = document.getElementById('gate-skip');
+  const overlay = document.getElementById('entry-gate');
+  if (skip && overlay) {
+    skip.addEventListener('click', (e) => {
+      e.preventDefault();
+      overlay.classList.remove('open');
+      document.body.style.overflow = '';
+      localStorage.setItem('agenthire_role', 'skip');
+    });
+  }
+});
+</script>
 
 <!-- ── Shared Modals ──────────────────────────────────────────────────────── -->
 
