@@ -988,7 +988,7 @@ def list_your_agent():
 
 @app.route("/agent-mode")
 def agent_mode():
-    return redirect(url_for("sim_dashboard"))
+    return redirect(url_for("agent_mode_overview"))
 
 @app.route("/agent-mode/overview")
 def agent_mode_overview():
@@ -2598,7 +2598,10 @@ def server_error(e):
 
 @app.route("/sim")
 def sim_dashboard():
-    return render_template("demo.html", page_title="Agent Mode")
+    # /sim used to render the old power-user demo page. Features folded
+    # into /agent-mode/overview (x402 handshake + on-chain actions in the
+    # Protocol Verification panel). Redirect so we have one canonical UI.
+    return redirect(url_for("agent_mode_overview"))
 
 
 @app.route("/api/sim/status")
@@ -3542,7 +3545,8 @@ def api_sim_a2a_candidates():
 
 @app.route("/demo")
 def demo_page():
-    return render_template("demo.html", page_title="Demo")
+    # Deprecated — features folded into /agent-mode/overview.
+    return redirect(url_for("agent_mode_overview"))
 
 
 @app.route("/api/sim/events")

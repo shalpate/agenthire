@@ -379,7 +379,52 @@
           <button id="llm-btn-{{ agent.id }}" onclick="runAgentLLM({{ agent.id }})" class="btn btn-ghost btn-sm" style="font-size:.75rem; width:100%;">▶ Generate</button>
           <pre id="llm-out-{{ agent.id }}" style="display:none; margin-top:10px; padding:10px; background:var(--bg); border:1px solid var(--border); border-radius:6px; font-family:var(--font-mono); font-size:.72rem; white-space:pre-wrap; word-break:break-word; max-height:280px; overflow:auto; color:var(--text-2);"></pre>
         </div>
+        <!-- ERC-8004 on-chain identity inspector — one button, live RPC reads -->
+        <div style="margin-top:10px; padding:14px 16px; background:var(--card-2); border:1px solid var(--border); border-radius:var(--radius-sm);">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+            <span style="font-family:var(--font-mono); font-size:.5rem; font-weight:700; color:var(--blue); letter-spacing:.1em; text-transform:uppercase;">ERC-8004 · on-chain identity</span>
+            <span id="erc-meta-{{ agent.id }}" style="font-family:var(--font-mono); font-size:.55rem; color:var(--text-3);">—</span>
+          </div>
+          <button id="erc-btn-{{ agent.id }}" onclick="runErc8004({{ agent.id }})" class="btn btn-ghost btn-sm" style="font-size:.75rem; width:100%;">▶ Probe AgentRegistry + ReputationContract</button>
+          <pre id="erc-out-{{ agent.id }}" style="display:none; margin-top:10px; padding:10px; background:var(--bg); border:1px solid var(--border); border-radius:6px; font-family:var(--font-mono); font-size:.68rem; max-height:240px; overflow:auto; white-space:pre-wrap; word-break:break-word; color:var(--text-2);"></pre>
+        </div>
+
         <script>
+        async function runErc8004(id) {
+          const out  = document.getElementById('erc-out-' + id);
+          const btn  = document.getElementById('erc-btn-' + id);
+          const meta = document.getElementById('erc-meta-' + id);
+          out.style.display = 'block';
+          out.textContent = '→ Reading AgentRegistry.getAgent + ReputationContract.getCreditProfile from Fuji...';
+          btn.disabled = true; btn.textContent = '… probing';
+          meta.textContent = 'pending';
+          try {
+            const r = await fetch('/api/agents/' + id + '/erc8004');
+            const d = await r.json();
+            if (!r.ok) { out.textContent = 'error: ' + (d.error || r.status); meta.textContent = 'error'; return; }
+            let txt = '';
+            txt += 'standard:    ' + d.standard + '\n';
+            txt += 'interfaceId: ' + d.interfaceId + '\n\n';
+            txt += 'getIdentity(' + id + '):\n  ' + JSON.stringify(d.identity, null, 2).replace(/\n/g, '\n  ') + '\n\n';
+            txt += 'getScore(' + id + '):\n  ' + JSON.stringify(d.score, null, 2).replace(/\n/g, '\n  ') + '\n\n';
+            txt += 'getReputation(' + id + '):\n  ' + JSON.stringify(d.reputation, null, 2).replace(/\n/g, '\n  ') + '\n';
+            if (d.categoryScores) {
+              txt += '\ngetCategoryScore (per-category specialization):\n';
+              for (const [name, cs] of Object.entries(d.categoryScores)) {
+                const marker = cs.isSpecialistCategory ? ' ← SPECIALIST' : '';
+                txt += '  ' + name.padEnd(18) + ' score ' + String(cs.score).padEnd(5) + ' tier T' + cs.tier + marker + '\n';
+              }
+            }
+            out.textContent = txt;
+            meta.textContent = 'live on Fuji';
+          } catch (e) {
+            out.textContent = 'error: ' + e.message;
+            meta.textContent = 'network error';
+          } finally {
+            btn.disabled = false; btn.textContent = '▶ Probe AgentRegistry + ReputationContract';
+          }
+        }
+
         async function runAgentLLM(id) {
           const prompt = document.getElementById('llm-prompt-' + id).value.trim();
           if (!prompt) return;

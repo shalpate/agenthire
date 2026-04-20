@@ -193,6 +193,131 @@
     </div>
   </div>
 
+  <!-- Protocol Verification — x402 handshake + live on-chain actions -->
+  <details style="background:var(--card); border:1px solid var(--border); border-radius:var(--radius); margin-bottom:18px; overflow:hidden;">
+    <summary style="padding:16px 20px; cursor:pointer; display:flex; align-items:center; justify-content:space-between; font-size:.9375rem; font-weight:600; list-style:none;">
+      <span>Protocol Verification · <span style="color:var(--text-3); font-weight:400; font-size:.8125rem;">x402 · ERC-8004 · live writes</span></span>
+      <span style="font-family:var(--font-mono); font-size:.5rem; color:var(--accent); text-transform:uppercase; letter-spacing:.1em; padding:2px 7px; border:1px solid var(--accent); border-radius:3px;">advanced</span>
+    </summary>
+    <div style="padding:0 20px 20px; border-top:1px solid var(--border);">
+
+      <!-- x402 handshake -->
+      <div style="padding:16px 0; border-bottom:1px solid var(--border);">
+        <div style="font-family:var(--font-mono); font-size:.5rem; font-weight:700; color:var(--blue); letter-spacing:.12em; text-transform:uppercase; margin-bottom:8px;">x402 live handshake</div>
+        <div style="color:var(--text-2); font-size:.8125rem; line-height:1.55; margin-bottom:10px;">
+          Coinbase's HTTP 402 protocol. Step 1 requests a gated resource → server returns
+          a signed challenge. Step 2 retries with an EIP-3009 USDC permit → server verifies,
+          executes the 3-step flow, returns the real Fuji tx hash.
+        </div>
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:10px;">
+          <label style="font-family:var(--font-mono); font-size:.6875rem; color:var(--text-3);">Target agent</label>
+          <select id="x402-agent" style="padding:5px 10px; background:var(--bg); border:1px solid var(--border); border-radius:5px; color:var(--text); font-family:var(--font-mono); font-size:.75rem;"></select>
+          <button id="x402-btn" class="btn btn-ghost btn-sm" style="font-size:.75rem;">▶ Run handshake</button>
+        </div>
+        <pre id="x402-out" style="display:none; background:var(--bg); border:1px solid var(--border); border-radius:6px; padding:10px; font-family:var(--font-mono); font-size:.68rem; max-height:260px; overflow:auto; white-space:pre-wrap; color:var(--text-2);"></pre>
+      </div>
+
+      <!-- Live on-chain action buttons -->
+      <div style="padding:16px 0;">
+        <div style="font-family:var(--font-mono); font-size:.5rem; font-weight:700; color:var(--amber); letter-spacing:.12em; text-transform:uppercase; margin-bottom:8px;">live writes · protocol actions</div>
+        <div style="color:var(--text-2); font-size:.8125rem; line-height:1.55; margin-bottom:10px;">
+          Each button fires a real backend call. When <code>/api/sim/live-mode</code> is
+          enabled and the facilitator has AVAX, writes hit Avalanche Fuji and emit a LIVE
+          row in the feed above.
+        </div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button id="btn-post-bid"   class="btn btn-ghost btn-sm" style="font-size:.75rem;">+ Post auction bid</button>
+          <button id="btn-slash"      class="btn btn-ghost btn-sm" style="font-size:.75rem; color:var(--red); border-color:rgba(239,68,68,.3);">⚠ Slash random agent</button>
+          <button id="btn-surge"      class="btn btn-ghost btn-sm" style="font-size:.75rem; color:#f59e0b; border-color:rgba(245,158,11,.3);">⚡ Force surge</button>
+        </div>
+        <pre id="actions-out" style="display:none; margin-top:10px; background:var(--bg); border:1px solid var(--border); border-radius:6px; padding:10px; font-family:var(--font-mono); font-size:.68rem; max-height:180px; overflow:auto; white-space:pre-wrap; color:var(--text-2);"></pre>
+      </div>
+
+      <script>
+      // ── Populate x402 agent selector
+      (async function() {
+        try {
+          const d = await fetch('/api/sim/all-agents').then(r => r.json());
+          const sel = document.getElementById('x402-agent');
+          (d.agents || []).slice(0, 30).forEach(a => {
+            const o = document.createElement('option');
+            o.value = a.id;
+            o.textContent = `${a.name} · T${a.tier}`;
+            sel.appendChild(o);
+          });
+        } catch (e) {}
+      })();
+
+      // ── x402 handshake runner
+      document.getElementById('x402-btn').addEventListener('click', async () => {
+        const aid = document.getElementById('x402-agent').value || 1;
+        const out = document.getElementById('x402-out');
+        out.style.display = 'block';
+        out.textContent = `→ Step 1: GET /api/x402/demo-execute/${aid} (no payment)\n`;
+        try {
+          const r1 = await fetch(`/api/x402/demo-execute/${aid}`);
+          const d1 = await r1.json().catch(() => ({}));
+          out.textContent += `← HTTP ${r1.status}\n${JSON.stringify(d1, null, 2)}\n\n`;
+          if (r1.status === 402) {
+            out.textContent += `→ Step 2: auto-sign demo permit + retry\n`;
+            const r2 = await fetch(`/api/x402/auto-sign/${aid}`, {
+              method: 'POST', headers: {'Content-Type':'application/json'},
+              body: JSON.stringify({ challenge: d1 })
+            });
+            const d2 = await r2.json().catch(() => ({}));
+            out.textContent += `← HTTP ${r2.status}\n${JSON.stringify(d2, null, 2)}`;
+          }
+        } catch (e) {
+          out.textContent += `error: ${e.message}`;
+        }
+      });
+
+      // ── Post bid
+      document.getElementById('btn-post-bid').addEventListener('click', async () => {
+        const out = document.getElementById('actions-out');
+        out.style.display = 'block'; out.textContent = 'Posting bid...';
+        try {
+          const d = await fetch('/api/sim/post-bid', {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ tokenBudget: 1000, maxPricePerToken: 0.005, minTier: 1, categoryId: Math.floor(Math.random()*7) }),
+          }).then(r => r.json());
+          out.textContent = JSON.stringify(d, null, 2);
+        } catch (e) { out.textContent = 'error: ' + e.message; }
+      });
+
+      // ── Slash
+      document.getElementById('btn-slash').addEventListener('click', async () => {
+        const out = document.getElementById('actions-out');
+        const id = 1 + Math.floor(Math.random() * 125);
+        out.style.display = 'block'; out.textContent = `Slashing agent ${id}...`;
+        try {
+          const d = await fetch('/api/sim/slash-agent', {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ agentId: id, reason: 'Quality review' }),
+          }).then(r => r.json());
+          out.textContent = JSON.stringify(d, null, 2);
+        } catch (e) { out.textContent = 'error: ' + e.message; }
+      });
+
+      // ── Surge
+      document.getElementById('btn-surge').addEventListener('click', async () => {
+        const out = document.getElementById('actions-out');
+        const id = 1 + Math.floor(Math.random() * 125);
+        const m  = 1.5 + Math.random();
+        out.style.display = 'block'; out.textContent = `Forcing surge x${m.toFixed(2)} on agent ${id}...`;
+        try {
+          const d = await fetch('/api/sim/force-surge', {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ agentId: id, multiplier: Number(m.toFixed(2)) }),
+          }).then(r => r.json());
+          out.textContent = JSON.stringify(d, null, 2);
+        } catch (e) { out.textContent = 'error: ' + e.message; }
+      });
+      </script>
+
+    </div>
+  </details>
+
   <!-- Agent Registry -->
   <div style="background:var(--card); border:1px solid var(--border); border-radius:var(--radius);">
     <div style="padding:16px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between;">
