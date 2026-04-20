@@ -1521,25 +1521,44 @@ def _seller_earnings_from_chain(agent_ids: list) -> dict:
 
 
 def _buyer_jobs_from_chain(wallet: str, *, include_settled: bool, include_active: bool) -> list:
+    """Per-buyer job list. Every deposit CT row for this wallet is a job;
+    status is derived from whether a corresponding settle row exists for the
+    same agent. When a sessionId is present in meta, also do a live
+    EscrowPayment.getSession read for authoritative state."""
     from models import ChainTransaction as CT
+    from collections import Counter
     import json as _json
     wallet_lc = (wallet or "").strip().lower()
     if not wallet_lc:
         return []
-    rows = (CT.query.filter(CT.kind == "deposit")
-            .filter(db.func.lower(CT.from_addr) == wallet_lc)
-            .order_by(CT.ts.desc()).all())
+
+    deposit_rows = (CT.query.filter(CT.kind == "deposit")
+                    .filter(db.func.lower(CT.from_addr) == wallet_lc)
+                    .order_by(CT.ts.desc()).limit(100).all())
+
+    # Precompute settle counts per agent so we can pair each deposit with a
+    # settle (oldest-first). Gives honest in_escrow vs completed status.
+    agent_ids_seen = {r.agent_id for r in deposit_rows if r.agent_id}
+    settle_budget = {}
+    if agent_ids_seen:
+        settle_rows = (CT.query.filter(CT.kind == "settle")
+                       .filter(CT.agent_id.in_(agent_ids_seen)).all())
+        settle_budget = Counter(s.agent_id for s in settle_rows)
+
     oc = _get_onchain()
     out = []
-    for r in rows:
+    dep_count = Counter()
+    # Oldest deposits pair with the available settles first
+    for r in sorted(deposit_rows, key=lambda x: x.ts or 0):
         try: meta = _json.loads(r.meta or "{}")
         except Exception: meta = {}
         sid = meta.get("sessionId") or meta.get("session_id")
-        if sid is None: continue
+
         live = None
-        if oc:
+        if sid is not None and oc:
             try: live = oc.get_session(int(sid))
             except Exception: live = None
+
         if live:
             total_micro = int(live.get("totalDeposit", 0))
             settled = bool(live.get("settled"))
@@ -1548,26 +1567,39 @@ def _buyer_jobs_from_chain(wallet: str, *, include_settled: bool, include_active
             expires_at = int(live.get("expiresAt", 0))
         else:
             total_micro = int(r.amount_usdc or 0)
-            settled = cancelled = False
             agent_id = r.agent_id or 0
+            dep_count[agent_id] += 1
+            settled = dep_count[agent_id] <= settle_budget.get(agent_id, 0)
+            cancelled = False
             expires_at = 0
+
         amount_usdc = total_micro / 1_000_000
         platform_fee = round(amount_usdc * PLATFORM_FEE_BPS / 10_000, 6)
         status = ("completed" if settled else "cancelled" if cancelled else "in_escrow")
         if status in ("completed","cancelled") and not include_settled: continue
         if status == "in_escrow" and not include_active: continue
+
         agent = next((a for a in AGENTS if a["id"] == agent_id), None)
+        display_id = str(sid) if sid else f"tx-{r.tx_hash[:10]}"
         out.append({
-            "id": str(sid), "agent": agent["name"] if agent else f"Agent #{agent_id}",
-            "agent_id": agent_id, "amount": round(amount_usdc, 4),
+            "id": display_id,
+            "agent": agent["name"] if agent else f"Agent #{agent_id}",
+            "agent_id": agent_id,
+            "amount": round(amount_usdc, 4),
             "escrowedUSDC": round(amount_usdc - platform_fee, 4),
-            "platformFeeUSDC": platform_fee, "status": status,
-            "task": f"Escrow session #{sid}",
+            "platformFeeUSDC": platform_fee,
+            "status": status,
+            "task": f"Escrow session {display_id}",
             "date": time.strftime("%Y-%m-%d", time.gmtime(r.ts)) if r.ts else "",
-            "txHash": r.tx_hash, "snowtrace": f"https://testnet.snowtrace.io/tx/{r.tx_hash}",
-            "blockNumber": int(r.block_number or 0), "expiresAt": expires_at,
+            "txHash": r.tx_hash,
+            "snowtrace": f"https://testnet.snowtrace.io/tx/{r.tx_hash}",
+            "blockNumber": int(r.block_number or 0),
+            "expiresAt": expires_at,
             "sourceChain": bool(live),
+            "real": bool(meta.get("real")),
         })
+    # Return newest first for display
+    out.reverse()
     return out
 
 

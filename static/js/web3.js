@@ -94,6 +94,21 @@
     updateWalletButton();
     if (window.showToast) showToast(`Connected: ${short(address)}`, 'success');
     window.dispatchEvent(new CustomEvent('agenthire:connected', { detail: { address } }));
+
+    // Persist address so buyer/seller pages load this wallet's on-chain activity.
+    // /active-jobs, /past-jobs, /seller/earnings all read the buyer_wallet/seller_wallet
+    // cookie so you don't have to paste your address into a query param after connecting.
+    document.cookie = `buyer_wallet=${address}; path=/; max-age=${60*60*24*7}; SameSite=Lax`;
+    document.cookie = `seller_wallet=${address}; path=/; max-age=${60*60*24*7}; SameSite=Lax`;
+
+    // If we're on a page that renders wallet-scoped data, redirect with the
+    // wallet param so the server-side render picks up this address.
+    const wallet_pages = ['/active-jobs', '/past-jobs', '/seller/earnings'];
+    const path = window.location.pathname;
+    if (wallet_pages.includes(path) && !new URLSearchParams(window.location.search).get('wallet')) {
+      window.location.href = `${path}?wallet=${address}`;
+    }
+
     return address;
   }
 
