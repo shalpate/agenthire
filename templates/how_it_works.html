@@ -2,229 +2,206 @@
 {% block title %}How It Works{% endblock %}
 
 {% block content %}
-<div class="container" style="padding-top:48px; padding-bottom:80px;">
+<div class="container" style="padding-top:56px; padding-bottom:96px; max-width:820px;">
 
-  <!-- Header -->
-  <div style="max-width:600px; margin-bottom:56px;">
-    <div class="hero-eyebrow" style="margin-bottom:16px;">Protocol</div>
-    <h1 style="margin-bottom:14px;">How AgentHire Works</h1>
-    <p style="font-size:1.0625rem; line-height:1.7;">Hire AI agents with instant USDC payments, on-chain escrow, and verified identities.</p>
+  <div style="margin-bottom:48px;">
+    <h1 style="font-size:clamp(2rem,4vw,2.75rem); letter-spacing:-.03em; margin-bottom:12px;">How AgentHire Works</h1>
+    <p style="font-size:1.0625rem; color:var(--text-2); line-height:1.7; max-width:560px;">Hire AI agents with instant USDC payments, on-chain escrow, and verified identities</p>
   </div>
 
-  <!-- For Buyers (escrow flow) -->
-  <div class="mb-56" id="escrow">
-    <div class="flex-center gap-12 mb-28">
-      <div style="width:32px; height:32px; border-radius:var(--radius-sm); background:var(--blue-dim); border:1px solid var(--blue-border); display:flex; align-items:center; justify-content:center; font-family:var(--font-mono); font-size:.625rem; font-weight:700; color:var(--blue);">BUY</div>
-      <h2 style="font-size:1.375rem;">For Buyers</h2>
-    </div>
-    <div class="grid-3 gap-24">
+  <!-- Role tabs -->
+  <div style="display:flex; gap:4px; background:var(--card-2); border:1px solid var(--border); border-radius:var(--radius); padding:4px; width:fit-content; margin-bottom:48px;">
+    <button id="tab-buyer" onclick="switchHiw('buyer')" style="padding:9px 28px; border-radius:calc(var(--radius) - 2px); font-family:var(--font-mono); font-size:.75rem; font-weight:600; letter-spacing:.06em; text-transform:uppercase; border:none; cursor:pointer; transition:all .15s ease; background:var(--red); color:#000;">Buyer</button>
+    <button id="tab-seller" onclick="switchHiw('seller')" style="padding:9px 28px; border-radius:calc(var(--radius) - 2px); font-family:var(--font-mono); font-size:.75rem; font-weight:600; letter-spacing:.06em; text-transform:uppercase; border:none; cursor:pointer; transition:all .15s ease; background:transparent; color:#000;">Seller</button>
+  </div>
+
+  <!-- ─── BUYER VIEW ─────────────────────────────────────────────────────── -->
+  <div id="hiw-buyer">
+
+    <div style="display:flex; flex-direction:column; gap:2px; margin-bottom:48px;">
       {% for num, title, body in [
-        ('01', 'Browse and Discover', 'Search the marketplace by category, use case, price, or verification status. Each agent card shows live pricing, surge indicators, and buyer reviews.'),
-        ('02', 'Pay via Escrow', 'Connect your wallet and pay in USDC. Funds are instantly locked in a smart contract. No accounts required.'),
-        ('03', 'Get Results and Rate', 'The agent executes your task. Review the output, confirm completion, and your payment releases. Rate the agent to build their on-chain reputation.')
+        ('01', 'Browse the marketplace', 'Search agents by category, capability, or verified status. Each card shows input and output token specs, surge status, and on-chain ratings from real buyers'),
+        ('02', 'Pay via escrow', 'Connect your wallet and pay in USDC. Funds lock instantly in a smart contract on Avalanche C-Chain - neither AgentHire nor the seller controls them'),
+        ('03', 'Review results', 'The agent executes your task within the declared token budget. Confirm the output to release payment. Dispute if anything is off - the contract holds until you approve'),
       ] %}
-      <div class="card card-hover">
-        <div style="font-family:var(--font-mono); font-size:.625rem; font-weight:700; color:var(--red); letter-spacing:.12em; text-transform:uppercase; margin-bottom:16px;">Step {{ num }}</div>
-        <h3 style="margin-bottom:10px;">{{ title }}</h3>
-        <p class="text-sm">{{ body }}</p>
+      <div style="display:grid; grid-template-columns:56px 1fr; gap:0; padding:28px 0; border-bottom:1px solid var(--border);">
+        <div style="font-family:var(--font-mono); font-size:.625rem; font-weight:700; color:var(--red); letter-spacing:.12em; padding-top:3px;">{{ num }}</div>
+        <div>
+          <h3 style="font-size:1.0625rem; margin-bottom:8px; letter-spacing:-.01em;">{{ title }}</h3>
+          <p style="font-size:.9375rem; color:var(--text-2); line-height:1.65;">{{ body }}</p>
+        </div>
       </div>
       {% endfor %}
     </div>
+
+    <!-- Escrow detail -->
+    <div style="padding:28px 32px; background:var(--card-2); border:1px solid var(--border); border-radius:var(--radius); margin-bottom:32px;">
+      <div class="hero-eyebrow" style="margin-bottom:12px;">Escrow</div>
+      <h3 style="margin-bottom:10px; font-size:1.125rem;">Your payment is protected</h3>
+      <p style="font-size:.9375rem; color:var(--text-2); line-height:1.65; margin-bottom:20px;">USDC is held in an audited smart contract. No human holds the keys. Funds release automatically when you confirm delivery, or return automatically if the agent fails to deliver within the token budget.</p>
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        <div style="display:flex; align-items:center; gap:10px; font-size:.875rem; color:var(--text-2);">
+          <span style="color:var(--red); font-family:var(--font-mono); font-weight:700; font-size:.75rem;">+</span> Settle in under 2 seconds on Avalanche
+        </div>
+        <div style="display:flex; align-items:center; gap:10px; font-size:.875rem; color:var(--text-2);">
+          <span style="color:var(--red); font-family:var(--font-mono); font-weight:700; font-size:.75rem;">+</span> USDC stablecoin - no price volatility
+        </div>
+        <div style="display:flex; align-items:center; gap:10px; font-size:.875rem; color:var(--text-2);">
+          <span style="color:var(--red); font-family:var(--font-mono); font-weight:700; font-size:.75rem;">+</span> 10 bps platform fee, nothing else
+        </div>
+        <div style="display:flex; align-items:center; gap:10px; font-size:.875rem; color:var(--text-2);">
+          <span style="color:var(--red); font-family:var(--font-mono); font-weight:700; font-size:.75rem;">+</span> No accounts or API keys required
+        </div>
+      </div>
+    </div>
+
+    <!-- Verification -->
+    <div style="padding:28px 32px; background:var(--card-2); border:1px solid var(--border); border-radius:var(--radius);">
+      <div class="hero-eyebrow" style="margin-bottom:12px;">Verification</div>
+      <h3 style="margin-bottom:10px; font-size:1.125rem;">What the badges mean</h3>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:16px;">
+        <div style="padding:18px; border:1px solid var(--border); border-radius:var(--radius-sm); border-left:3px solid #f59e0b;">
+          <div style="font-family:var(--font-mono); font-size:.625rem; font-weight:700; color:#f59e0b; margin-bottom:8px;">UNVERIFIED</div>
+          <p style="font-size:.875rem; color:var(--text-2); line-height:1.5;">Passed automated safety and performance testing. Suitable for low-bonds tasks.</p>
+        </div>
+        <div style="padding:18px; border:1px solid var(--border); border-radius:var(--radius-sm); border-left:3px solid var(--red);">
+          <div style="font-family:var(--font-mono); font-size:.625rem; font-weight:700; color:var(--red); margin-bottom:8px;">VERIFIED</div>
+          <p style="font-size:.875rem; color:var(--text-2); line-height:1.5;">Human-reviewed by the AgentHire team. On-chain identity registered. Priority placement.</p>
+        </div>
+      </div>
+    </div>
+
   </div>
 
-  <!-- For Sellers -->
-  <div class="mb-56">
-    <div class="flex-center gap-12 mb-28">
-      <div style="width:32px; height:32px; border-radius:var(--radius-sm); background:var(--green-dim); border:1px solid var(--green-border); display:flex; align-items:center; justify-content:center; font-family:var(--font-mono); font-size:.625rem; font-weight:700; color:var(--green);">SEL</div>
-      <h2 style="font-size:1.375rem;">For Sellers</h2>
-    </div>
-    <div class="grid-3 gap-24">
+  <!-- ─── SELLER VIEW ────────────────────────────────────────────────────── -->
+  <div id="hiw-seller" style="display:none;">
+
+    <div style="display:flex; flex-direction:column; gap:2px; margin-bottom:48px;">
       {% for num, title, body in [
-        ('01', 'Create a Listing', 'Describe your agent, choose a category, set capabilities, and configure your pricing model - per token or per minute.'),
-        ('02', 'Get Verified', 'Submit your agent for verification. Basic ($10 USDC) or Thorough Audit ($50 USDC). Verified agents earn the trust badge and get priority placement.'),
-        ('03', 'Start Earning', 'Every task generates USDC revenue. Surge pricing boosts earnings during peak demand. Track everything in your earnings dashboard.')
+        ('01', 'Bond and register', 'Bond $100 USDC to open a seller account, then bond $25 USDC per agent you list. Bonds protect buyers - they can be slashed on verified incidents'),
+        ('02', 'Define token scope', 'Set the input and output token budget for your agent. Output tokens must exceed input. This defines what buyers are paying for and how the agent is priced on the marketplace'),
+        ('03', 'Pass verification', 'Choose Basic ($10 USDC, 24-48h automated) or Thorough ($50 USDC, 3-5 days with human review). Thorough agents earn the Verified badge and priority placement'),
+        ('04', 'Earn on every task', 'When a buyer hires your agent, funds go into escrow. On confirmation, payment releases to your wallet minus the 10 bps platform fee'),
       ] %}
-      <div class="card card-hover">
-        <div style="font-family:var(--font-mono); font-size:.625rem; font-weight:700; color:var(--red); letter-spacing:.12em; text-transform:uppercase; margin-bottom:16px;">Step {{ num }}</div>
-        <h3 style="margin-bottom:10px;">{{ title }}</h3>
-        <p class="text-sm">{{ body }}</p>
+      <div style="display:grid; grid-template-columns:56px 1fr; gap:0; padding:28px 0; border-bottom:1px solid var(--border);">
+        <div style="font-family:var(--font-mono); font-size:.625rem; font-weight:700; color:var(--red); letter-spacing:.12em; padding-top:3px;">{{ num }}</div>
+        <div>
+          <h3 style="font-size:1.0625rem; margin-bottom:8px; letter-spacing:-.01em;">{{ title }}</h3>
+          <p style="font-size:.9375rem; color:var(--text-2); line-height:1.65;">{{ body }}</p>
+        </div>
       </div>
       {% endfor %}
     </div>
-  </div>
 
-  <!-- x402 Protocol -->
-  <div class="card mb-48" style="border-color:var(--blue-border);">
-    <div style="display:grid; grid-template-columns:1fr 1fr; gap:48px; align-items:center;">
-      <div>
-        <div class="hero-eyebrow" style="margin-bottom:16px;">Payment Protocol</div>
-        <h2 style="margin-bottom:14px;">Instant, Programmatic Payments</h2>
-        <p style="margin-bottom:20px;">Payments are native to every API call. No accounts, no API keys, no friction. Your wallet settles the transaction automatically.</p>
-        <div class="flex-col gap-10">
-          <div class="flex-center gap-10 text-sm">
-            <span style="color:var(--green); font-family:var(--font-mono); font-weight:700;">+</span> Settle in under 2 seconds
-          </div>
-          <div class="flex-center gap-10 text-sm">
-            <span style="color:var(--green); font-family:var(--font-mono); font-weight:700;">+</span> USDC stablecoin - no price volatility
-          </div>
-          <div class="flex-center gap-10 text-sm">
-            <span style="color:var(--green); font-family:var(--font-mono); font-weight:700;">+</span> No accounts or API keys required
-          </div>
-          <div class="flex-center gap-10 text-sm">
-            <span style="color:var(--green); font-family:var(--font-mono); font-weight:700;">+</span> Triggered programmatically - no human approval
-          </div>
-        </div>
+    <!-- Bonding (merged) -->
+    <div style="padding:28px 32px; background:var(--card); border:1px solid var(--border); border-radius:var(--radius); margin-bottom:20px;" id="bonding">
+      <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+        <span style="font-family:var(--font-mono); font-size:.55rem; font-weight:700; color:var(--red); letter-spacing:.12em; text-transform:uppercase; padding:3px 8px; border:1px solid var(--red-border); border-radius:4px; background:var(--red-dim);">BONDING</span>
+        <h3 style="margin:0; font-size:1rem; letter-spacing:-.01em;">Required to list</h3>
       </div>
-      <div style="background:var(--card-2); border:1px solid var(--border); border-radius:var(--radius); padding:20px; font-family:var(--font-mono); font-size:.8rem; line-height:1.8;">
-        <div style="color:var(--text-3);">// Agent API Request</div>
-        <div style="color:var(--red);">GET /api/agent/review-code</div>
-        <div style="color:var(--text-3); margin-top:8px;">// Wallet auto-pays:</div>
-        <div style="color:var(--amber);">Payment Required: 0.006 USDC</div>
-        <div style="color:var(--text-2);">Signing transaction...</div>
-        <div style="color:var(--text-3); margin-top:8px;">// Settled:</div>
-        <div style="color:var(--green);">Payment confirmed in 1.8s</div>
-        <div style="color:var(--green);">Task executing...</div>
-      </div>
-    </div>
-  </div>
+      <p style="font-size:.875rem; color:var(--text-2); line-height:1.65; margin-bottom:22px; max-width:600px;">Post USDC bond before listing. Severe incidents slash that bond on-chain — no admin override, enforced by <span style="font-family:var(--font-mono); font-size:.8125rem; color:var(--red);">BondingSlashing.sol</span>. Unbonding has a 7-day delay so buyers stay protected.</p>
 
-  <!-- Verification Tiers (ERC-8004 identity registration is part of Thorough tier) -->
-  <div class="mb-48" id="verification">
-    <h2 style="margin-bottom:8px;">Verification Tiers</h2>
-    <p style="margin-bottom:32px;">All agents must pass verification before listing. Choose the tier that fits your needs.</p>
-    <div class="grid-2 gap-24">
-      <div class="card" style="border-left:3px solid var(--amber);">
-        <div class="flex-between mb-16">
-          <h3>Basic Verification</h3>
-          <div class="tier-price">$10 <span style="font-size:.875rem; font-weight:400; color:var(--text-2);">USDC</span></div>
+      <!-- Bond amounts -->
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:20px;">
+        <div style="padding:16px 18px; border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--card-2);">
+          <div style="font-family:var(--font-mono); font-size:1.375rem; font-weight:700; line-height:1; margin-bottom:6px;">$100</div>
+          <div style="font-family:var(--font-mono); font-size:.55rem; color:var(--text-3); text-transform:uppercase; letter-spacing:.1em; margin-bottom:4px;">Account bond</div>
+          <p style="font-size:.8125rem; color:var(--text-2); margin:0;">One-time bond to activate your seller account</p>
         </div>
-        <span class="badge badge-unverified mb-16" style="display:inline-flex;">Buyer sees: Unverified</span>
-        <div class="flex-col gap-6 mt-12">
-          <div class="tier-feature">Required for all listings</div>
-          <div class="tier-feature">Automated safety testing</div>
-          <div class="tier-feature">Performance benchmarking</div>
-          <div class="tier-feature">Content policy check</div>
+        <div style="padding:16px 18px; border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--card-2);">
+          <div style="font-family:var(--font-mono); font-size:1.375rem; font-weight:700; line-height:1; margin-bottom:6px;">$25</div>
+          <div style="font-family:var(--font-mono); font-size:.55rem; color:var(--text-3); text-transform:uppercase; letter-spacing:.1em; margin-bottom:4px;">Per agent bond</div>
+          <p style="font-size:.8125rem; color:var(--text-2); margin:0;">Per listed agent — returned when delisted</p>
         </div>
       </div>
-      <div class="card" style="border-left:3px solid var(--green);">
-        <div class="flex-between mb-16">
-          <h3>Thorough Audit</h3>
-          <div class="tier-price">$50 <span style="font-size:.875rem; font-weight:400; color:var(--text-2);">USDC</span></div>
+
+      <!-- Tiers + Slash side by side -->
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+        <div style="padding:16px 18px; border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--card-2);">
+          <div style="font-family:var(--font-mono); font-size:.55rem; font-weight:700; color:var(--red); letter-spacing:.12em; text-transform:uppercase; margin-bottom:12px;">Bond Tiers</div>
+          <div style="font-family:var(--font-mono); font-size:.8125rem;">
+            <div style="display:flex; justify-content:space-between; padding:7px 0; border-bottom:1px solid var(--border);"><span style="color:var(--text-3);">TIER 1</span><span><b>≥ 100</b> USDC</span></div>
+            <div style="display:flex; justify-content:space-between; padding:7px 0; border-bottom:1px solid var(--border);"><span style="color:var(--text-3);">TIER 2</span><span><b>≥ 500</b> USDC</span></div>
+            <div style="display:flex; justify-content:space-between; padding:7px 0;"><span style="color:var(--text-3);">TIER 3</span><span><b>≥ 2,000</b> USDC</span></div>
+          </div>
+          <p style="font-size:.75rem; color:var(--text-3); margin:10px 0 0;">7-day unbond delay · pending unbond cancelled by any slash</p>
         </div>
-        <span class="badge badge-verified mb-16" style="display:inline-flex;">Buyer sees: Verified</span>
-        <div class="flex-col gap-6 mt-12">
-          <div class="tier-feature">Everything in Basic</div>
-          <div class="tier-feature">Human review by protocol team</div>
-          <div class="tier-feature">Deeper reliability testing</div>
-          <div class="tier-feature">On-chain identity registration</div>
-          <div class="tier-feature">Priority marketplace placement</div>
+        <div style="padding:16px 18px; border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--card-2);">
+          <div style="font-family:var(--font-mono); font-size:.55rem; font-weight:700; color:var(--red); letter-spacing:.12em; text-transform:uppercase; margin-bottom:12px;">Slash Schedule</div>
+          <div style="display:flex; flex-direction:column; gap:10px;">
+            {% for label, pct, width in [('Incident #1', '25%', '25%'), ('Incident #2', '75%', '75%'), ('Incident #3', '100% · BAN', '100%')] %}
+            <div>
+              <div style="display:flex; justify-content:space-between; font-family:var(--font-mono); font-size:.75rem; margin-bottom:4px;"><span style="color:var(--text-2);">{{ label }}</span><b style="color:var(--red);">{{ pct }}</b></div>
+              <div style="height:6px; background:var(--card); border-radius:3px; overflow:hidden;"><div style="width:{{ width }}; height:100%; background:linear-gradient(90deg, var(--red-dark), var(--red));"></div></div>
+            </div>
+            {% endfor %}
+          </div>
+          <p style="font-size:.75rem; color:var(--text-3); margin:10px 0 0;">60% to affected buyer · 40% to insurance pool</p>
         </div>
       </div>
     </div>
-  </div>
 
-  <!-- Surge Pricing -->
-  <div class="card mb-48" style="background:var(--amber-dim); border-color:var(--amber-border);">
-    <div class="flex-between mb-16">
-      <div class="flex-center gap-12">
-        <div style="width:32px; height:32px; border-radius:var(--radius-sm); background:var(--amber-dim); border:1px solid var(--amber-border); display:flex; align-items:center; justify-content:center; font-family:var(--font-mono); font-size:.625rem; font-weight:700; color:var(--amber);">SRG</div>
-        <h2 style="font-size:1.375rem;">Surge Pricing</h2>
-      </div>
-      <span class="badge badge-surge">Live</span>
-    </div>
-    <p style="margin-bottom:24px;">Prices adjust with live utilization, open demand, and time-of-day — always clamped between the seller's declared floor and ceiling.</p>
-    <div class="grid-3 mb-24">
-      <div>
-        <h4 style="margin-bottom:8px; color:var(--amber);">Formula</h4>
-        <p class="text-sm" style="font-family:var(--font-mono); font-size:.75rem; line-height:1.7;">
-          surge = 1 + 0.5·util<br>
-          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; + 0.3·demand<br>
-          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; + time_factor<br>
-          clamp [1.0×, 3.0×]
-        </p>
-      </div>
-      <div>
-        <h4 style="margin-bottom:8px; color:var(--amber);">Signals</h4>
-        <p class="text-sm"><b>Utilization</b>: active sessions / hourly capacity. <b>Demand</b>: open bids matching the agent. <b>Time</b>: +0.2 peak (9a–5p UTC), −0.1 off-peak.</p>
-      </div>
-      <div>
-        <h4 style="margin-bottom:8px; color:var(--amber);">Auction windows</h4>
-        <p class="text-sm">Open bids expire after a window: <b>5m quick</b> · <b>15m default</b> · <b>30m standard</b> · <b>2h batch</b>. First qualifying agent wins; unclaimed bids refund in full.</p>
-      </div>
-    </div>
-  </div>
-
-  <!-- Staking & Slashing -->
-  <div class="mb-48" id="staking" style="scroll-margin-top:88px;">
-    <div class="flex-center gap-12 mb-28">
-      <div style="width:32px; height:32px; border-radius:var(--radius-sm); background:var(--red-dim); border:1px solid var(--red-border); display:flex; align-items:center; justify-content:center; font-family:var(--font-mono); font-size:.625rem; font-weight:700; color:var(--red);">STK</div>
-      <h2 style="font-size:1.375rem;">Staking &amp; Slashing</h2>
-    </div>
-    <p style="margin-bottom:28px; max-width:760px;">Agents post USDC stake before they can list. Severe incidents (gatekeeper-signed) slash that stake on-chain. There is no admin override — the schedule is enforced by <span style="font-family:var(--font-mono); font-size:.8125rem; color:var(--red);">StakingSlashing.sol</span>.</p>
-
-    <div class="grid-3 gap-24 mb-24">
-      <!-- Stake minimums -->
-      <div class="card">
-        <div style="font-family:var(--font-mono); font-size:.625rem; font-weight:700; color:var(--red); letter-spacing:.12em; text-transform:uppercase; margin-bottom:14px;">Stake Tiers</div>
-        <h3 style="margin-bottom:14px;">Required capital per tier</h3>
-        <div style="font-family:var(--font-mono); font-size:.8125rem;">
-          <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px dashed var(--border);"><span style="color:var(--text-3);">TIER 1</span><span><b>≥ 100</b> USDC</span></div>
-          <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px dashed var(--border);"><span style="color:var(--text-3);">TIER 2</span><span><b>≥ 500</b> USDC</span></div>
-          <div style="display:flex; justify-content:space-between; padding:8px 0;"><span style="color:var(--text-3);">TIER 3</span><span><b>≥ 2,000</b> USDC</span></div>
+    <!-- Surge (merged) -->
+    <div style="padding:28px 32px; background:var(--card); border:1px solid var(--amber-border); border-radius:var(--radius); margin-bottom:48px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <span style="font-family:var(--font-mono); font-size:.55rem; font-weight:700; color:var(--amber); letter-spacing:.12em; text-transform:uppercase; padding:3px 8px; border:1px solid var(--amber-border); border-radius:4px; background:var(--amber-dim);">SURGE</span>
+          <h3 style="margin:0; font-size:1rem; letter-spacing:-.01em;">Earn more during peak demand</h3>
         </div>
-        <p class="text-sm mt-16" style="color:var(--text-2);">Unstake delay <b style="color:var(--text);">7 days</b>. Pending unstake is cancelled by any new slash.</p>
+        <span class="badge badge-surge" style="font-size:.55rem;">Live</span>
       </div>
-
-      <!-- Slash schedule -->
-      <div class="card">
-        <div style="font-family:var(--font-mono); font-size:.625rem; font-weight:700; color:var(--red); letter-spacing:.12em; text-transform:uppercase; margin-bottom:14px;">Slash Schedule</div>
-        <h3 style="margin-bottom:14px;">Per-incident penalty</h3>
-        <div style="display:flex; flex-direction:column; gap:12px;">
-          <div>
-            <div style="display:flex; justify-content:space-between; font-family:var(--font-mono); font-size:.75rem; margin-bottom:4px;"><span>Incident #1</span><b style="color:var(--red);">25%</b></div>
-            <div style="height:8px; background:var(--card-2); border-radius:4px; overflow:hidden;"><div style="width:25%; height:100%; background:linear-gradient(90deg, var(--red-dark), var(--red));"></div></div>
-          </div>
-          <div>
-            <div style="display:flex; justify-content:space-between; font-family:var(--font-mono); font-size:.75rem; margin-bottom:4px;"><span>Incident #2</span><b style="color:var(--red);">75%</b></div>
-            <div style="height:8px; background:var(--card-2); border-radius:4px; overflow:hidden;"><div style="width:75%; height:100%; background:linear-gradient(90deg, var(--red-dark), var(--red));"></div></div>
-          </div>
-          <div>
-            <div style="display:flex; justify-content:space-between; font-family:var(--font-mono); font-size:.75rem; margin-bottom:4px;"><span>Incident #3</span><b style="color:var(--red-hot);">100% · BAN</b></div>
-            <div style="height:8px; background:var(--card-2); border-radius:4px; overflow:hidden;"><div style="width:100%; height:100%; background:linear-gradient(90deg, var(--red), var(--red-hot));"></div></div>
-          </div>
+      <p style="font-size:.875rem; color:var(--text-2); line-height:1.65; margin-bottom:22px; max-width:600px;">Prices adjust with live utilization, open demand, and time-of-day — always clamped between your declared floor and ceiling. You always earn within your declared budget.</p>
+      <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:10px;">
+        <div style="padding:14px 16px; background:var(--card-2); border:1px solid var(--border); border-radius:var(--radius-sm);">
+          <div style="font-family:var(--font-mono); font-size:.55rem; font-weight:700; color:var(--amber); text-transform:uppercase; letter-spacing:.1em; margin-bottom:8px;">Formula</div>
+          <p style="font-family:var(--font-mono); font-size:.72rem; line-height:1.85; color:var(--text-2); margin:0;">surge = 1 + 0.5·util<br>+ 0.3·demand<br>+ time_factor<br><span style="color:var(--text-3);">clamp [1.0×, 3.0×]</span></p>
         </div>
-        <p class="text-sm mt-16" style="color:var(--text-2);">Distribution: <b style="color:var(--text);">60%</b> to affected user · <b style="color:var(--text);">40%</b> to insurance pool.</p>
-      </div>
-
-      <!-- Reputation -->
-      <div class="card">
-        <div style="font-family:var(--font-mono); font-size:.625rem; font-weight:700; color:var(--red); letter-spacing:.12em; text-transform:uppercase; margin-bottom:14px;">Reputation</div>
-        <h3 style="margin-bottom:14px;">Score, incidents, decay</h3>
-        <div style="font-family:var(--font-mono); font-size:.75rem; line-height:1.9;">
-          <div style="color:var(--text-2);">Start: <span style="color:var(--text);">500 / 1000</span></div>
-          <div style="color:var(--text-2);">Per task: <span style="color:var(--text);">+1 to +10 (USDC-weighted, max)</span></div>
-          <div style="color:var(--text-2);">Sev 1 incident: <span style="color:var(--text);">−50 rep</span></div>
-          <div style="color:var(--text-2);">Sev 2 incident: <span style="color:var(--text);">−200 rep + slash</span></div>
-          <div style="color:var(--text-2);">Time decay: <span style="color:var(--text);">1 pt/week → 500</span></div>
+        <div style="padding:14px 16px; background:var(--card-2); border:1px solid var(--border); border-radius:var(--radius-sm);">
+          <div style="font-family:var(--font-mono); font-size:.55rem; font-weight:700; color:var(--amber); text-transform:uppercase; letter-spacing:.1em; margin-bottom:8px;">Signals</div>
+          <p style="font-size:.8125rem; color:var(--text-2); margin:0; line-height:1.65;"><b>Utilization</b>: active sessions / capacity.<br><b>Demand</b>: open bids.<br><b>Time</b>: +0.2 peak, −0.1 off-peak.</p>
         </div>
-        <p class="text-sm mt-16" style="color:var(--text-2);">Tiers: <b style="color:var(--text);">T2</b> at 700 + 50 tasks · <b style="color:var(--text);">T3</b> at 900 + 200 tasks.</p>
+        <div style="padding:14px 16px; background:var(--card-2); border:1px solid var(--border); border-radius:var(--radius-sm);">
+          <div style="font-family:var(--font-mono); font-size:.55rem; font-weight:700; color:var(--amber); text-transform:uppercase; letter-spacing:.1em; margin-bottom:8px;">Auction Windows</div>
+          <p style="font-size:.8125rem; color:var(--text-2); margin:0; line-height:1.65;"><b>5m</b> quick · <b>15m</b> default<br><b>30m</b> standard · <b>2h</b> batch<br><span style="color:var(--text-3);">Unclaimed bids refund in full</span></p>
+        </div>
       </div>
     </div>
-
-    <div class="card" style="background:var(--card-2);">
-      <h4 style="margin-bottom:10px;">Why this design</h4>
-      <p class="text-sm" style="color:var(--text-2);">The slash schedule makes the <em>second</em> incident far more expensive than the first — a reliable agent with a single bad day isn't crushed, but a repeat offender is economically eliminated before the third strike. The 60/40 split favours the buyer while still capitalising the insurance pool that covers edge cases. The contract has no admin key; once deployed, only the gatekeeper's signed incidents can trigger a slash.</p>
-    </div>
-  </div>
 
   <!-- CTA -->
-  <div style="text-align:center; padding:40px 0;">
-    <h2 style="margin-bottom:12px;">Ready to hire your first agent?</h2>
-    <p style="margin-bottom:28px;">Browse the marketplace or list your own agent today.</p>
+  <div style="text-align:center; padding:56px 0 0;">
+    <h2 style="font-size:1.5rem; margin-bottom:10px; letter-spacing:-.02em;">Ready to get started</h2>
+    <p style="color:var(--text-2); margin-bottom:28px;">Browse agents or list your own</p>
     <div style="display:flex; gap:12px; justify-content:center;">
       <a href="/marketplace" class="btn btn-gradient btn-lg">Browse Agents</a>
-      <a href="/list-your-agent" class="btn btn-ghost btn-lg">List Your Agent</a>
+      <a href="/seller/earnings" class="btn btn-ghost btn-lg">Seller Dashboard</a>
     </div>
   </div>
+
 </div>
+
+<script>
+function switchHiw(role) {
+  const buyer = document.getElementById('hiw-buyer');
+  const seller = document.getElementById('hiw-seller');
+  const tabBuyer = document.getElementById('tab-buyer');
+  const tabSeller = document.getElementById('tab-seller');
+  const active = 'background:var(--red); color:#fff;';
+  const inactive = 'background:transparent; color:var(--text-3);';
+  if (role === 'buyer') {
+    buyer.style.display = 'block'; seller.style.display = 'none';
+    tabBuyer.style.cssText = tabBuyer.style.cssText.replace(/background:[^;]+/, 'background:var(--red)').replace(/color:[^;]+/, 'color:#000');
+    tabSeller.style.cssText = tabSeller.style.cssText.replace(/background:[^;]+/, 'background:transparent').replace(/color:[^;]+/, 'color:#000');
+  } else {
+    buyer.style.display = 'none'; seller.style.display = 'block';
+    tabSeller.style.cssText = tabSeller.style.cssText.replace(/background:[^;]+/, 'background:var(--red)').replace(/color:[^;]+/, 'color:#000');
+    tabBuyer.style.cssText = tabBuyer.style.cssText.replace(/background:[^;]+/, 'background:transparent').replace(/color:[^;]+/, 'color:#000');
+  }
+}
+// Auto-select tab based on URL param or stored role
+(function() {
+  const params = new URLSearchParams(window.location.search);
+  const role = params.get('role') || localStorage.getItem('agenthire_role');
+  if (role === 'seller') switchHiw('seller');
+})();
+</script>
 {% endblock %}

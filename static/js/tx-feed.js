@@ -1,4 +1,4 @@
-// Live on-chain activity feed. Polls recent events from Escrow + Reputation + Auction
+﻿// Live on-chain activity feed. Polls recent events from Escrow + Reputation + Auction
 // and renders them into any #live-tx-feed element on the page. No wallet required.
 
 (() => {
@@ -117,7 +117,7 @@
       const short = tx.txHash ? tx.txHash.slice(0,8) + '…' + tx.txHash.slice(-4) : '';
       return `<a href="#" onclick="return false;" style="display:flex; align-items:center; gap:10px; padding:8px 10px; border-bottom:1px solid var(--border-2); color:var(--text-1); text-decoration:none; font-family:var(--font-mono); font-size:.6875rem;">
         <span style="color:${k.color}; width:14px; text-align:center;">${k.icon}</span>
-        <span style="flex:1;">${k.verb} · agent #${tx.agentId || '—'} · ${amt}</span>
+        <span style="flex:1;">${k.verb} · agent #${tx.agentId || '-'} · ${amt}</span>
         <span style="color:var(--text-3); font-size:.625rem;">${short}</span>
       </a>`;
     }).join('');

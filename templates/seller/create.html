@@ -2,89 +2,168 @@
 {% block title %}Create Agent Listing{% endblock %}
 
 {% block content %}
-<div class="container-sm" style="padding-top:40px; padding-bottom:64px;">
-  <div class="mb-32">
-    <h1 style="font-size:1.75rem; margin-bottom:8px;">List Your Agent</h1>
-    <p>Complete all 4 steps to submit your agent for verification and listing.</p>
+<div class="container-sm" style="padding-top:40px; padding-bottom:72px;">
+
+  <!-- Page header -->
+  <div style="display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:32px;">
+    <div>
+      <div style="font-family:var(--font-mono); font-size:.5rem; text-transform:uppercase; letter-spacing:.14em; color:var(--text-3); margin-bottom:6px;">Seller · New Listing</div>
+      <h1 style="font-size:1.625rem; font-weight:600; letter-spacing:-.03em; margin:0 0 6px;">List Your Agent</h1>
+      <p style="font-size:.8125rem; color:var(--text-3); margin:0;">Four steps to go live on the marketplace.</p>
+    </div>
+    <a href="/seller/earnings" class="btn btn-ghost btn-sm" style="font-family:var(--font-mono); font-size:.625rem; flex-shrink:0; margin-top:4px;">← Dashboard</a>
   </div>
 
-  <!-- Step Progress -->
-  <div class="steps-bar mb-32">
-    <div class="step-item active" id="step-1-indicator">
-      <div class="step-num">1</div>
-      <div class="step-label">Agent Info</div>
-      <div class="step-line"></div>
-    </div>
-    <div class="step-item" id="step-2-indicator">
-      <div class="step-num">2</div>
-      <div class="step-label">Pricing</div>
-      <div class="step-line"></div>
-    </div>
-    <div class="step-item" id="step-3-indicator">
-      <div class="step-num">3</div>
-      <div class="step-label">Verification</div>
-      <div class="step-line"></div>
-    </div>
-    <div class="step-item" id="step-4-indicator">
-      <div class="step-num">4</div>
-      <div class="step-label">Review</div>
-    </div>
-  </div>
-
-  <!-- Step 1: Agent Info -->
-  <div class="form-step" id="step-1" style="display:block;">
-    <div class="card mb-24">
-      <h3 style="margin-bottom:24px;">Agent Information</h3>
-      <div class="flex-col gap-20">
-        <div class="form-group">
-          <label class="form-label" for="create-name">Agent Name *</label>
-          <input type="text" class="form-input" id="create-name" name="name" placeholder="e.g. CodeReview Pro">
-          <div class="form-hint">Choose a clear, descriptive name that explains what your agent does</div>
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="create-desc">Short Description *</label>
-          <input type="text" class="form-input" id="create-desc" name="description" placeholder="One-line description shown on marketplace cards" maxlength="120">
-          <div class="form-hint">Max 120 characters</div>
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="create-long-desc">Full Description *</label>
-          <textarea class="form-textarea" id="create-long-desc" name="long_description" placeholder="Detailed description of capabilities, use cases, and what buyers can expect." style="min-height:140px;"></textarea>
-        </div>
-        <div class="grid-2">
-          <div class="form-group">
-            <label class="form-label" for="create-category">Category *</label>
-            <select class="form-select" id="create-category" name="category">
-              <option value="">Select category</option>
-              {% for cat in categories %}
-              <option value="{{ cat }}">{{ cat }}</option>
-              {% endfor %}
-            </select>
-          </div>
-          <div class="form-group">
-            <label class="form-label" for="create-use-case">Primary Use Case *</label>
-            <select class="form-select" id="create-use-case" name="use_case">
-              <option value="">Select use case</option>
-              {% for uc in use_cases %}
-              <option value="{{ uc }}">{{ uc }}</option>
-              {% endfor %}
-            </select>
-          </div>
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="create-tags">Tags</label>
-          <input type="text" class="form-input" id="create-tags" name="tags" placeholder="e.g. code, python, security, review (comma separated)">
-          <div class="form-hint">Help buyers discover your agent</div>
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="create-demo">Demo URL (optional)</label>
-          <input type="url" class="form-input" id="create-demo" name="demo_url" placeholder="https://your-agent-demo.com">
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="create-capabilities">Capabilities (one per line) *</label>
-          <textarea class="form-textarea" id="create-capabilities" name="capabilities" placeholder="Static code analysis&#10;Security vulnerability detection&#10;Performance optimization&#10;Documentation generation" style="min-height:100px;"></textarea>
-        </div>
+  <!-- Step Progress — segmented bar style -->
+  <div style="display:flex; gap:6px; margin-bottom:28px;">
+    {% for num, label in [(1,'Info'),(2,'Pricing'),(3,'Verification'),(4,'Review')] %}
+    <div id="step-{{ num }}-indicator" class="step-item {{ 'active' if num == 1 else '' }}"
+         style="flex:1; display:flex; flex-direction:column; gap:8px; cursor:default;">
+      <div style="height:3px; border-radius:100px; background:{{ 'var(--blue)' if num == 1 else 'var(--border)' }};" class="step-bar-line"></div>
+      <div style="display:flex; align-items:center; gap:7px;">
+        <div class="step-num" style="width:18px; height:18px; font-size:.5625rem;">{{ num }}</div>
+        <div class="step-label" style="font-size:.5625rem;">{{ label }}</div>
       </div>
     </div>
+    {% endfor %}
+  </div>
+
+  <!-- Bond notice — slim inline -->
+  <div style="display:flex; align-items:center; gap:10px; padding:9px 14px; background:rgba(245,158,11,.04); border:1px solid rgba(245,158,11,.15); border-radius:var(--radius); margin-bottom:28px;">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2.5" style="flex-shrink:0;"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    <span style="font-size:.8125rem; color:var(--text-2);">
+      <strong style="color:#f59e0b; font-weight:600;">Bond required</strong> — $100 USDC account + $25 per agent before going live.
+      <a href="/seller/earnings" style="color:#f59e0b; font-weight:500; margin-left:6px;">Manage →</a>
+    </span>
+  </div>
+
+  <!-- ═══ Step 1: Agent Info ═══ -->
+  <div class="form-step" id="step-1" style="display:block;">
+    <div style="background:var(--card); border:1px solid var(--border); border-radius:var(--radius-lg); overflow:hidden; margin-bottom:20px;">
+
+      <!-- Card title bar -->
+      <div style="padding:20px 28px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between;">
+        <div>
+          <div style="font-size:.9375rem; font-weight:600; letter-spacing:-.01em;">Agent Information</div>
+          <div style="font-size:.75rem; color:var(--text-3); margin-top:2px;">Identity, description, and classification</div>
+        </div>
+        <div style="font-family:var(--font-mono); font-size:.5rem; text-transform:uppercase; letter-spacing:.1em; color:var(--text-3);">Step 1 / 4</div>
+      </div>
+
+      <div style="padding:28px;">
+
+        <!-- Section: Identity -->
+        <div class="form-section">
+          <div class="form-section-eyebrow">Identity</div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:28px;">
+            <div class="fl-group">
+              <label class="fl-label" for="create-name">Agent Name <span style="color:var(--red);">*</span></label>
+              <input class="fl-input" type="text" id="create-name" name="name" placeholder="e.g. CodeReview Pro" autocomplete="off">
+              <span class="fl-hint">Shown on marketplace cards and search results</span>
+            </div>
+            <div class="fl-group" style="position:relative;">
+              <label class="fl-label">AI Model <span style="color:var(--red);">*</span></label>
+              <!-- Hidden native input for form submission -->
+              <input type="hidden" id="create-model" name="model">
+              <!-- Custom dropdown trigger -->
+              <div class="mdl-trigger" id="mdl-trigger" tabindex="0">
+                <span class="mdl-trigger-text" id="mdl-trigger-text" style="color:var(--text-3);">Select model</span>
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style="flex-shrink:0;transition:transform .15s ease;" id="mdl-chevron"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </div>
+              <!-- Dropdown panel -->
+              <div class="mdl-panel" id="mdl-panel">
+                {% set model_groups = [
+                  ('OpenAI',     [('gpt-4.1','GPT-4.1'),('gpt-4.1-mini','GPT-4.1 mini'),('o3','o3'),('o4-mini','o4-mini')]),
+                  ('Anthropic',  [('claude-opus-4','Claude Opus 4'),('claude-sonnet-4','Claude Sonnet 4'),('claude-haiku-3.5','Claude Haiku 3.5')]),
+                  ('Google',     [('gemini-2.5-pro','Gemini 2.5 Pro'),('gemini-2.5-flash','Gemini 2.5 Flash')]),
+                  ('Meta',       [('llama-4-maverick','Llama 4 Maverick'),('llama-4-scout','Llama 4 Scout')]),
+                  ('xAI',        [('grok-3','Grok 3'),('grok-3-mini','Grok 3 mini')]),
+                  ('DeepSeek',   [('deepseek-v3','DeepSeek V3'),('deepseek-r1','DeepSeek R1')]),
+                  ('Mistral',    [('mistral-large-3','Mistral Large 3'),('codestral-2025','Codestral 2025')]),
+                  ('Other',      [('custom','Custom / Fine-tuned')]),
+                ] %}
+                {% for group, models in model_groups %}
+                <div class="mdl-group-label">{{ group }}</div>
+                {% for val, label in models %}
+                <div class="mdl-option" data-value="{{ val }}">{{ label }}</div>
+                {% endfor %}
+                {% endfor %}
+              </div>
+              <span class="fl-hint">Underlying model powering this agent</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section: Description -->
+        <div class="form-section">
+          <div class="form-section-eyebrow">Description</div>
+          <div class="fl-group" style="margin-bottom:24px;">
+            <label class="fl-label" for="create-desc">Tagline <span style="color:var(--red);">*</span></label>
+            <input class="fl-input" type="text" id="create-desc" name="description" placeholder="One punchy line shown on marketplace cards" maxlength="120" autocomplete="off" oninput="updateDescCounter(this)">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px;">
+              <span class="fl-hint">Shown on listing cards — make it count</span>
+              <span class="fl-counter" id="desc-counter">0 / 120</span>
+            </div>
+          </div>
+          <div class="fl-group">
+            <label class="fl-label" for="create-long-desc">Full Description <span style="color:var(--red);">*</span></label>
+            <textarea class="fl-textarea" id="create-long-desc" name="long_description" placeholder="Describe capabilities, ideal use cases, and what buyers can expect from this agent." style="min-height:110px;"></textarea>
+          </div>
+        </div>
+
+        <!-- Section: Classification -->
+        <div class="form-section">
+          <div class="form-section-eyebrow">Classification</div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:28px; margin-bottom:24px;">
+            <div class="fl-group">
+              <label class="fl-label" for="create-category">Category <span style="color:var(--red);">*</span></label>
+              <div class="fl-select-wrap">
+                <select class="fl-select" id="create-category" name="category">
+                  <option value="">Select category</option>
+                  {% for cat in categories %}
+                  <option value="{{ cat }}">{{ cat }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+            <div class="fl-group">
+              <label class="fl-label" for="create-use-case">Primary Use Case <span style="color:var(--red);">*</span></label>
+              <div class="fl-select-wrap">
+                <select class="fl-select" id="create-use-case" name="use_case">
+                  <option value="">Select use case</option>
+                  {% for uc in use_cases %}
+                  <option value="{{ uc }}">{{ uc }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:28px;">
+            <div class="fl-group">
+              <label class="fl-label" for="create-tags">Tags</label>
+              <input class="fl-input" type="text" id="create-tags" name="tags" placeholder="code, python, security, review">
+              <span class="fl-hint">Comma-separated keywords for discovery</span>
+            </div>
+            <div class="fl-group">
+              <label class="fl-label" for="create-demo">Demo URL <span style="font-weight:400; text-transform:none; letter-spacing:0; color:var(--text-3);">(optional)</span></label>
+              <input class="fl-input" type="url" id="create-demo" name="demo_url" placeholder="https://your-agent-demo.com">
+            </div>
+          </div>
+        </div>
+
+        <!-- Section: Capabilities -->
+        <div class="form-section">
+          <div class="form-section-eyebrow">Capabilities <span style="color:var(--red);">*</span></div>
+          <div class="fl-group">
+            <textarea class="fl-textarea" id="create-capabilities" name="capabilities"
+              placeholder="Static code analysis&#10;Security vulnerability detection&#10;Performance optimization&#10;Documentation generation"
+              style="min-height:100px;"></textarea>
+            <span class="fl-hint">One capability per line — these appear as feature bullets on your listing</span>
+          </div>
+        </div>
+
+      </div><!-- /padding -->
+    </div><!-- /card -->
   </div>
 
   <!-- Step 2: Pricing + Subagent Editor -->
@@ -144,28 +223,48 @@
       </div>
 
       <div class="grid-2 gap-20 mb-24">
+        <!-- Input tokens: min + max -->
         <div class="form-group">
-          <label class="form-label" for="create-min-price">Minimum Price (USDC) *</label>
-          <input type="number" class="form-input" id="create-min-price" name="min_price" step="0.00001" min="0.00001" placeholder="0.002" oninput="updatePricePreview()">
-          <div class="form-hint">Floor price, never go below this</div>
+          <label class="form-label">Input Tokens *</label>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:6px;">
+            <div>
+              <div class="form-hint" style="margin-bottom:4px; font-size:.5rem; text-transform:uppercase; letter-spacing:.1em;">Min</div>
+              <input type="number" class="form-input" id="create-min-input" name="min_input_tokens" step="100" min="100" placeholder="500" oninput="updateTokenPreview()">
+            </div>
+            <div>
+              <div class="form-hint" style="margin-bottom:4px; font-size:.5rem; text-transform:uppercase; letter-spacing:.1em;">Max</div>
+              <input type="number" class="form-input" id="create-max-input" name="max_input_tokens" step="100" min="100" placeholder="2000" oninput="updateTokenPreview()">
+            </div>
+          </div>
+          <div class="form-hint">Input token range accepted per task</div>
         </div>
+        <!-- Output tokens: min + max (output max must exceed input max) -->
         <div class="form-group">
-          <label class="form-label" for="create-max-price">Maximum Price (USDC) *</label>
-          <input type="number" class="form-input" id="create-max-price" name="max_price" step="0.00001" min="0.00001" placeholder="0.010" oninput="updatePricePreview()">
-          <div class="form-hint">Ceiling price, surge pricing stays below this</div>
+          <label class="form-label">Output Tokens * <span style="font-size:.6875rem; color:var(--text-3); font-weight:400;">(max must exceed input max)</span></label>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:6px;">
+            <div>
+              <div class="form-hint" style="margin-bottom:4px; font-size:.5rem; text-transform:uppercase; letter-spacing:.1em;">Min</div>
+              <input type="number" class="form-input" id="create-min-output" name="min_output_tokens" step="100" min="100" placeholder="1000" oninput="updateTokenPreview()">
+            </div>
+            <div>
+              <div class="form-hint" style="margin-bottom:4px; font-size:.5rem; text-transform:uppercase; letter-spacing:.1em;">Max</div>
+              <input type="number" class="form-input" id="create-max-output" name="max_output_tokens" step="100" min="100" placeholder="8000" oninput="updateTokenPreview()">
+            </div>
+          </div>
+          <div class="form-hint">Output tokens generated per task</div>
         </div>
       </div>
 
-      <!-- Surge Pricing Explainer -->
-      <div class="card card-sm" style="background: rgba(245,158,11,.04); border-color: rgba(245,158,11,.15);">
+      <!-- Token ratio preview -->
+      <div class="card card-sm" style="background:var(--card-2); border-color:var(--border);">
         <div class="flex-center gap-8 mb-10">
-          <span class="badge badge-surge" style="font-size:.5625rem;">SURGE</span>
-          <span class="font-bold text-sm">Surge Pricing: Automatic</span>
+          <span style="font-family:var(--font-mono); font-size:.5625rem; font-weight:700; letter-spacing:.1em; color:var(--blue); background:var(--blue-dim); border:1px solid var(--blue-border); padding:3px 7px; border-radius:4px;">TKN</span>
+          <span class="font-bold text-sm">Token Scope</span>
         </div>
-        <p class="text-sm">When demand for your agent spikes, AgentHire will raise the price toward your maximum. During low demand, it drops toward your minimum. You always earn within your defined band.</p>
+        <p class="text-sm" style="color:var(--text-2);">Output tokens must exceed input tokens. This defines the agent's compute scope and determines how it appears in marketplace pricing.</p>
         <div class="flex-between mt-12 text-sm">
-          <span class="text-muted">Current live price preview</span>
-          <span class="font-bold text-accent" id="price-preview">Set min/max above</span>
+          <span class="text-muted">Token ratio preview</span>
+          <span class="font-bold text-accent" id="price-preview">Set tokens above</span>
         </div>
       </div>
     </div>
@@ -187,18 +286,18 @@
           <div class="tier-feature">Automated safety testing</div>
           <div class="tier-feature">Performance benchmarking</div>
           <div class="tier-feature">Content policy check</div>
-          <div class="mt-12 text-xs text-muted">Results in 24-48 hours</div>
+          <div class="mt-12 text-xs text-muted">Results in 5–10 minutes</div>
         </div>
         <div class="tier-card" data-tier="thorough">
-          <span class="badge badge-verified mb-12" style="display:inline-flex;">✓ Verified badge</span>
+          <span class="badge badge-verified mb-12" style="display:inline-flex;">Verified badge</span>
           <div class="tier-price">$50 <span style="font-size:.875rem; font-weight:400; color:var(--text-2);">USDC</span></div>
-          <div class="font-bold mb-12">Thorough Audit</div>
+          <div class="font-bold mb-12">Premium Audit</div>
           <div class="tier-feature">Everything in Basic</div>
           <div class="tier-feature">Human protocol team review</div>
           <div class="tier-feature">Deeper reliability testing</div>
           <div class="tier-feature">On-chain identity registration</div>
           <div class="tier-feature">Priority marketplace placement</div>
-          <div class="mt-12 text-xs text-muted">Results in 3-5 business days</div>
+          <div class="mt-12 text-xs text-muted">Results in 15–30 minutes</div>
         </div>
       </div>
 
@@ -212,18 +311,18 @@
       </div>
     </div>
 
-    <!-- Required Stake -->
+    <!-- Required Bond -->
     <div class="card" style="border-color: var(--red-border);">
       <div class="flex-between mb-12">
-        <h3 style="margin:0;">Required Stake</h3>
-        <span class="badge" style="background:var(--red-dim); color:var(--red); border:1px solid var(--red-border);">StakingSlashing.sol</span>
+        <h3 style="margin:0;">Required Bond</h3>
+        <span class="badge" style="background:var(--red-dim); color:var(--red); border:1px solid var(--red-border);">BondingSlashing.sol</span>
       </div>
-      <p class="text-sm mb-20">Post USDC capital before your listing goes live. Severe buyer disputes (gatekeeper-signed) slash this stake. The stake amount you choose determines the highest <b style="color:var(--text);">auction tier</b> you can serve.</p>
+      <p class="text-sm mb-20">Post USDC capital before your listing goes live. Severe buyer disputes (gatekeeper-signed) slash this bond. The bond amount you choose determines the highest <b style="color:var(--text);">auction tier</b> you can serve.</p>
 
-      <input type="hidden" id="selected-stake" name="stake_tier" value="">
+      <input type="hidden" id="selected-bond" name="bond_tier" value="">
       <div class="grid-3 gap-12 mb-16">
-        <label class="tier-card" data-stake="1" for="stake-t1">
-          <input type="radio" name="stake-radio" id="stake-t1" value="1" style="display:none;">
+        <label class="tier-card" data-bond="1" for="bond-t1">
+          <input type="radio" name="bond-radio" id="bond-t1" value="1" style="display:none;">
           <div style="font-family:var(--font-mono); font-size:.625rem; letter-spacing:.1em; text-transform:uppercase; color:var(--red);">Tier 1</div>
           <div class="tier-price" style="margin-top:8px;">100 <span style="font-size:.875rem; font-weight:400; color:var(--text-2);">USDC</span></div>
           <div class="font-bold mb-8" style="margin-top:6px;">Baseline</div>
@@ -231,8 +330,8 @@
           <div class="tier-feature">All categories</div>
           <div class="tier-feature">Slash cap: 100 USDC total</div>
         </label>
-        <label class="tier-card" data-stake="2" for="stake-t2">
-          <input type="radio" name="stake-radio" id="stake-t2" value="2" style="display:none;">
+        <label class="tier-card" data-bond="2" for="bond-t2">
+          <input type="radio" name="bond-radio" id="bond-t2" value="2" style="display:none;">
           <div style="font-family:var(--font-mono); font-size:.625rem; letter-spacing:.1em; text-transform:uppercase; color:var(--red);">Tier 2</div>
           <div class="tier-price" style="margin-top:8px;">500 <span style="font-size:.875rem; font-weight:400; color:var(--text-2);">USDC</span></div>
           <div class="font-bold mb-8" style="margin-top:6px;">Skilled</div>
@@ -240,8 +339,8 @@
           <div class="tier-feature">Accept bids with minTier ≤ 2</div>
           <div class="tier-feature">Higher deposit caps</div>
         </label>
-        <label class="tier-card" data-stake="3" for="stake-t3">
-          <input type="radio" name="stake-radio" id="stake-t3" value="3" style="display:none;">
+        <label class="tier-card" data-bond="3" for="bond-t3">
+          <input type="radio" name="bond-radio" id="bond-t3" value="3" style="display:none;">
           <div style="font-family:var(--font-mono); font-size:.625rem; letter-spacing:.1em; text-transform:uppercase; color:var(--red);">Tier 3</div>
           <div class="tier-price" style="margin-top:8px;">2,000 <span style="font-size:.875rem; font-weight:400; color:var(--text-2);">USDC</span></div>
           <div class="font-bold mb-8" style="margin-top:6px;">Elite</div>
@@ -261,12 +360,12 @@
           <span class="font-mono">60% buyer · 40% insurance</span>
         </div>
         <div class="flex-between text-sm">
-          <span class="text-muted">Unstake delay</span>
+          <span class="text-muted">Unbond delay</span>
           <span class="font-mono">7 days</span>
         </div>
       </div>
 
-      <p class="text-xs text-muted mt-12">Stake is held by <span class="font-mono">StakingSlashing</span>. You recover unspent stake anytime after the 7-day unstake window — never by AgentHire or the buyer.</p>
+      <p class="text-xs text-muted mt-12">Bond is held by <span class="font-mono">BondingSlashing</span>. You recover unspent bond anytime after the 7-day unbond window - never by AgentHire or the buyer.</p>
     </div>
   </div>
 
@@ -282,13 +381,13 @@
           <div class="flex-between mb-8 text-sm"><span class="text-muted">Billing</span><span id="review-billing">Per Token</span></div>
           <div class="flex-between mb-8 text-sm"><span class="text-muted">Price Range</span><span id="review-range">$0.002 - $0.010</span></div>
           <div class="flex-between mb-8 text-sm"><span class="text-muted">Verification</span><span id="review-verification">Basic ($10 USDC)</span></div>
-          <div class="flex-between mb-8 text-sm"><span class="text-muted">Stake Tier</span><span id="review-stake">Tier 1 (100 USDC)</span></div>
-          <div class="flex-between text-sm"><span class="text-muted">Staking Wallet</span><span class="font-mono" id="review-wallet" style="font-size:.72rem;">not connected</span></div>
+          <div class="flex-between mb-8 text-sm"><span class="text-muted">Bond Tier</span><span id="review-bond">Tier 1 (100 USDC)</span></div>
+          <div class="flex-between text-sm"><span class="text-muted">Bonding Wallet</span><span class="font-mono" id="review-wallet" style="font-size:.72rem;">not connected</span></div>
         </div>
 
         <div class="escrow-notice">
           <span class="icon">ℹ</span>
-          <p>By submitting, you agree to AgentHire's terms. The verification fee is spent. The stake is deposited into <span class="font-mono">StakingSlashing.sol</span> — slashable on severe incidents, otherwise refundable after a 7-day unstake delay.</p>
+          <p>By submitting, you agree to AgentHire's terms. The verification fee is spent. The bond is deposited into <span class="font-mono">BondingSlashing.sol</span> - slashable on severe incidents, otherwise refundable after a 7-day unbond delay.</p>
         </div>
 
         <div class="card card-sm" style="background: rgba(34,197,94,.04); border-color: rgba(34,197,94,.15);">
@@ -297,8 +396,8 @@
             <span class="font-mono" id="review-fee-val">$10.00 USDC</span>
           </div>
           <div class="flex-between mb-10">
-            <span class="text-sm text-muted">Stake deposit (refundable after 7d)</span>
-            <span class="font-mono" id="review-stake-val">$100.00 USDC</span>
+            <span class="text-sm text-muted">Bond deposit (refundable after 7d)</span>
+            <span class="font-mono" id="review-bond-val">$100.00 USDC</span>
           </div>
           <div class="divider"></div>
           <div class="flex-between">
@@ -322,7 +421,89 @@
 {% endblock %}
 
 {% block scripts %}
+<style>
+/* ── Custom model dropdown ─────────────────────────────────── */
+.mdl-trigger {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 0 9px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  font-size: .9375rem;
+  color: var(--text);
+  transition: border-color .15s ease;
+  user-select: none;
+  gap: 8px;
+}
+.mdl-trigger:hover, .mdl-trigger:focus { border-color: var(--blue); outline: none; }
+.mdl-trigger.open { border-color: var(--blue); }
+.mdl-trigger.open #mdl-chevron { transform: rotate(180deg); }
+.mdl-trigger-text { flex: 1; }
+.mdl-panel {
+  position: absolute; top: calc(100% - 8px); left: 0; right: 0;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  z-index: 200;
+  max-height: 280px;
+  overflow-y: auto;
+  box-shadow: 0 8px 32px rgba(0,0,0,.45);
+  display: none;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+.mdl-panel.open { display: block; }
+.mdl-group-label {
+  padding: 8px 14px 4px;
+  font-family: var(--font-mono);
+  font-size: .5rem;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  border-top: 1px solid var(--border);
+  margin-top: 2px;
+}
+.mdl-group-label:first-child { border-top: none; margin-top: 0; }
+.mdl-option {
+  padding: 9px 14px;
+  font-size: .875rem;
+  color: var(--text-2);
+  cursor: pointer;
+  transition: background .1s ease, color .1s ease;
+  border-radius: 4px;
+  margin: 1px 6px;
+}
+.mdl-option:hover { background: var(--card-2); color: var(--text); }
+.mdl-option.selected { color: var(--blue); font-weight: 600; }
+[data-theme="light"] .mdl-panel {
+  background: #fff;
+  border-color: rgba(0,0,0,.12);
+  box-shadow: 0 8px 32px rgba(0,0,0,.12);
+}
+[data-theme="light"] .mdl-option:hover { background: #f5f5f7; }
+</style>
 <script>
+  /* ── Char counter for tagline ──────────────────────────────── */
+  function updateDescCounter(input) {
+    const counter = document.getElementById('desc-counter');
+    if (!counter) return;
+    const len = input.value.length, max = 120;
+    counter.textContent = len + ' / ' + max;
+    counter.className = 'fl-counter' + (len > max ? ' over' : len > 100 ? ' warn' : '');
+  }
+
+  /* ── Patch goToStep to animate the segmented bar lines ──────── */
+  const _origGoToStep = goToStep;
+  window.goToStep = function(step) {
+    _origGoToStep(step);
+    document.querySelectorAll('.step-bar-line').forEach((line, i) => {
+      const s = i + 1;
+      if (s < step)       line.style.background = 'var(--green)';
+      else if (s === step) line.style.background = 'var(--blue)';
+      else                 line.style.background = 'var(--border)';
+    });
+  };
+
   goToStep(1);
   initSubagentEditor();
 
@@ -338,18 +519,25 @@
       // Step 2: enforce min < max, both positive
       const activeStep = document.querySelector('.form-step[style*="display:block"], .form-step[style*="display: block"]');
       if (activeStep && activeStep.id === 'step-2') {
-        const inputs = activeStep.querySelectorAll('input[type="number"]');
-        const minV = parseFloat(inputs[0]?.value);
-        const maxV = parseFloat(inputs[1]?.value);
-        if (!minV || !maxV || minV <= 0 || maxV <= 0) {
-          showToast('Enter valid minimum and maximum prices.', 'warning');
-          e.stopImmediatePropagation();
-          return;
+        const minIn  = parseFloat(document.getElementById('create-min-input')?.value);
+        const maxIn  = parseFloat(document.getElementById('create-max-input')?.value);
+        const minOut = parseFloat(document.getElementById('create-min-output')?.value);
+        const maxOut = parseFloat(document.getElementById('create-max-output')?.value);
+        if (!minIn || !maxIn || !minOut || !maxOut) {
+          showToast('Fill in all four token fields (min/max for input and output).', 'warning');
+          e.stopImmediatePropagation(); return;
         }
-        if (maxV <= minV) {
-          showToast('Maximum price must be greater than the minimum.', 'error');
-          e.stopImmediatePropagation();
-          return;
+        if (maxIn <= minIn) {
+          showToast('Input max must exceed input min.', 'error');
+          e.stopImmediatePropagation(); return;
+        }
+        if (maxOut <= minOut) {
+          showToast('Output max must exceed output min.', 'error');
+          e.stopImmediatePropagation(); return;
+        }
+        if (maxOut <= maxIn) {
+          showToast('Output max must exceed input max.', 'error');
+          e.stopImmediatePropagation(); return;
         }
       }
       // Step 1: enforce name, description, category
@@ -371,30 +559,30 @@
           return;
         }
       }
-      // Step 3: require verification tier AND stake tier
+      // Step 3: require verification tier AND bond tier
       if (activeStep && activeStep.id === 'step-3') {
         const verifySel = activeStep.querySelector('.tier-card[data-tier].selected');
-        const stakeSel  = activeStep.querySelector('.tier-card[data-stake].selected');
+        const bondSel  = activeStep.querySelector('.tier-card[data-bond].selected');
         if (!verifySel) {
           showToast('Choose a verification tier before continuing.', 'warning');
           e.stopImmediatePropagation();
           return;
         }
-        if (!stakeSel) {
-          showToast('Choose a stake tier before continuing.', 'warning');
+        if (!bondSel) {
+          showToast('Choose a bond tier before continuing.', 'warning');
           e.stopImmediatePropagation();
           return;
         }
         // Populate review summary now so it shows real values on step 4.
         const name     = (document.getElementById('create-name')?.value || '').trim() || 'Unnamed agent';
-        const category = document.getElementById('create-category')?.value || '—';
+        const category = document.getElementById('create-category')?.value || '-';
         const billing  = document.querySelector('#step-2 .tier-card.selected[data-tier="per_token"], #step-2 .tier-card.selected[data-tier="per_minute"]');
         const billingLbl = billing && billing.dataset.tier === 'per_minute' ? 'Per Minute' : 'Per Token';
         const minV = parseFloat(document.getElementById('create-min-price')?.value) || 0;
         const maxV = parseFloat(document.getElementById('create-max-price')?.value) || 0;
         const verifyKind = verifySel.dataset.tier === 'thorough' ? 'Thorough' : 'Basic';
         const verifyFee  = verifySel.dataset.tier === 'thorough' ? 50 : 10;
-        const stakeUSDC  = stakeSel.dataset.stake === '3' ? 2000 : stakeSel.dataset.stake === '2' ? 500 : 100;
+        const bondUSDC  = bondSel.dataset.bond === '3' ? 2000 : bondSel.dataset.bond === '2' ? 500 : 100;
 
         const set = (id, val) => { const e = document.getElementById(id); if (e) e.textContent = val; };
         set('review-name', name);
@@ -402,11 +590,11 @@
         set('review-billing', billingLbl);
         set('review-range', `$${minV.toFixed(5)} - $${maxV.toFixed(5)}`);
         set('review-verification', `${verifyKind} ($${verifyFee} USDC)`);
-        set('review-stake', `Tier ${stakeSel.dataset.stake} (${stakeUSDC.toLocaleString()} USDC)`);
+        set('review-bond', `Tier ${bondSel.dataset.bond} (${bondUSDC.toLocaleString()} USDC)`);
         set('review-fee-val', `$${verifyFee.toFixed(2)} USDC`);
-        set('review-stake-val', `$${stakeUSDC.toFixed(2)} USDC`);
-        set('review-total', `$${(verifyFee + stakeUSDC).toFixed(2)} USDC`);
-        // Show the wallet that will stake
+        set('review-bond-val', `$${bondUSDC.toFixed(2)} USDC`);
+        set('review-total', `$${(verifyFee + bondUSDC).toFixed(2)} USDC`);
+        // Show the wallet that will bond
         const w = (window.AgentHire && window.AgentHire.address) || null;
         const wEl = document.getElementById('review-wallet');
         if (wEl) {
@@ -414,7 +602,7 @@
             wEl.textContent = w.slice(0, 6) + '…' + w.slice(-4);
             wEl.style.color = 'var(--green)';
           } else {
-            wEl.textContent = 'not connected — click Connect Wallet';
+            wEl.textContent = 'not connected - click Connect Wallet';
             wEl.style.color = 'var(--red)';
           }
         }
@@ -443,12 +631,12 @@
     const step3 = document.getElementById('step-3');
     const billingEl = step2 ? step2.querySelector('[data-tier].selected') : null;
     const verifyEl = step3 ? step3.querySelector('.tier-card[data-tier].selected') : null;
-    const stakeEl  = step3 ? step3.querySelector('.tier-card[data-stake].selected') : null;
+    const bondEl  = step3 ? step3.querySelector('.tier-card[data-bond].selected') : null;
 
-    // Wallet gate — must be connected to stake + list.
+    // Wallet gate - must be connected to bond + list.
     const walletAddr = (window.AgentHire && window.AgentHire.address) || null;
     if (!walletAddr) {
-      showToast('Connect a wallet first — stake can\'t be posted without one.', 'error');
+      showToast('Connect a wallet first - bond can\'t be posted without one.', 'error');
       btn.disabled = false;
       btn.textContent = 'Submit & Pay Verification Fee';
       // Trigger the connect flow
@@ -468,7 +656,7 @@
       min_price:         byId('create-min-price') || '0.002',
       max_price:         byId('create-max-price') || '0.010',
       verification_tier: verifyEl ? verifyEl.dataset.tier : 'basic',
-      stake_tier:        stakeEl  ? Number(stakeEl.dataset.stake) : 1,
+      bond_tier:        bondEl  ? Number(bondEl.dataset.bond) : 1,
       wallet:            walletAddr,
       seller:            walletAddr,
     };
@@ -483,7 +671,7 @@
     try {
       const res = await AgentHireAPI.post('/seller/create', payload);
       if (res.agentId) {
-        showToast(`Listed! Stake of ${res.stakeUSDC} USDC escrowed.`, 'success');
+        showToast(`Listed! Bond of ${res.bondUSDC} USDC escrowed.`, 'success');
         // Route straight to the buyer-facing detail page so the seller sees
         // their listing the way buyers will.
         setTimeout(() => window.location = `/agent/${res.agentId}`, 1400);
@@ -502,17 +690,58 @@
     document.querySelector(`[data-tier="${type}"]`).classList.add('selected');
   }
 
-  function updatePricePreview() {
-    const inputs = document.querySelectorAll('#step-2 input[type="number"]');
-    const min = parseFloat(inputs[0]?.value);
-    const max = parseFloat(inputs[1]?.value);
+  function updateTokenPreview() {
+    const minIn  = parseFloat(document.getElementById('create-min-input')?.value);
+    const maxIn  = parseFloat(document.getElementById('create-max-input')?.value);
+    const minOut = parseFloat(document.getElementById('create-min-output')?.value);
+    const maxOut = parseFloat(document.getElementById('create-max-output')?.value);
     const el = document.getElementById('price-preview');
-    if (min && max && max > min) {
-      const mid = ((min + max) / 2).toFixed(5);
-      el.textContent = `~$${mid} (midpoint)`;
+    if (minIn && maxIn && minOut && maxOut) {
+      if (maxOut > maxIn) {
+        el.textContent = minIn.toLocaleString() + '–' + maxIn.toLocaleString() + ' in → ' + minOut.toLocaleString() + '–' + maxOut.toLocaleString() + ' out';
+        el.style.color = '';
+      } else {
+        el.textContent = 'Output max must exceed input max';
+        el.style.color = 'var(--red)';
+      }
     } else {
-      el.textContent = 'Set min/max above';
+      el.textContent = 'Set token ranges above';
+      el.style.color = '';
     }
   }
+
+  /* ── Custom model dropdown ─────────────────────────────────── */
+  (function() {
+    const trigger  = document.getElementById('mdl-trigger');
+    const panel    = document.getElementById('mdl-panel');
+    const trigText = document.getElementById('mdl-trigger-text');
+    const hidden   = document.getElementById('create-model');
+    if (!trigger || !panel) return;
+
+    function open()  { trigger.classList.add('open'); panel.classList.add('open'); }
+    function close() { trigger.classList.remove('open'); panel.classList.remove('open'); }
+    function toggle(){ trigger.classList.contains('open') ? close() : open(); }
+
+    trigger.addEventListener('click', toggle);
+    trigger.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); }
+      if (e.key === 'Escape') close();
+    });
+
+    panel.querySelectorAll('.mdl-option').forEach(opt => {
+      opt.addEventListener('click', () => {
+        panel.querySelectorAll('.mdl-option').forEach(o => o.classList.remove('selected'));
+        opt.classList.add('selected');
+        hidden.value = opt.dataset.value;
+        trigText.textContent = opt.textContent;
+        trigText.style.color = '';
+        close();
+      });
+    });
+
+    document.addEventListener('click', e => {
+      if (!trigger.contains(e.target) && !panel.contains(e.target)) close();
+    });
+  })();
 </script>
 {% endblock %}

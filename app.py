@@ -905,6 +905,33 @@ def how_it_works():
 def list_your_agent():
     return redirect(url_for("seller_create"))
 
+# ── Agent Mode ──────────────────────────────────────────────────────────────
+
+@app.route("/agent-mode")
+def agent_mode():
+    import random, time
+    # Live task queue shown in the feed
+    task_feed = [
+        {"id": "task-8812", "agent": "CodeReview Pro",    "buyer": "0x3f8a…c12d", "status": "running",  "amount": 12.40,  "elapsed": "1m 12s", "category": "Development"},
+        {"id": "task-8810", "agent": "AlphaTrader AI",    "buyer": "0x91bc…44fa", "status": "escrow",   "amount": 27.00,  "elapsed": "—",      "category": "Finance"},
+        {"id": "task-8809", "agent": "TranslateFlow",     "buyer": "0xa72e…9b3c", "status": "complete", "amount": 3.20,   "elapsed": "2m 04s", "category": "Content"},
+        {"id": "task-8807", "agent": "DataSift Analytics","buyer": "0x5c1d…f02a", "status": "running",  "amount": 18.00,  "elapsed": "4m 37s", "category": "Data & Analytics"},
+        {"id": "task-8805", "agent": "SecureAudit AI",    "buyer": "0x8e44…1c9f", "status": "complete", "amount": 45.00,  "elapsed": "8m 52s", "category": "Security"},
+        {"id": "task-8803", "agent": "ResearchBot Pro",   "buyer": "0x2fa9…77e1", "status": "running",  "amount": 9.50,   "elapsed": "0m 48s", "category": "Research"},
+    ]
+    # Network stats
+    stats = {
+        "active_sessions": random.randint(38, 64),
+        "tasks_24h":       random.randint(1800, 2400),
+        "avg_latency_ms":  random.randint(280, 420),
+        "escrow_locked":   round(random.uniform(8200, 11400), 2),
+        "success_rate":    round(random.uniform(97.1, 99.2), 1),
+        "surge_agents":    random.randint(3, 8),
+    }
+    # Agent registry snapshot
+    agents = AGENTS[:12]
+    return render_template("agent_mode.html", task_feed=task_feed, stats=stats, agents=agents)
+
 # ── Seller ─────────────────────────────────────────────────────────────────────
 
 @app.route("/seller/dashboard")

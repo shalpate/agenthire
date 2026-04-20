@@ -1,5 +1,34 @@
 /* ── AgentHire - Main JS ────────────────────────────────────────────────────── */
 
+// ── Scroll-reveal: fades in .anim-on-scroll elements as they enter viewport ──
+(function initScrollReveal() {
+  function activate(el) { el.classList.add('visible'); }
+
+  if (!('IntersectionObserver' in window)) {
+    document.querySelectorAll('.anim-on-scroll').forEach(activate);
+    return;
+  }
+
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { activate(e.target); io.unobserve(e.target); } });
+  }, { threshold: 0.05, rootMargin: '0px 0px -20px 0px' });
+
+  function observe() {
+    document.querySelectorAll('.anim-on-scroll').forEach(el => {
+      // If already in viewport (e.g. top of page), activate immediately
+      const rect = el.getBoundingClientRect();
+      if (rect.top < window.innerHeight && rect.bottom > 0) { activate(el); }
+      else { io.observe(el); }
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', observe);
+  } else {
+    observe();
+  }
+})();
+
 // ── AgentHireAPI - shared fetch utility ──────────────────────────────────────
 // Usage:
 //   AgentHireAPI.get('/api/agents')           → Promise<Object>
@@ -78,6 +107,7 @@ document.addEventListener('click', (e) => {
 
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
+    // entry-gate uses .entry-gate-overlay (not .modal-overlay) so it is never closed here
     document.querySelectorAll('.modal-overlay.open').forEach(m => closeModal(m.id));
   }
 });
@@ -100,6 +130,7 @@ document.addEventListener('click', (e) => {
 const rolePaths = {
   buyer:  '/marketplace',
   seller: '/seller/dashboard',
+  agent:  '/agent-mode',
   admin:  '/admin/dashboard',
 };
 document.querySelectorAll('.role-btn').forEach(btn => {
@@ -194,7 +225,7 @@ document.querySelectorAll('.tier-card').forEach(card => {
       const priceEl = document.getElementById('verification-price');
       if (priceEl) priceEl.textContent = tier === 'thorough' ? '$50.00 USDC' : '$10.00 USDC';
     }
-    // Stake tier selection — writes to #selected-stake for the create form.
+    // Stake tier selection - writes to #selected-stake for the create form.
     const stake = card.dataset.stake;
     if (stake) {
       const hidden = document.getElementById('selected-stake');
@@ -566,10 +597,133 @@ function runExecutionProgress(stages, containerId) {
 
 // ── Chart helpers (called from page scripts) ───────────────────────────────────
 function makeLineChart(id, labels, datasets, options = {}) {
-  const ctx = document.getElementById(id);
-  if (!ctx || typeof Chart === 'undefined') return;
-  return new Chart(ctx, {
+  const el = document.getElementById(id);
+  if (!el || typeof Chart === 'undefined') return;
+
+  const MONO = '"IBM Plex Mono", monospace';
+  const TICK = 'rgba(148,163,184,.45)';
+
+  // Gradient fill: created after layout so chartArea dimensions are correct
+  const gradientPlugin = {
+    id: 'agGradient',
+    beforeDatasetDraw(chart, args) {
+      const ds = chart.data.datasets[args.index];
+      if (!ds.fill || !ds._gradColor) return;
+      const { ctx, chartArea: a } = chart;
+      if (!a) return;
+      const grad = ctx.createLinearGradient(0, a.top, 0, a.bottom);
+      grad.addColorStop(0,   ds._gradColor.replace('__A__', '.22'));
+      grad.addColorStop(0.7, ds._gradColor.replace('__A__', '.07'));
+      grad.addColorStop(1,   ds._gradColor.replace('__A__', '.00'));
+      chart.data.datasets[args.index].backgroundColor = grad;
+    }
+  };
+
+  // Dot on last data point
+  const lastPointPlugin = {
+    id: 'agLastDot',
+    afterDatasetsDraw(chart) {
+      const { ctx } = chart;
+      chart.data.datasets.forEach((ds, i) => {
+        if (!ds._gradColor) return;
+        const meta = chart.getDatasetMeta(i);
+        const last = meta.data[meta.data.length - 1];
+        if (!last) return;
+        const x = last.x, y = last.y;
+        const color = ds.borderColor;
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(x, y, 4, 0, Math.PI * 2);
+        ctx.fillStyle = color;
+        ctx.fill();
+        ctx.strokeStyle = 'var(--card, #1E1E1E)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.restore();
+      });
+    }
+  };
+
+  const processedDatasets = datasets.map(ds => {
+    if (ds.fill && ds.borderColor) {
+      // Convert hex or rgba borderColor to rgba template
+      let gc = ds.borderColor;
+      if (gc.startsWith('#')) {
+        const r = parseInt(gc.slice(1,3),16), g = parseInt(gc.slice(3,5),16), b = parseInt(gc.slice(5,7),16);
+        gc = `rgba(${r},${g},${b},__A__)`;
+      } else if (gc.startsWith('rgb(')) {
+        gc = gc.replace('rgb(', 'rgba(').replace(')', ',__A__)');
+      }
+      return { ...ds, _gradColor: gc, backgroundColor: 'transparent' };
+    }
+    return ds;
+  });
+
+  return new Chart(el, {
     type: 'line',
+    plugins: [gradientPlugin, lastPointPlugin],
+    data: { labels, datasets: processedDatasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: 'rgba(8,8,12,.97)',
+          borderColor: 'rgba(255,255,255,.08)',
+          borderWidth: 1,
+          titleColor: 'rgba(241,245,249,.9)',
+          bodyColor: 'rgba(148,163,184,.85)',
+          padding: { top: 10, bottom: 10, left: 14, right: 14 },
+          cornerRadius: 8,
+          titleFont: { family: MONO, size: 10, weight: '700' },
+          bodyFont:  { family: MONO, size: 10 },
+          displayColors: true,
+          boxWidth: 8, boxHeight: 8,
+          callbacks: {
+            title: (items) => items[0].label,
+            label: (ctx) => ` ${ctx.dataset.label}: $${Number(ctx.parsed.y).toLocaleString('en-US', { minimumFractionDigits: 0 })}`
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          border: { display: false },
+          ticks: { color: TICK, font: { family: MONO, size: 9 }, maxRotation: 0, padding: 8 }
+        },
+        y: {
+          grid: { display: false },
+          border: { display: false },
+          position: 'right',
+          ticks: {
+            color: TICK, font: { family: MONO, size: 9 }, padding: 10, maxTicksLimit: 5,
+            callback: (v) => '$' + Number(v).toLocaleString()
+          }
+        },
+        ...options.scales,
+      },
+      elements: {
+        line:  { tension: 0.42, borderWidth: 2 },
+        point: { radius: 0, hoverRadius: 4, hoverBorderWidth: 2, hoverBackgroundColor: '#fff' }
+      },
+      layout: { padding: { top: 8, right: 4 } },
+      ...options,
+    }
+  });
+}
+
+function makeBarChart(id, labels, datasets, options = {}) {
+  const el = document.getElementById(id);
+  if (!el || typeof Chart === 'undefined') return;
+
+  const MONO = '"IBM Plex Mono", monospace';
+  const GRID = 'rgba(255,255,255,.045)';
+  const TICK = 'rgba(148,163,184,.50)';
+
+  return new Chart(el, {
+    type: 'bar',
     data: { labels, datasets },
     options: {
       responsive: true,
@@ -577,53 +731,40 @@ function makeLineChart(id, labels, datasets, options = {}) {
       interaction: { mode: 'index', intersect: false },
       plugins: {
         legend: {
-          labels: { color: '#94A3B8', font: { size: 12 } }
+          labels: { color: TICK, font: { family: MONO, size: 10 }, boxWidth: 12, padding: 16 }
         },
         tooltip: {
-          backgroundColor: '#161F2C',
-          borderColor: '#243041',
+          backgroundColor: 'rgba(10,10,16,.96)',
+          borderColor: 'rgba(255,255,255,.10)',
           borderWidth: 1,
-          titleColor: '#F8FAFC',
-          bodyColor: '#94A3B8',
-          padding: 12,
+          titleColor: '#f1f5f9',
+          bodyColor: 'rgba(148,163,184,.88)',
+          padding: 14,
+          cornerRadius: 8,
+          titleFont: { family: MONO, size: 11 },
+          bodyFont:  { family: MONO, size: 11 },
+          callbacks: {
+            label: (ctx) => ` ${ctx.dataset.label}: $${Number(ctx.parsed.y).toFixed(2)}`
+          }
         }
       },
       scales: {
-        x: { grid: { color: 'rgba(36,48,65,.5)' }, ticks: { color: '#94A3B8', font: { size: 11 } } },
-        y: { grid: { color: 'rgba(36,48,65,.5)' }, ticks: { color: '#94A3B8', font: { size: 11 } } },
-        ...options.scales,
+        x: {
+          grid: { display: false },
+          border: { display: false },
+          ticks: { color: TICK, font: { family: MONO, size: 10 }, maxRotation: 0 }
+        },
+        y: {
+          grid: { display: false },
+          border: { display: false },
+          ticks: {
+            color: TICK, font: { family: MONO, size: 10 },
+            callback: (v) => '$' + Number(v).toLocaleString()
+          }
+        },
       },
-      elements: { line: { tension: 0.4 }, point: { radius: 3, hoverRadius: 5 } },
-      ...options,
-    }
-  });
-}
-
-function makeBarChart(id, labels, datasets, options = {}) {
-  const ctx = document.getElementById(id);
-  if (!ctx || typeof Chart === 'undefined') return;
-  return new Chart(ctx, {
-    type: 'bar',
-    data: { labels, datasets },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { labels: { color: '#94A3B8', font: { size: 12 } } },
-        tooltip: {
-          backgroundColor: '#161F2C',
-          borderColor: '#243041',
-          borderWidth: 1,
-          titleColor: '#F8FAFC',
-          bodyColor: '#94A3B8',
-          padding: 12,
-        }
-      },
-      scales: {
-        x: { grid: { color: 'rgba(36,48,65,.5)' }, ticks: { color: '#94A3B8', font: { size: 11 } } },
-        y: { grid: { color: 'rgba(36,48,65,.5)' }, ticks: { color: '#94A3B8', font: { size: 11 } } },
-      },
-      borderRadius: 4,
+      borderRadius: 5,
+      borderSkipped: false,
       ...options,
     }
   });
@@ -675,23 +816,39 @@ function makeDoughnutChart(id, labels, data, colors) {
   });
 })();
 
-// ── Entry Modal — show once per session on buyer-facing pages ─────────────────
-(function initEntryModal() {
+// ── Entry Gate - required role selection on every page until role is chosen ────
+(function initEntryGate() {
   document.addEventListener('DOMContentLoaded', () => {
-    const modal = document.getElementById('entry-modal');
-    if (!modal) return;
+    const overlay = document.getElementById('entry-gate');
+    if (!overlay) return;
 
-    // Only show on the landing/root page, not on seller or admin pages
+    // Never show on seller or admin pages (role already implied by the URL)
     const path = window.location.pathname;
-    if (path !== '/' && path !== '') return;
+    if (path.startsWith('/admin') || path.startsWith('/seller')) return;
 
-    // Skip if already seen this session
-    if (sessionStorage.getItem('ah_entry_seen')) return;
+    // Skip if role already chosen
+    if (localStorage.getItem('agenthire_role')) return;
 
-    // Brief delay so the page paints first
-    setTimeout(() => {
-      openModal('entry-modal');
-      sessionStorage.setItem('ah_entry_seen', '1');
-    }, 600);
+    // Show with short delay so page renders first, then lock scroll
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        overlay.classList.add('open');
+        document.body.style.overflow = 'hidden';
+      }, 120);
+    });
+
+    function choose(role, dest) {
+      localStorage.setItem('agenthire_role', role);
+      overlay.classList.remove('open');
+      document.body.style.overflow = '';
+      window.location.href = dest;
+    }
+
+    document.getElementById('gate-buyer-btn')
+      ?.addEventListener('click', () => choose('buyer', '/marketplace'));
+    document.getElementById('gate-seller-btn')
+      ?.addEventListener('click', () => choose('seller', '/seller/dashboard'));
+    document.getElementById('gate-agent-btn')
+      ?.addEventListener('click', () => choose('agent', '/agent-mode'));
   });
 })();

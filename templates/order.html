@@ -372,48 +372,83 @@
       <div class="card" style="background:rgba(255,61,78,.03); border-color:rgba(255,61,78,.12);">
         <h4 style="margin-bottom:8px; color:var(--red);">Issue?</h4>
         <p class="text-sm mb-12">If the agent isn't performing correctly, raise a dispute. The gatekeeper reviews and (if upheld) signs an on-chain incident.</p>
-        <button class="btn btn-ghost btn-sm w-full" id="open-dispute-btn" data-agent-id="{{ agent.id }}">Open Dispute</button>
+        <button type="button" class="btn btn-ghost btn-sm w-full" onclick="openModal('dispute-modal')">Open Dispute</button>
         <div id="dispute-status" style="margin-top:8px; font-family:var(--font-mono); font-size:.625rem; color:var(--text-3);"></div>
-        <script>
-        (() => {
-          const btn = document.getElementById('open-dispute-btn');
-          if (!btn) return;
-          btn.addEventListener('click', async () => {
-            const agentId = Number(btn.dataset.agentId);
-            const setStatus = (s) => { document.getElementById('dispute-status').textContent = s; };
-            const reason = prompt('Describe what went wrong (this is sent to the gatekeeper for review):');
-            if (!reason) return;
-            const severity = confirm('Major incident? (OK = major / -200 + slash, Cancel = minor / -50)') ? 2 : 1;
-            try {
-              if (!window.AgentHire.connected) await window.AgentHire.connectWallet();
-              setStatus('submitting to gatekeeper...');
-              const res = await fetch('/api/dispute/submit', {
-                method: 'POST',
-                headers: {'content-type':'application/json'},
-                body: JSON.stringify({
-                  agentId, severity, reason,
-                  affectedUser: window.AgentHire.address,
-                  orderId: '{{ order.id }}',
-                }),
-              });
-              const body = await res.json();
-              if (!res.ok) throw new Error(body.error || 'failed');
-              if (body.txHash) {
-                setStatus('gatekeeper signed · tx ' + body.txHash.slice(0,10) + '...');
-                if (window.showToast) showToast('Incident signed on-chain. Agent penalized.', 'success');
-              } else {
-                setStatus('submitted · awaiting gatekeeper review');
-                if (window.showToast) showToast('Dispute submitted. Gatekeeper will review.', 'info');
-              }
-            } catch (e) { setStatus('failed: ' + (e.message||'').slice(0,120)); }
-          });
-        })();
-        </script>
       </div>
       {% endif %}
     </div>
   </div>
 </div>
+
+<!-- ── Dispute Modal ─────────────────────────────────────────────────────────── -->
+<!-- Release Confirm Modal -->
+<div class="modal-overlay" id="release-modal" style="position:fixed; inset:0; display:flex; align-items:center; justify-content:center; padding:24px; z-index:1000; background:rgba(0,0,0,.55); opacity:0; pointer-events:none; transition:opacity .22s ease;">
+  <div class="modal" style="max-width:420px; margin:auto;">
+    <div class="modal-header">
+      <h3>Confirm Release</h3>
+      <button class="modal-close" type="button" onclick="closeModal('release-modal')">✕</button>
+    </div>
+    <div class="modal-body" style="padding:20px 22px;">
+      <p style="font-size:.9375rem; color:var(--text-2); line-height:1.65; margin-bottom:8px;">Confirm delivery and release escrow to the seller?</p>
+      <p style="font-size:.8125rem; color:var(--text-3);">This cannot be undone. Funds will be transferred immediately on-chain.</p>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary btn-sm" onclick="closeModal('release-modal')">Cancel</button>
+      <button type="button" class="btn btn-sm" id="release-confirm-btn" style="background:var(--green, #22c55e); color:#fff; border:none; outline:none;">Release Escrow</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="dispute-modal" style="position:fixed; inset:0; display:flex; align-items:center; justify-content:center; padding:24px; z-index:1000; background:rgba(0,0,0,.55); opacity:0; pointer-events:none; transition:opacity .22s ease;">
+  <div class="modal" style="max-width:460px; margin:auto;">
+    <div class="modal-header">
+      <h3 style="color:var(--red);">Open Dispute</h3>
+      <button class="modal-close" type="button">✕</button>
+    </div>
+    <div class="modal-body" style="padding:20px 22px;">
+      <p style="font-size:.875rem; color:var(--text-2); margin-bottom:16px; line-height:1.6;">Describe what went wrong. This report is sent to the gatekeeper for on-chain review.</p>
+      <div class="form-group">
+        <label class="form-label">What happened?</label>
+        <textarea id="dispute-reason" class="form-textarea" placeholder="e.g. Agent failed to complete task, returned incorrect output..." style="min-height:110px;"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary btn-sm" onclick="closeModal('dispute-modal')">Cancel</button>
+      <button type="button" class="btn btn-sm" id="dispute-submit-btn" style="background:var(--red); color:#fff; border:none; outline:none;">Submit Report</button>
+    </div>
+  </div>
+</div>
+<script>
+(() => {
+  const submitBtn = document.getElementById('dispute-submit-btn');
+  if (!submitBtn) return;
+  submitBtn.addEventListener('click', async () => {
+    const reason = document.getElementById('dispute-reason').value.trim();
+    if (!reason) { if (window.showToast) showToast('Please describe the issue.', 'warning'); return; }
+    const agentId = {{ agent.id }};
+    const setStatus = (s) => { document.getElementById('dispute-status').textContent = s; };
+    closeModal('dispute-modal');
+    try {
+      if (!window.AgentHire?.connected) await window.AgentHire?.connectWallet();
+      setStatus('submitting to gatekeeper...');
+      const res = await fetch('/api/dispute/submit', {
+        method: 'POST',
+        headers: {'content-type':'application/json'},
+        body: JSON.stringify({ agentId, severity: 1, reason, affectedUser: window.AgentHire?.address, orderId: '{{ order.id }}' }),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || 'failed');
+      if (body.txHash) {
+        setStatus('gatekeeper signed - tx ' + body.txHash.slice(0,10) + '...');
+        if (window.showToast) showToast('Incident signed on-chain. Agent penalized.', 'success');
+      } else {
+        setStatus('submitted - awaiting gatekeeper review');
+        if (window.showToast) showToast('Dispute submitted. Gatekeeper will review.', 'info');
+      }
+    } catch (e) { setStatus('failed: ' + (e.message||'').slice(0,120)); }
+  });
+})();
+</script>
 
 <!-- ── Over-Budget Approval Modal ───────────────────────────────────────────── -->
 <div class="modal-overlay" id="budget-modal">
@@ -500,18 +535,23 @@
 <script>
 // ── Mark Complete & Release ─────────────────────────────────────────────────
 (function() {
-  const markBtn = document.getElementById('mark-complete');
-  if (!markBtn) return;
-  markBtn.addEventListener('click', async () => {
+  const markBtn    = document.getElementById('mark-complete');
+  const confirmBtn = document.getElementById('release-confirm-btn');
+  if (!markBtn || !confirmBtn) return;
+
+  markBtn.addEventListener('click', () => {
+    openModal('release-modal');
+  });
+
+  confirmBtn.addEventListener('click', async () => {
     const orderId = markBtn.dataset.orderId;
     if (!orderId) return;
-    if (!confirm('Confirm delivery and release escrow? This cannot be undone.')) return;
+    closeModal('release-modal');
     markBtn.disabled = true;
     markBtn.textContent = 'Releasing...';
     try {
-      const res = await AgentHireAPI.post('/api/orders/' + orderId + '/complete', {});
+      await AgentHireAPI.post('/api/orders/' + orderId + '/complete', {});
       showToast('Escrow released - seller has been paid.', 'success');
-      // Reload after short delay to show completed state
       setTimeout(() => window.location.reload(), 1400);
     } catch (e) {
       showToast('Failed: ' + e.message, 'error');

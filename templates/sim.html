@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 {% block title %}Live Simulation{% endblock %}
 
 {% block head %}
@@ -44,7 +44,7 @@
   .tag.slash { background: #4a1515; color: #ff8787; }
   .tag.bid_cancel { background: #2a2a2a; color: var(--text-3); }
   .tag.system { background: #1a1a1a; color: var(--text-3); }
-  /* A2A — agent-to-agent payments get a prominent teal treatment */
+  /* A2A - agent-to-agent payments get a prominent teal treatment */
   .tag.a2a_hire, .tag.a2a_settle { background: #0a3a3a; color: #5fe3e3; font-weight: 700; }
   .event.evt-a2a { background: linear-gradient(90deg, rgba(95,227,227,0.08), transparent 70%); border-left: 3px solid #5fe3e3; padding-left: 14px; }
 
@@ -119,10 +119,10 @@
   </div>
 
   <div class="stat-row">
-    <div class="stat-card"><div class="stat-label">Status</div><div class="stat-val" id="stat-status">—</div></div>
-    <div class="stat-card"><div class="stat-label">Sim Clock</div><div class="stat-val" id="stat-clock" style="font-size:0.95rem;">—</div></div>
+    <div class="stat-card"><div class="stat-label">Status</div><div class="stat-val" id="stat-status">-</div></div>
+    <div class="stat-card"><div class="stat-label">Sim Clock</div><div class="stat-val" id="stat-clock" style="font-size:0.95rem;">-</div></div>
     <div class="stat-card"><div class="stat-label">Ticks</div><div class="stat-val" id="stat-ticks">0</div></div>
-    <div class="stat-card"><div class="stat-label">Speed</div><div class="stat-val" id="stat-speed">—</div></div>
+    <div class="stat-card"><div class="stat-label">Speed</div><div class="stat-val" id="stat-speed">-</div></div>
     <div class="stat-card"><div class="stat-label">Active Sessions</div><div class="stat-val" id="stat-active">0</div></div>
     <div class="stat-card" style="background:linear-gradient(180deg, rgba(95,227,227,0.08), var(--surface-1)); border-color:rgba(95,227,227,0.25);">
       <div class="stat-label" style="color:#5fe3e3;">A2A Payments</div>
@@ -143,7 +143,7 @@
     <div class="panel">
       <div class="panel-head">
         <span>Agent Profiles · Live</span>
-        <span id="roster-ts">—</span>
+        <span id="roster-ts">-</span>
       </div>
       <div class="roster-body" id="agent-roster"></div>
     </div>
@@ -226,7 +226,7 @@
       const profiles = await Promise.all(agents.map(a =>
         Promise.all([
           fetch(`/api/agents/${a.id}/profile`).then(x => x.json()).catch(() => ({})),
-          fetch(`/api/agents/${a.id}/stake`).then(x => x.json()).catch(() => ({})),
+          fetch(`/api/agents/${a.id}/bond`).then(x => x.json()).catch(() => ({})),
         ])
       ));
 
@@ -250,9 +250,9 @@
           ? `<span class="surge-pill">SURGE ×${surge.toFixed(2)}</span>`
           : '<span style="color:var(--text-3); font-size:0.68rem; font-family:var(--font-mono);">stable</span>';
 
-        const stake = Number(s.stakedUSDCDisplay || 0);
+        const bond = Number(s.bonddUSDCDisplay || 0);
         const incidents = p.repIncidentCount || p.incidentCount || 0;
-        const stakeInc = s.incidentCount || 0;
+        const bondInc = s.incidentCount || 0;
         const tasks = p.tasksCompleted || 0;
 
         const card = document.createElement('div');
@@ -284,15 +284,15 @@
               <div class="m-lbl">Tasks</div>
             </div>
             <div class="metric">
-              <div class="m-val">${stake.toLocaleString()}</div>
-              <div class="m-lbl">Stake $</div>
+              <div class="m-val">${bond.toLocaleString()}</div>
+              <div class="m-lbl">Bond $</div>
             </div>
             <div class="metric">
               <div class="m-val ${incidents > 0 ? 'warn' : ''}">${incidents}</div>
               <div class="m-lbl">Rep Inc</div>
             </div>
             <div class="metric">
-              <div class="m-val ${stakeInc > 0 ? 'bad' : ''}">${stakeInc}</div>
+              <div class="m-val ${bondInc > 0 ? 'bad' : ''}">${bondInc}</div>
               <div class="m-lbl">Slashes</div>
             </div>
           </div>

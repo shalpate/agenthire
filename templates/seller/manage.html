@@ -4,7 +4,7 @@
 {% block content %}
 <div class="container-sm" style="padding-top:40px; padding-bottom:64px;">
   <div class="flex-center gap-8 mb-24 text-sm text-muted">
-    <a href="/seller/dashboard" class="text-muted" style="text-decoration:underline;">Dashboard</a>
+    <a href="/seller/earnings" class="text-muted" style="text-decoration:underline;">Dashboard</a>
     <span>›</span>
     <span style="color:var(--text);">{{ agent.name }}</span>
   </div>
@@ -84,7 +84,7 @@
       </div>
 
       <div class="flex-between">
-        <button class="btn btn-ghost" onclick="window.location='/seller/dashboard'">← Cancel</button>
+        <button class="btn btn-ghost" onclick="window.location='/seller/earnings'">← Cancel</button>
         <button class="btn btn-gradient" id="save-btn" onclick="saveChanges()">Save Changes</button>
       </div>
     </div>

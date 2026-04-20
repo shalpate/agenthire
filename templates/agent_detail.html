@@ -52,7 +52,7 @@
               <span>Tier <b id="oc-tier" style="color:var(--text-1)"> - </b></span>
               <span>Tasks <b id="oc-tasks" style="color:var(--text-1)"> - </b></span>
               <span>Incidents <b id="oc-inc" style="color:var(--text-1)"> - </b></span>
-              <span>Stake <b id="oc-stake" style="color:var(--text-1)"> - </b></span>
+              <span>Bond <b id="oc-bond" style="color:var(--text-1)"> - </b></span>
               <a id="oc-link" href="#" target="_blank" style="color:var(--text-3); margin-left:auto;">snowtrace ↗</a>
             </div>
             <!-- Per-category tier badges - ERC-8004-style specialization -->
@@ -64,13 +64,13 @@
             (async () => {
               const ocAgentId = {{ agent.id }};
               const b = document.getElementById('onchain-rep-banner');
-              const fillBanner = ({ score, tier, tasks, incidents, stake, simulated }) => {
+              const fillBanner = ({ score, tier, tasks, incidents, bond, simulated }) => {
                 b.style.display = 'flex';
                 document.getElementById('oc-score').textContent = score + '/1000';
                 document.getElementById('oc-tier').textContent = 'T' + tier;
                 document.getElementById('oc-tasks').textContent = Number(tasks).toLocaleString();
                 document.getElementById('oc-inc').textContent = incidents;
-                document.getElementById('oc-stake').textContent = Number(stake).toLocaleString() + ' USDC';
+                document.getElementById('oc-bond').textContent = Number(bond).toLocaleString() + ' USDC';
                 if (simulated) {
                   const tag = document.createElement('span');
                   tag.textContent = 'sim';
@@ -89,7 +89,7 @@
                     fillBanner({
                       score: p.reputation.score, tier: p.reputation.tier,
                       tasks: p.reputation.tasks, incidents: p.reputation.incidents,
-                      stake: p.stake.amountUSDC.toFixed(0), simulated: false,
+                      bond: p.bond.amountUSDC.toFixed(0), simulated: false,
                     });
                     filled = true;
                   }
@@ -104,7 +104,7 @@
                     fillBanner({
                       score: sim.score, tier: sim.tier,
                       tasks: sim.tasksCompleted, incidents: sim.repIncidentCount,
-                      stake: sim.stakedUSDCDisplay, simulated: true,
+                      bond: sim.bonddUSDCDisplay, simulated: true,
                     });
                     filled = true;
                   }
@@ -134,7 +134,7 @@
       </div>
 
       <!-- Description -->
-      <div class="card mb-24">
+      <div class="card mb-24 anim-on-scroll">
         <h3 style="margin-bottom:16px;">About This Agent</h3>
         <p style="color: var(--text); line-height: 1.8;">{{ agent.long_description }}</p>
       </div>
@@ -198,24 +198,27 @@
       </div>
 
       <!-- Capabilities -->
-      <div class="card mb-24">
-        <h3 style="margin-bottom:16px;">Capabilities</h3>
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+      <div class="card mb-24 anim-on-scroll delay-1">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:18px;">
+          <h3>Capabilities</h3>
+          <span style="font-family:var(--font-mono); font-size:.5rem; letter-spacing:.14em; text-transform:uppercase; color:var(--text-3);">{{ agent.capabilities|length }} modules</span>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
           {% for cap in agent.capabilities %}
-          <div class="flex-center gap-10" style="padding: 10px 14px; background: var(--card-2); border: 1px solid var(--border); border-radius: 8px;">
-            <span style="color:var(--success); font-weight:700;">✓</span>
-            <span class="text-sm">{{ cap }}</span>
+          <div class="cap-chip">
+            <span class="cap-chip-accent"></span>
+            <span class="cap-chip-label">{{ cap }}</span>
           </div>
           {% endfor %}
         </div>
       </div>
 
-      <!-- On-chain activity — price history + recent transactions -->
+      <!-- On-chain activity - price history + recent transactions -->
       <div class="card mb-24" id="oc-activity-card">
         <div class="flex-between mb-16">
           <div>
             <h3 style="margin-bottom:4px;">On-chain activity</h3>
-            <p class="text-sm text-muted" style="margin:0;">Surge-adjusted price curve and the agent's latest settlements, stakes, and incidents.</p>
+            <p class="text-sm text-muted" style="margin:0;">Surge-adjusted price curve and the agent's latest settlements, bonds, and incidents.</p>
           </div>
           <span class="live-indicator"><span class="live-dot"></span> Live</span>
         </div>
@@ -223,19 +226,19 @@
         <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:12px; margin-bottom:20px;">
           <div style="background:var(--card-2); border:1px solid var(--border); border-radius:8px; padding:10px 14px;">
             <div class="text-xs text-muted" style="text-transform:uppercase; letter-spacing:.06em;">Current surge</div>
-            <div class="font-bold" id="oc-stat-surge" style="font-size:1.1rem; margin-top:4px;">—</div>
+            <div class="font-bold" id="oc-stat-surge" style="font-size:1.1rem; margin-top:4px;">-</div>
           </div>
           <div style="background:var(--card-2); border:1px solid var(--border); border-radius:8px; padding:10px 14px;">
             <div class="text-xs text-muted" style="text-transform:uppercase; letter-spacing:.06em;">Utilization</div>
-            <div class="font-bold" id="oc-stat-util" style="font-size:1.1rem; margin-top:4px;">—</div>
+            <div class="font-bold" id="oc-stat-util" style="font-size:1.1rem; margin-top:4px;">-</div>
           </div>
           <div style="background:var(--card-2); border:1px solid var(--border); border-radius:8px; padding:10px 14px;">
             <div class="text-xs text-muted" style="text-transform:uppercase; letter-spacing:.06em;">30d revenue</div>
-            <div class="font-bold" id="oc-stat-revenue" style="font-size:1.1rem; margin-top:4px;">—</div>
+            <div class="font-bold" id="oc-stat-revenue" style="font-size:1.1rem; margin-top:4px;">-</div>
           </div>
           <div style="background:var(--card-2); border:1px solid var(--border); border-radius:8px; padding:10px 14px;">
-            <div class="text-xs text-muted" style="text-transform:uppercase; letter-spacing:.06em;">Stake slashed</div>
-            <div class="font-bold" id="oc-stat-slashed" style="font-size:1.1rem; margin-top:4px;">—</div>
+            <div class="text-xs text-muted" style="text-transform:uppercase; letter-spacing:.06em;">Bond slashed</div>
+            <div class="font-bold" id="oc-stat-slashed" style="font-size:1.1rem; margin-top:4px;">-</div>
           </div>
         </div>
         <div style="font-family:var(--font-mono); font-size:.625rem; text-transform:uppercase; letter-spacing:.09em; color:var(--text-3); margin-bottom:10px;">Recent transactions</div>
@@ -245,7 +248,7 @@
       </div>
 
       <!-- Reviews -->
-      <div class="card">
+      <div class="card anim-on-scroll delay-2">
         <div class="flex-between mb-20">
           <h3>Reviews</h3>
           <div class="rating" title="{{ agent.rating }} out of 5">
@@ -255,20 +258,28 @@
           </div>
         </div>
         {% for review in reviews %}
-        <div style="padding: 16px 0; border-bottom: 1px solid {{ 'var(--border)' if not loop.last else 'transparent' }};">
-          <div class="flex-between mb-8">
-            <div class="flex-center gap-10">
-              <div style="width:32px; height:32px; border-radius:50%; background: var(--card-2); border: 1px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:.75rem; color:var(--text-2);">
-                {{ loop.index }}
+        {% set bots_used = ((review.user | length * 7 + loop.index * 13) % 76) + 1 %}
+        <div style="padding: 18px 0; border-bottom: 1px solid {{ 'var(--border)' if not loop.last else 'transparent' }};">
+          <div class="flex-between mb-10">
+            <div class="flex-center gap-12">
+              <div style="width:36px; height:36px; border-radius:50%; background:var(--card-2); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; font-family:var(--font-mono); font-size:.6875rem; font-weight:700; color:var(--text-2); flex-shrink:0;">
+                {{ review.user[:2] | upper }}
               </div>
-              <span class="text-sm font-bold">{{ review.user }}</span>
+              <div>
+                <div style="font-size:.875rem; font-weight:600; color:var(--text);">{{ review.user }}</div>
+                <div style="display:flex; align-items:center; gap:6px; margin-top:3px;">
+                  <span style="font-family:var(--font-mono); font-size:.5rem; letter-spacing:.12em; text-transform:uppercase; color:var(--text-3);">{{ bots_used }} agents hired</span>
+                  <span style="width:3px; height:3px; border-radius:50%; background:var(--border-2); display:inline-block;"></span>
+                  <span style="font-family:var(--font-mono); font-size:.5rem; letter-spacing:.1em; text-transform:uppercase; color:var(--text-3);">verified buyer</span>
+                </div>
+              </div>
             </div>
-            <div class="flex-center gap-8">
+            <div class="flex-center gap-10">
               <span class="rating-stars" style="--star-fill:{{ ((review.rating / 5) * 100) | round(1) }}%;" aria-label="{{ review.rating }} out of 5">★★★★★</span>
-              <span class="text-xs text-muted">{{ review.date }}</span>
+              <span class="text-xs text-muted" style="font-family:var(--font-mono);">{{ review.date }}</span>
             </div>
           </div>
-          <p class="text-sm" style="color: var(--text); padding-left:42px;">{{ review.comment }}</p>
+          <p class="text-sm" style="color:var(--text-2); padding-left:48px; line-height:1.65;">{{ review.comment }}</p>
         </div>
         {% endfor %}
       </div>
@@ -339,10 +350,6 @@
         </div>
 
         <a href="/checkout/{{ agent.id }}" class="btn btn-gradient btn-full btn-lg">Rent This Agent</a>
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:10px;">
-          <button class="btn btn-secondary btn-sm" onclick="openModal('pricing-modal')">Pricing Breakdown</button>
-          <button class="btn btn-secondary btn-sm" onclick="openModal('verification-modal')">Verification Info</button>
-        </div>
       </div>
 
       <!-- Works Well With (agent-to-agent discovery) -->
@@ -527,16 +534,6 @@
 <script>
   startLivePriceTicker({{ agent.id }});
 
-  // Pre-fill pricing modal
-  document.getElementById('modal-billing').textContent = '{{ "Per Token" if agent.billing == "per_token" else "Per Minute" }}';
-  document.getElementById('modal-price').textContent = '${{ "%.5f"|format(agent.current_price) }}';
-  document.getElementById('modal-range').textContent = '${{ "%.5f"|format(agent.min_price) }} - ${{ "%.5f"|format(agent.max_price) }} / {{ "token" if agent.billing == "per_token" else "min" }}';
-  document.getElementById('modal-estimate').textContent = '${{ "%.2f"|format(agent.current_price * 1000) }}';
-  document.getElementById('modal-fee').textContent = '${{ "%.4f"|format(agent.current_price * 1000 * 0.001) }}';
-  {% if not agent.surge_active %}
-  document.getElementById('modal-surge-row').style.display = 'none';
-  {% endif %}
-
   // ── On-chain activity: price history chart + recent transactions ──────────
   (async () => {
     const agentId = {{ agent.id }};
@@ -579,7 +576,7 @@
         // Count slash events
         const slashAmt = (profile.recentTransactions || [])
           .filter(tx => tx.kind === 'slash').reduce((s, t) => s + (t.amountUSDCDisplay || 0), 0);
-        document.getElementById('oc-stat-slashed').textContent = slashAmt > 0 ? '$' + slashAmt.toFixed(0) : '—';
+        document.getElementById('oc-stat-slashed').textContent = slashAmt > 0 ? '$' + slashAmt.toFixed(0) : '-';
       }
 
       // Transactions list
@@ -590,8 +587,8 @@
           deposit: { label: 'Deposit', color: '#7fb3ff' },
           settle:  { label: 'Settlement', color: '#5ade7a' },
           refund:  { label: 'Refund', color: '#ffdb7f' },
-          stake:   { label: 'Stake', color: '#7fb3ff' },
-          unstake: { label: 'Unstake', color: '#ffdb7f' },
+          bond:   { label: 'Bond', color: '#7fb3ff' },
+          unbond: { label: 'Unbond', color: '#ffdb7f' },
           slash:   { label: 'Slash', color: '#ff7f7f' },
           register:{ label: 'Register', color: '#9aa4b2' },
           incident:{ label: 'Incident', color: '#ff7f7f' },

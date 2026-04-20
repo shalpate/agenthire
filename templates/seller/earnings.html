@@ -1,122 +1,320 @@
 {% extends "base.html" %}
-{% block title %}Earnings{% endblock %}
+{% block title %}Seller Dashboard{% endblock %}
 
 {% block content %}
-<div class="container" style="padding-top:40px; padding-bottom:64px;">
-  <div class="mb-32">
-    <h1 style="font-size:1.75rem; margin-bottom:4px;">Earnings</h1>
-    <p>Revenue analytics, surge earnings, and payout history</p>
-  </div>
+<div class="container" style="padding-top:36px; padding-bottom:72px;">
 
-  <!-- Stats -->
-  <div class="grid-4 mb-32">
-    <div class="stat-card">
-      <div class="text-xs text-muted mb-8" style="text-transform:uppercase; letter-spacing:.06em;">Total Revenue</div>
-      <div class="stat-value">${{ "{:,.2f}".format(earnings.total_revenue) }}</div>
-      <div class="stat-change up mt-8">↑ 18.4%</div>
+  <!-- Header -->
+  <div class="flex-between mb-28">
+    <div>
+      <div style="font-family:var(--font-mono); font-size:.5625rem; text-transform:uppercase; letter-spacing:.14em; color:var(--text-3); margin-bottom:6px;">Seller</div>
+      <h1 style="font-size:1.625rem; margin-bottom:4px; letter-spacing:-.025em;">Dashboard</h1>
+      <p class="text-sm text-muted" style="font-family:var(--font-mono);">{{ seller or '0x3f8a...c12d' }}</p>
     </div>
-    <div class="stat-card">
-      <div class="text-xs text-muted mb-8" style="text-transform:uppercase; letter-spacing:.06em;">Escrowed</div>
-      <div class="stat-value">${{ "{:,.2f}".format(earnings.escrow_funds) }}</div>
-      <div class="text-xs text-muted mt-8">Pending release</div>
-    </div>
-    <div class="stat-card">
-      <div class="text-xs text-muted mb-8" style="text-transform:uppercase; letter-spacing:.06em;">Released</div>
-      <div class="stat-value">${{ "{:,.2f}".format(earnings.released_payouts) }}</div>
-      <div class="stat-change up mt-8">↑ Available</div>
-    </div>
-    <div class="stat-card">
-      <div class="text-xs text-muted mb-8" style="text-transform:uppercase; letter-spacing:.06em;">Platform Fees</div>
-      <div class="stat-value">${{ "{:,.2f}".format(earnings.platform_fees) }}</div>
-      <div class="text-xs text-muted mt-8">10 bps of revenue</div>
+    <div style="display:flex; gap:10px; align-items:center;">
+      <a href="/marketplace" onclick="localStorage.setItem('agenthire_role','buyer')" class="btn btn-ghost btn-sm" style="font-family:var(--font-mono); font-size:.6875rem;">← Buyer View</a>
+      <a href="/seller/create" class="btn btn-gradient btn-sm">+ List Agent</a>
     </div>
   </div>
 
-  <!-- Revenue Chart -->
-  <div class="chart-wrap mb-24">
-    <div class="chart-header">
-      <span class="chart-title">Revenue vs Surge Earnings (12 months)</span>
-      <div class="flex-center gap-12">
-        <div class="flex-center gap-6 text-xs text-muted"><div style="width:10px;height:3px;background:var(--accent);border-radius:2px;"></div>Revenue</div>
-        <div class="flex-center gap-6 text-xs text-muted"><div style="width:10px;height:3px;background:var(--warning);border-radius:2px;"></div>Surge</div>
+  <!-- Getting Started: only shown if no agents listed -->
+  {% if not agents %}
+  <div style="background:var(--card); border:1px solid var(--border); border-radius:var(--radius-lg); padding:28px 32px; margin-bottom:24px;">
+    <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:20px; flex-wrap:wrap;">
+      <div style="flex:1; min-width:260px;">
+        <div style="font-family:var(--font-mono); font-size:.5rem; text-transform:uppercase; letter-spacing:.14em; color:var(--blue); margin-bottom:8px;">Getting Started</div>
+        <h2 style="font-size:1.125rem; letter-spacing:-.02em; margin:0 0 6px;">List your first agent in 4 steps</h2>
+        <p style="font-size:.8125rem; color:var(--text-3); margin:0;">Bond, define pricing, pass verification, and earn on every task.</p>
+      </div>
+      <div style="display:flex; gap:8px; flex-shrink:0; align-items:center;">
+        <a href="/how-it-works?role=seller" class="btn btn-ghost btn-sm" style="font-family:var(--font-mono); font-size:.625rem;">How It Works</a>
+        <a href="/seller/create" class="btn btn-gradient btn-sm">+ List Agent →</a>
       </div>
     </div>
-    <div style="height:240px;">
-      <canvas id="earnings-chart" class="chart-canvas"></canvas>
+    <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-top:24px;">
+      {% for n, title, detail in [
+        ('01','Bond','Post $100 USDC account bond + $25 per agent to activate your listing rights.'),
+        ('02','Price','Set your token budget, billing model, and min/max price range.'),
+        ('03','Verify','Pass automated or human review to earn the Verified badge.'),
+        ('04','Earn','Funds lock in escrow on hire. Payment releases on buyer confirmation.'),
+      ] %}
+      <div style="padding:16px; background:var(--card-2); border:1px solid var(--border); border-radius:var(--radius);">
+        <div style="font-family:var(--font-mono); font-size:.5rem; font-weight:700; color:var(--red); letter-spacing:.12em; margin-bottom:10px;">{{ n }}</div>
+        <div style="font-size:.875rem; font-weight:600; margin-bottom:6px;">{{ title }}</div>
+        <p style="font-size:.75rem; color:var(--text-3); line-height:1.55; margin:0;">{{ detail }}</p>
+      </div>
+      {% endfor %}
     </div>
   </div>
+  {% endif %}
 
-  <div class="grid-2 gap-24 mb-32">
-    <!-- Surge Analytics -->
-    <div class="card" style="border-color: rgba(245,158,11,.2);">
-      <div class="flex-center gap-10 mb-20">
-        <span class="badge badge-surge" style="font-size:.625rem;">SURGE</span>
-        <h3>Surge Analytics</h3>
+  <!-- Row 1: Stats + Revenue Chart -->
+  <div style="display:grid; grid-template-columns:280px 1fr; gap:16px; margin-bottom:16px; align-items:stretch;">
+
+    <!-- Stats column -->
+    <div style="display:flex; flex-direction:column; gap:10px;">
+      <div style="padding:20px; background:var(--card); border:1px solid var(--border); border-radius:var(--radius); flex:1;">
+        <div style="font-family:var(--font-mono); font-size:.475rem; text-transform:uppercase; letter-spacing:.14em; color:var(--text-3); margin-bottom:6px;">Total Revenue</div>
+        <div style="font-size:1.75rem; font-weight:700; font-family:var(--font-mono); letter-spacing:-.03em; margin-bottom:4px;">${{ "{:,.2f}".format(earnings.total_revenue) }}</div>
+        <div style="font-size:.6875rem; color:var(--green);">↑ 18% vs last month</div>
       </div>
-
-      <div class="grid-2 gap-16 mb-20">
-        <div style="background:var(--card-2); border:1px solid var(--border); border-radius:8px; padding:14px;">
-          <div class="text-xs text-muted mb-4">Surge Revenue (Apr)</div>
-          <div class="font-bold" style="font-size:1.25rem; color:var(--warning);">$1,620</div>
-          <div class="stat-change up" style="display:inline-block; margin-top:6px;">19.2% of total</div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+        <div style="padding:14px 16px; background:var(--card); border:1px solid var(--border); border-radius:var(--radius);">
+          <div style="font-family:var(--font-mono); font-size:.45rem; text-transform:uppercase; letter-spacing:.12em; color:var(--text-3); margin-bottom:5px;">Active Orders</div>
+          <div style="font-size:1.25rem; font-weight:700; font-family:var(--font-mono);">{{ orders|selectattr('status','equalto','in_progress')|list|length + orders|selectattr('status','equalto','in_escrow')|list|length }}</div>
         </div>
-        <div style="background:var(--card-2); border:1px solid var(--border); border-radius:8px; padding:14px;">
-          <div class="text-xs text-muted mb-4">Peak Multiplier</div>
-          <div class="font-bold" style="font-size:1.25rem; color:var(--warning);">2.1×</div>
-          <div class="text-xs text-muted mt-6">AlphaTrader AI</div>
+        <div style="padding:14px 16px; background:var(--card); border:1px solid var(--border); border-radius:var(--radius);">
+          <div style="font-family:var(--font-mono); font-size:.45rem; text-transform:uppercase; letter-spacing:.12em; color:var(--text-3); margin-bottom:5px;">Listed Agents</div>
+          <div style="font-size:1.25rem; font-weight:700; font-family:var(--font-mono);">{{ agents|length }}</div>
         </div>
       </div>
+      <div style="padding:14px 16px; background:var(--card); border:1px solid var(--border); border-radius:var(--radius);">
+        <div style="font-family:var(--font-mono); font-size:.45rem; text-transform:uppercase; letter-spacing:.12em; color:var(--text-3); margin-bottom:6px;">Avg Rating</div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span style="font-size:1.25rem; font-weight:700; font-family:var(--font-mono);">4.7</span>
+          <span class="rating-stars" style="--star-fill:94%; font-size:.875rem;" aria-label="4.7 out of 5">★★★★★</span>
+        </div>
+      </div>
+    </div>
 
-      <div class="font-bold text-sm mb-12">Peak Demand Windows</div>
-      {% for window in [('9:00 AM - 11:00 AM UTC', 'High', '1.6×-2.1×'), ('2:00 PM - 4:00 PM UTC', 'Medium', '1.2×-1.5×'), ('8:00 PM - 10:00 PM UTC', 'High', '1.4×-1.8×')] %}
-      <div class="flex-between py-10" style="border-bottom: 1px solid {{ 'var(--border)' if not loop.last else 'transparent' }};">
+    <!-- Revenue chart -->
+    <div class="chart-wrap">
+      <div style="display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:16px; flex-wrap:wrap; gap:12px;">
+        <div class="chart-kpi-row" style="margin-bottom:0;">
+          <div class="chart-kpi-item">
+            <span class="chart-kpi-lbl">Revenue</span>
+            <span class="chart-kpi-val">${{ "{:,.0f}".format(earnings.total_revenue) }}</span>
+            <span class="chart-kpi-chg up">↑ 18%</span>
+          </div>
+          <div class="chart-kpi-item">
+            <span class="chart-kpi-lbl">Surge</span>
+            <span class="chart-kpi-val" style="color:#f59e0b;">$1,620</span>
+            <span class="chart-kpi-chg up">19.2%</span>
+          </div>
+          <div class="chart-kpi-item">
+            <span class="chart-kpi-lbl">Released</span>
+            <span class="chart-kpi-val">${{ "{:,.0f}".format(earnings.released_payouts) }}</span>
+          </div>
+        </div>
+        <div class="chart-legend">
+          <div class="chart-legend-item"><span class="chart-legend-dot" style="background:#E84142;"></span>Revenue</div>
+          <div class="chart-legend-item"><span class="chart-legend-dot" style="background:#f59e0b;"></span>Surge</div>
+        </div>
+      </div>
+      <div style="height:190px;">
+        <canvas id="revenue-chart" class="chart-canvas"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Row 2: Bond bar -->
+  <div style="padding:16px 20px; background:var(--card); border:1px solid var(--border); border-radius:var(--radius); margin-bottom:18px;">
+    <div style="display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:20px;">
+      <div>
+        <div style="font-family:var(--font-mono); font-size:.475rem; text-transform:uppercase; letter-spacing:.14em; color:var(--text-3); margin-bottom:4px;">On-chain Bond</div>
+        <div id="account-bond-val" style="font-size:1rem; font-weight:700; font-family:var(--font-mono);">- USDC</div>
+      </div>
+      <div style="display:flex; gap:24px;">
         <div>
-          <div class="text-sm font-bold">{{ window[0] }}</div>
-          <div class="text-xs text-muted">Multiplier: {{ window[2] }}</div>
+          <div style="font-family:var(--font-mono); font-size:.475rem; text-transform:uppercase; letter-spacing:.1em; color:var(--text-3); margin-bottom:3px;">Tier</div>
+          <div id="bond-tier" style="font-family:var(--font-mono); font-size:.8125rem; font-weight:600;">-</div>
         </div>
-        <span class="badge {{ 'badge-surge' if window[1] == 'High' else 'badge-testing' }}">{{ window[1] }}</span>
+        <div>
+          <div style="font-family:var(--font-mono); font-size:.475rem; text-transform:uppercase; letter-spacing:.1em; color:var(--text-3); margin-bottom:3px;">Incidents</div>
+          <div id="bond-incidents" style="font-family:var(--font-mono); font-size:.8125rem; font-weight:600;">-</div>
+        </div>
+        <div>
+          <div style="font-family:var(--font-mono); font-size:.475rem; text-transform:uppercase; letter-spacing:.1em; color:var(--text-3); margin-bottom:3px;">Unbond</div>
+          <div id="bond-unbond" style="font-family:var(--font-mono); font-size:.8125rem; font-weight:600;">-</div>
+        </div>
+      </div>
+      <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
+        <input id="account-bond-input" type="number" value="100" min="100" step="100" class="form-input" style="width:90px; font-family:var(--font-mono); font-size:.75rem; padding:6px 10px;">
+        <button id="bond-add" class="btn btn-gradient btn-sm">Bond</button>
+        <button id="bond-req" class="btn btn-ghost btn-sm">Unbond</button>
+        <span id="bond-status" style="font-family:var(--font-mono); font-size:.5625rem; color:var(--text-3);"></span>
+      </div>
+    </div>
+    <div style="margin-top:10px; padding-top:10px; border-top:1px solid var(--border); font-family:var(--font-mono); font-size:.475rem; color:var(--text-3); display:flex; gap:20px; flex-wrap:wrap;">
+      <span>Tier 1: $100 · 1 agent · all categories</span>
+      <span>Tier 2: $250 · 3 agents</span>
+      <span>Tier 3: $1000 · 13 agents</span>
+      <span>Slash: 25% @ &lt;3★ + 10 complaints · 50% on warning · removal on 3rd</span>
+    </div>
+  </div>
+
+  <!-- Row 3: Listed Agents + Recent Orders -->
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-bottom:28px;">
+    <!-- Listed Agents -->
+    <div class="card">
+      <div class="flex-between mb-16">
+        <h3 style="font-size:.9375rem;">Listed Agents</h3>
+        <a href="/seller/create" class="btn btn-ghost btn-sm">+ Add →</a>
+      </div>
+      {% set cat_codes = {'Development':'DEV','Data & Analytics':'DAT','Content':'CON','Finance':'FIN','Research':'RES','Security':'SEC','Automation':'AUT'} %}
+      {% if agents %}
+      <div style="display:flex; flex-direction:column;">
+        {% for agent in agents %}
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 0; border-bottom:1px solid {{ 'var(--border)' if not loop.last else 'transparent' }}; gap:10px;">
+          <div style="display:flex; align-items:center; gap:10px; min-width:0;">
+            <div class="agent-avatar" style="width:32px; height:32px; font-size:.5rem; flex-shrink:0; background:var(--surface-1); color:var(--text-2);">{{ cat_codes.get(agent.category,'AGT') }}</div>
+            <div style="min-width:0;">
+              <div style="font-weight:600; font-size:.8125rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ agent.name }}</div>
+              <div style="font-size:.6875rem; color:var(--text-3); font-family:var(--font-mono);">{{ "{:,}".format(agent.tasks_completed) }} tasks</div>
+            </div>
+          </div>
+          <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
+            {% if agent.verified %}<span class="mkt-badge mkt-badge-verified" style="font-size:.55rem;"><svg width="6" height="6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Verified</span>
+            {% else %}<span class="badge badge-unverified" style="font-size:.5rem; padding:2px 6px;">Unverified</span>{% endif %}
+            {% if agent.surge_active %}<span class="badge badge-surge" style="font-size:.5rem; padding:2px 6px;">Surge</span>{% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div style="text-align:center; padding:28px 0; color:var(--text-3);">
+        <div style="font-family:var(--font-mono); font-size:1.25rem; margin-bottom:10px;">[ ]</div>
+        <p style="font-size:.8125rem; margin-bottom:14px;">No agents listed yet</p>
+        <a href="/seller/create" class="btn btn-gradient btn-sm">List first agent</a>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Recent Orders -->
+    <div class="card">
+      <div class="flex-between mb-16">
+        <h3 style="font-size:.9375rem;">Recent Orders</h3>
+        <a href="/seller/orders" class="btn btn-ghost btn-sm">View All →</a>
+      </div>
+      {% if orders %}
+      <div style="display:flex; flex-direction:column;">
+        {% for order in orders[:5] %}
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 0; border-bottom:1px solid {{ 'var(--border)' if not loop.last else 'transparent' }}; gap:10px;">
+          <div style="min-width:0;">
+            <div style="font-weight:600; font-size:.8125rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ order.agent }}</div>
+            <div style="font-size:.6rem; color:var(--text-3); font-family:var(--font-mono); margin-top:2px;">{{ order.id }} · {{ order.date }}</div>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
+            <span style="font-family:var(--font-mono); font-size:.8125rem; font-weight:700;">${{ "%.2f"|format(order.amount) }}</span>
+            {% if order.status == 'completed' %}<span class="badge badge-approved" style="font-size:.5rem; padding:2px 6px;">Done</span>
+            {% elif order.status == 'in_progress' %}<span class="badge badge-testing" style="font-size:.5rem; padding:2px 6px;">Running</span>
+            {% elif order.status == 'in_escrow' %}<span class="badge badge-escrow" style="font-size:.5rem; padding:2px 6px;">Escrow</span>{% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div style="text-align:center; padding:28px 0; color:var(--text-3);">
+        <div style="font-family:var(--font-mono); font-size:1.25rem; margin-bottom:10px;">[ ]</div>
+        <p style="font-size:.8125rem;">No orders yet</p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Divider -->
+  <div style="border-top:1px solid var(--border); margin-bottom:28px;"></div>
+
+  <!-- Earnings Stats -->
+  <div style="margin-bottom:6px;">
+    <h2 style="font-size:1.125rem; margin-bottom:4px;">Earnings Breakdown</h2>
+    <p style="font-size:.8125rem; color:var(--text-3);">Revenue analytics, surge earnings, and payout history</p>
+  </div>
+  <div class="grid-3 mb-24" style="margin-top:16px;">
+    <div class="stat-card">
+      <div class="text-xs text-muted mb-6" style="text-transform:uppercase; letter-spacing:.06em;">Escrowed</div>
+      <div class="stat-value">${{ "{:,.2f}".format(earnings.escrow_funds) }}</div>
+      <div class="text-xs text-muted mt-6">Pending release</div>
+    </div>
+    <div class="stat-card">
+      <div class="text-xs text-muted mb-6" style="text-transform:uppercase; letter-spacing:.06em;">Released</div>
+      <div class="stat-value">${{ "{:,.2f}".format(earnings.released_payouts) }}</div>
+      <div class="stat-change up mt-6">Available</div>
+    </div>
+    <div class="stat-card">
+      <div class="text-xs text-muted mb-6" style="text-transform:uppercase; letter-spacing:.06em;">Platform Fees</div>
+      <div class="stat-value">${{ "{:,.2f}".format(earnings.platform_fees) }}</div>
+      <div class="text-xs text-muted mt-6">10 bps of revenue</div>
+    </div>
+  </div>
+
+  <!-- Surge + Usage row -->
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:24px;">
+
+    <!-- Surge Analytics -->
+    <div style="padding:20px 22px; background:var(--card); border:1px solid rgba(245,158,11,.22); border-radius:var(--radius);">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:18px;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span style="font-family:var(--font-mono); font-size:.5rem; font-weight:700; color:#f59e0b; letter-spacing:.1em; text-transform:uppercase; padding:2px 7px; border:1px solid rgba(245,158,11,.3); border-radius:4px; background:rgba(245,158,11,.07);">SURGE</span>
+          <span style="font-size:.9375rem; font-weight:600;">Surge Analytics</span>
+        </div>
+      </div>
+      <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:0; border:1px solid var(--border); border-radius:var(--radius-sm); overflow:hidden; margin-bottom:18px;">
+        <div style="padding:12px 14px; border-right:1px solid var(--border);">
+          <div style="font-family:var(--font-mono); font-size:.45rem; text-transform:uppercase; letter-spacing:.1em; color:var(--text-3); margin-bottom:5px;">Surge Rev</div>
+          <div style="font-size:1.0625rem; font-weight:700; color:#f59e0b; font-family:var(--font-mono);">$1,620</div>
+          <div style="font-size:.6rem; color:var(--green); margin-top:3px;">19.2% of total</div>
+        </div>
+        <div style="padding:12px 14px; border-right:1px solid var(--border);">
+          <div style="font-family:var(--font-mono); font-size:.45rem; text-transform:uppercase; letter-spacing:.1em; color:var(--text-3); margin-bottom:5px;">Peak Multi</div>
+          <div style="font-size:1.0625rem; font-weight:700; color:#f59e0b; font-family:var(--font-mono);">2.1×</div>
+          <div style="font-size:.6rem; color:var(--text-3); margin-top:3px;">AlphaTrader AI</div>
+        </div>
+        <div style="padding:12px 14px;">
+          <div style="font-family:var(--font-mono); font-size:.45rem; text-transform:uppercase; letter-spacing:.1em; color:var(--text-3); margin-bottom:5px;">Avg Multi</div>
+          <div style="font-size:1.0625rem; font-weight:700; font-family:var(--font-mono);">1.4×</div>
+          <div style="font-size:.6rem; color:var(--text-3); margin-top:3px;">This month</div>
+        </div>
+      </div>
+      <div style="font-family:var(--font-mono); font-size:.45rem; text-transform:uppercase; letter-spacing:.1em; color:var(--text-3); margin-bottom:10px;">Peak Windows</div>
+      {% for window in [('9:00 – 11:00 AM UTC', '1.6×–2.1×', 'High'), ('2:00 – 4:00 PM UTC', '1.2×–1.5×', 'Med'), ('8:00 – 10:00 PM UTC', '1.4×–1.8×', 'High')] %}
+      <div style="display:flex; align-items:center; justify-content:space-between; padding:7px 0; border-bottom:1px solid {{ 'var(--border)' if not loop.last else 'transparent' }};">
+        <span style="font-size:.8125rem; color:var(--text-2);">{{ window[0] }}</span>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span style="font-family:var(--font-mono); font-size:.75rem; font-weight:600; color:#f59e0b;">{{ window[1] }}</span>
+          <span class="badge {{ 'badge-surge' if window[2] == 'High' else 'badge-testing' }}" style="font-size:.5rem; padding:2px 6px;">{{ window[2] }}</span>
+        </div>
       </div>
       {% endfor %}
     </div>
 
     <!-- Usage Trends -->
-    <div class="card">
-      <h3 style="margin-bottom:20px;">Usage Trends</h3>
-      <div style="height:200px; margin-bottom:20px;">
+    <div style="padding:20px 22px; background:var(--card); border:1px solid var(--border); border-radius:var(--radius);">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:18px;">
+        <span style="font-size:.9375rem; font-weight:600;">Usage Trends</span>
+        <div class="chart-legend"><div class="chart-legend-item"><span class="chart-legend-dot" style="background:#3B82F6;"></span>Tasks / day</div></div>
+      </div>
+      <div style="height:148px; margin-bottom:16px;">
         <canvas id="usage-chart"></canvas>
       </div>
-      <div class="flex-between text-sm">
-        <span class="text-muted">Total tasks (Apr)</span>
-        <span class="font-bold">2,841</span>
-      </div>
-      <div class="flex-between text-sm mt-10">
-        <span class="text-muted">Avg task value</span>
-        <span class="font-bold text-accent">$2.96</span>
-      </div>
-      <div class="flex-between text-sm mt-10">
-        <span class="text-muted">Completion rate</span>
-        <span class="font-bold text-success">98.3%</span>
+      <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:0; border:1px solid var(--border); border-radius:var(--radius-sm); overflow:hidden;">
+        <div style="padding:10px 14px; border-right:1px solid var(--border);">
+          <div style="font-family:var(--font-mono); font-size:.45rem; text-transform:uppercase; letter-spacing:.1em; color:var(--text-3); margin-bottom:4px;">Tasks (Apr)</div>
+          <div style="font-size:1rem; font-weight:700; font-family:var(--font-mono);">2,841</div>
+        </div>
+        <div style="padding:10px 14px; border-right:1px solid var(--border);">
+          <div style="font-family:var(--font-mono); font-size:.45rem; text-transform:uppercase; letter-spacing:.1em; color:var(--text-3); margin-bottom:4px;">Avg Value</div>
+          <div style="font-size:1rem; font-weight:700; font-family:var(--font-mono); color:var(--blue);">$2.96</div>
+        </div>
+        <div style="padding:10px 14px;">
+          <div style="font-family:var(--font-mono); font-size:.45rem; text-transform:uppercase; letter-spacing:.1em; color:var(--text-3); margin-bottom:4px;">Completion</div>
+          <div style="font-size:1rem; font-weight:700; font-family:var(--font-mono); color:var(--green);">98.3%</div>
+        </div>
       </div>
     </div>
   </div>
 
   <!-- Transaction History -->
   <div class="card">
-    <div class="flex-between mb-16">
-      <h3>Transaction History</h3>
+    <div class="flex-between mb-14">
+      <h3 style="font-size:.9375rem; margin:0;">Transaction History</h3>
       <button class="btn btn-ghost btn-sm" id="export-csv-btn">Export CSV</button>
     </div>
     <div class="table-wrap">
       <table id="tx-history-table">
         <thead>
           <tr>
-            <th>Date</th>
-            <th>Agent</th>
-            <th>Type</th>
-            <th>Amount</th>
-            <th>Fee</th>
-            <th>Net</th>
-            <th>Status</th>
+            <th>Date</th><th>Agent</th><th>Type</th><th>Amount</th><th>Fee</th><th>Net</th><th>Status</th>
           </tr>
         </thead>
         <tbody>
@@ -130,70 +328,100 @@
           <tr>
             <td class="text-muted">{{ tx[0] }}</td>
             <td class="font-bold">{{ tx[1] }}</td>
-            <td>
-              {{ tx[2] }}
-              {% if 'Surge' in tx[2] %}<span class="badge badge-surge" style="margin-left:6px;">SURGE</span>{% endif %}
-            </td>
+            <td>{{ tx[2] }}{% if 'Surge' in tx[2] %}<span class="badge badge-surge" style="margin-left:6px; font-size:.5rem;">SURGE</span>{% endif %}</td>
             <td class="font-bold">${{ "%.2f"|format(tx[3]) }}</td>
             <td class="text-muted">${{ "%.3f"|format(tx[4]) }}</td>
-            <td class="font-bold text-success">${{ "%.3f"|format(tx[5]) }}</td>
-            <td>
-              {% if tx[6] == 'released' %}
-              <span class="badge badge-approved">Released</span>
-              {% else %}
-              <span class="badge badge-escrow">In Escrow</span>
-              {% endif %}
-            </td>
+            <td style="font-weight:600; color:var(--green);">${{ "%.3f"|format(tx[5]) }}</td>
+            <td>{% if tx[6] == 'released' %}<span class="badge badge-approved" style="font-size:.55rem;">Released</span>{% else %}<span class="badge badge-escrow" style="font-size:.55rem;">In Escrow</span>{% endif %}</td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
   </div>
+
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-makeLineChart('earnings-chart',
+makeLineChart('revenue-chart',
   {{ earnings.labels | tojson }},
   [
-    { label: 'Total Revenue', data: {{ earnings.monthly | tojson }}, borderColor: '#3B82F6', backgroundColor: 'rgba(59,130,246,.08)', fill: true },
-    { label: 'Surge Earnings', data: {{ earnings.surge_earnings | tojson }}, borderColor: '#F59E0B', backgroundColor: 'rgba(245,158,11,.06)', fill: true },
+    { label: 'Revenue (USDC)', data: {{ earnings.monthly | tojson }}, borderColor: '#E84142', backgroundColor: 'rgba(232,65,66,.08)', fill: true },
+    { label: 'Surge Earnings', data: {{ earnings.surge_earnings | tojson }}, borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,.05)', fill: true }
   ]
 );
-
 makeBarChart('usage-chart',
   ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],
-  [{ label: 'Tasks', data: [320, 480, 390, 520, 610, 280, 241], backgroundColor: 'rgba(59,130,246,.5)', borderColor: '#3B82F6', borderWidth: 1 }]
+  [{ label: 'Tasks', data: [320,480,390,520,610,280,241], backgroundColor: 'rgba(59,130,246,.45)', borderColor: '#3B82F6', borderWidth: 1 }]
 );
 
-/* ── CSV export ─────────────────────────────────────────────────────
-   Serializes the transaction history table to a CSV file and triggers
-   a browser download. No server round-trip. */
+/* Bond controls */
+(() => {
+  const el = (id) => document.getElementById(id);
+  const setStatus = (s) => { el('bond-status').textContent = s; };
+  const AGENT_ID = 1;
+
+  async function refresh() {
+    if (!window.AgentHire || !window.ethereum) return;
+    try {
+      const provider = new ethers.JsonRpcProvider(window.AGENTHIRE_CHAIN.rpcUrl);
+      const bonding = new ethers.Contract(window.AGENTHIRE_ADDRESSES.BondingSlashing, window.AGENTHIRE_ABIS.BondingSlashing, provider);
+      const rep = new ethers.Contract(window.AGENTHIRE_ADDRESSES.ReputationContract, window.AGENTHIRE_ABIS.ReputationContract, provider);
+      const [s, req, profile] = await Promise.all([
+        bonding.getBond(AGENT_ID), bonding.getUnbondRequest(AGENT_ID), rep.getCreditProfile(AGENT_ID),
+      ]);
+      el('account-bond-val').textContent = (Number(s[0])/1e6).toFixed(2) + ' USDC';
+      el('bond-incidents').textContent = s[1].toString() + (s[2] ? ' (banned)' : '');
+      el('bond-tier').textContent = 'Tier ' + profile.tier.toString();
+      if (req.amount > 0n) {
+        const avail = Number(req.availableAt), now = Math.floor(Date.now()/1000);
+        el('bond-unbond').textContent = now >= avail ? 'Ready' : new Date(avail*1000).toLocaleDateString();
+      } else { el('bond-unbond').textContent = '-'; }
+    } catch (e) { console.warn('bond refresh', e); }
+  }
+
+  el('bond-add').addEventListener('click', async () => {
+    const amt = Number(el('account-bond-input').value) || 100;
+    try {
+      if (!window.AgentHire.connected) await window.AgentHire.connectWallet();
+      setStatus('approving...');
+      const wei = BigInt(Math.floor(amt * 1e6));
+      const bal = await window.AgentHire.getUsdcBalance();
+      if (bal < wei) { setStatus('minting...'); await window.AgentHire.mintUSDC(Math.max(1000, amt)); }
+      await (await window.AgentHire.contracts.MockUSDC.approve(window.AGENTHIRE_ADDRESSES.BondingSlashing, wei)).wait();
+      await (await window.AgentHire.contracts.BondingSlashing.bond(AGENT_ID, wei)).wait();
+      setStatus('bonded'); if (window.showToast) showToast('Bonded ' + amt + ' USDC', 'success'); refresh();
+    } catch (e) { setStatus('failed'); }
+  });
+
+  el('bond-req').addEventListener('click', async () => {
+    const amt = Number(el('account-bond-input').value) || 100;
+    try {
+      if (!window.AgentHire.connected) await window.AgentHire.connectWallet();
+      await (await window.AgentHire.contracts.BondingSlashing.requestUnbond(AGENT_ID, BigInt(Math.floor(amt*1e6)))).wait();
+      setStatus('queued - 7d delay'); if (window.showToast) showToast('Unbond queued', 'success'); refresh();
+    } catch (e) { setStatus('failed'); }
+  });
+
+  refresh(); setInterval(refresh, 30000);
+})();
+
+/* CSV export */
 (function wireCsvExport() {
-  const btn   = document.getElementById('export-csv-btn');
+  const btn = document.getElementById('export-csv-btn');
   const table = document.getElementById('tx-history-table');
   if (!btn || !table) return;
   btn.addEventListener('click', () => {
     const rows = [...table.querySelectorAll('tr')];
-    const esc = (v) => {
-      const s = String(v ?? '').replace(/\s+/g, ' ').trim();
-      return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
-    };
-    const csv = rows.map(row => {
-      return [...row.children].map(cell => esc(cell.innerText)).join(',');
-    }).join('\n');
+    const esc = (v) => { const s = String(v ?? '').replace(/\s+/g,' ').trim(); return /[",\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s; };
+    const csv = rows.map(row => [...row.children].map(cell => esc(cell.innerText)).join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    const stamp = new Date().toISOString().slice(0, 10);
-    a.href = url;
-    a.download = 'agenthire-earnings-' + stamp + '.csv';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'agenthire-earnings-' + new Date().toISOString().slice(0,10) + '.csv';
+    document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
     if (window.showToast) showToast('CSV downloaded', 'success');
   });
 })();
