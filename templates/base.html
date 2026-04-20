@@ -84,9 +84,69 @@
         <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
       </svg>
     </button>
-    <button class="wallet-btn" id="wallet-btn" data-connected="false" type="button" onclick="__agentHireConnect(event)">
-      <span>Connect Wallet</span>
-    </button>
+    <div id="wallet-wrap" style="position:relative;">
+      <button class="wallet-btn" id="wallet-btn" data-connected="false" type="button" onclick="__walletClick(event)">
+        <span>Connect Wallet</span>
+      </button>
+      <!-- Pre-connect picker -->
+      <div id="wallet-picker" style="display:none; position:absolute; right:0; top:calc(100% + 8px); z-index:200; width:280px; background:var(--card); border:1px solid var(--border); border-radius:12px; padding:10px; box-shadow:0 10px 40px rgba(0,0,0,.35); font-family:var(--font-body);">
+        <div style="font-size:.56rem; font-family:var(--font-mono); color:var(--text-3); text-transform:uppercase; letter-spacing:.08em; padding:6px 8px 8px;">Connect a wallet</div>
+        <button class="wp-opt" data-provider="injected" type="button">
+          <span class="wp-icon" style="background:#f6851b;">M</span>
+          <span class="wp-name">MetaMask / Rabby / Coinbase</span>
+          <span class="wp-sub">EIP-1193 browser extension</span>
+        </button>
+        <button class="wp-opt" data-provider="demo" type="button">
+          <span class="wp-icon" style="background:#f59e0b;">D</span>
+          <span class="wp-name">Demo wallet</span>
+          <span class="wp-sub">Pre-funded · no setup · for testing</span>
+        </button>
+        <div style="font-size:.55rem; font-family:var(--font-mono); color:var(--text-3); padding:8px 8px 4px; border-top:1px solid var(--border); margin-top:4px;">All sessions settle on Avalanche Fuji (43113)</div>
+      </div>
+      <!-- Post-connect menu -->
+      <div id="wallet-menu" style="display:none; position:absolute; right:0; top:calc(100% + 8px); z-index:200; width:300px; background:var(--card); border:1px solid var(--border); border-radius:12px; padding:12px; box-shadow:0 10px 40px rgba(0,0,0,.35); font-family:var(--font-mono); font-size:.75rem;">
+        <div style="display:flex; align-items:center; gap:10px; padding:6px 4px 10px; border-bottom:1px solid var(--border);">
+          <div id="wm-avatar" style="width:32px; height:32px; border-radius:50%; background:linear-gradient(135deg, #5fe3e3, #E84142);"></div>
+          <div style="flex:1; min-width:0;">
+            <div id="wm-addr" style="font-weight:700; color:var(--text); overflow:hidden; text-overflow:ellipsis;">—</div>
+            <div id="wm-kind" style="font-size:.6rem; color:var(--text-3); text-transform:uppercase; letter-spacing:.06em; margin-top:2px;">—</div>
+          </div>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; padding:10px 0;">
+          <div style="padding:8px 10px; background:var(--bg); border:1px solid var(--border); border-radius:6px;">
+            <div style="font-size:.52rem; color:var(--text-3); text-transform:uppercase; letter-spacing:.08em;">AVAX</div>
+            <div id="wm-avax" style="font-weight:700; color:var(--text); margin-top:2px;">—</div>
+          </div>
+          <div style="padding:8px 10px; background:var(--bg); border:1px solid var(--border); border-radius:6px;">
+            <div style="font-size:.52rem; color:var(--text-3); text-transform:uppercase; letter-spacing:.08em;">USDC</div>
+            <div id="wm-usdc" style="font-weight:700; color:var(--green); margin-top:2px;">—</div>
+          </div>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:4px;">
+          <button class="wm-row" type="button" onclick="__walletCopy()">
+            <span>Copy address</span><span id="wm-copy-state">⎘</span>
+          </button>
+          <a class="wm-row" id="wm-explorer" href="#" target="_blank" rel="noopener">
+            <span>View on Snowtrace</span><span>↗</span>
+          </a>
+          <a class="wm-row" href="/active-jobs"><span>My active jobs</span><span>→</span></a>
+          <a class="wm-row" href="/past-jobs"><span>My past jobs</span><span>→</span></a>
+          <button class="wm-row" type="button" onclick="__walletDisconnect()" style="color:var(--red); border-top:1px solid var(--border); margin-top:6px; padding-top:10px;">
+            <span>Disconnect</span><span>✕</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <style>
+      .wp-opt { display:grid; grid-template-columns:28px 1fr; grid-template-rows:auto auto; gap:3px 10px; width:100%; padding:10px; background:transparent; border:1px solid transparent; border-radius:8px; cursor:pointer; text-align:left; color:var(--text); font-family:var(--font-body); transition:background .12s, border-color .12s; margin-bottom:4px; }
+      .wp-opt:hover { background:var(--card-2); border-color:var(--border); }
+      .wp-opt .wp-icon { grid-row:1 / span 2; width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:var(--font-mono); font-size:.75rem; font-weight:700; color:#fff; }
+      .wp-opt .wp-name { font-size:.8rem; font-weight:600; line-height:1.2; }
+      .wp-opt .wp-sub  { font-size:.62rem; color:var(--text-3); font-family:var(--font-mono); }
+      .wm-row { display:flex; align-items:center; justify-content:space-between; padding:8px 10px; background:transparent; border:none; border-radius:5px; cursor:pointer; color:var(--text); text-decoration:none; font-family:var(--font-mono); font-size:.72rem; transition:background .12s; }
+      .wm-row:hover { background:var(--card-2); }
+    </style>
   </div>
 </nav>
 
@@ -94,26 +154,165 @@
      If web3.js already wired via addEventListener, this still runs; the two
      paths are idempotent (both check AgentHire.connected). -->
 <script>
-// Connect wallet with graceful fallback. Tries browser wallet first; if
-// nothing is installed or the wallet has no account, quietly drops into
-// the demo wallet so the user never gets stuck on a dead-end alert.
+// ═══ Wallet menu — picker pre-connect, account + balances post-connect ═══
 const __DEMO_WALLET = '0xdb4135c6884D81497769440788306EE985DD1A6e';
+const __CHAIN_ID_HEX = '0xa869'; // Avalanche Fuji (43113)
+
+function __walletClick(e) {
+  if (e && e.preventDefault) e.preventDefault();
+  const picker = document.getElementById('wallet-picker');
+  const menu   = document.getElementById('wallet-menu');
+  const connected = document.getElementById('wallet-btn').getAttribute('data-connected') === 'true';
+  if (connected) {
+    picker.style.display = 'none';
+    menu.style.display = (menu.style.display === 'block') ? 'none' : 'block';
+    if (menu.style.display === 'block') __walletRefreshBalances();
+  } else {
+    menu.style.display = 'none';
+    picker.style.display = (picker.style.display === 'block') ? 'none' : 'block';
+  }
+}
+
+// Close popups on outside click
+document.addEventListener('click', (e) => {
+  const wrap = document.getElementById('wallet-wrap');
+  if (!wrap || wrap.contains(e.target)) return;
+  const p = document.getElementById('wallet-picker'); if (p) p.style.display = 'none';
+  const m = document.getElementById('wallet-menu');   if (m) m.style.display = 'none';
+});
+
+// Wire picker options once DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.wp-opt').forEach(b => {
+    b.addEventListener('click', async () => {
+      const p = b.dataset.provider;
+      document.getElementById('wallet-picker').style.display = 'none';
+      if (p === 'demo') { __setWalletConnected(__DEMO_WALLET, { demo: true }); return; }
+      if (p === 'injected') { await __connectInjected(); return; }
+    });
+  });
+  // Restore connection from cookie so nav shows address across page loads
+  const m = document.cookie.match(/(?:^|;\s*)buyer_wallet=(0x[a-fA-F0-9]{40})/);
+  if (m) {
+    const isDemo = m[1].toLowerCase() === __DEMO_WALLET.toLowerCase();
+    __setWalletConnected(m[1], { demo: isDemo, silent: true });
+  }
+});
+
+async function __connectInjected() {
+  if (!window.ethereum) {
+    alert('No browser wallet detected. Install MetaMask, Rabby, or Coinbase Wallet and reload — or pick "Demo wallet" to continue without one.');
+    return;
+  }
+  let accounts;
+  try {
+    accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+  } catch (err) {
+    const msg = (err && err.message) || String(err);
+    if (/no account|at least one account/i.test(msg)) {
+      alert('Your wallet has no account imported. Import any account in the extension, or pick "Demo wallet" to continue.');
+    } else {
+      alert('Connect failed: ' + msg);
+    }
+    return;
+  }
+  if (!accounts || !accounts[0]) { alert('Wallet returned no account.'); return; }
+  // Attempt Fuji switch (non-fatal)
+  try {
+    await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: __CHAIN_ID_HEX }] });
+  } catch (err) {
+    if (err && err.code === 4902) {
+      try {
+        await window.ethereum.request({ method: 'wallet_addEthereumChain', params: [{
+          chainId: __CHAIN_ID_HEX, chainName: 'Avalanche Fuji C-Chain',
+          nativeCurrency: { name: 'AVAX', symbol: 'AVAX', decimals: 18 },
+          rpcUrls: ['https://avalanche-fuji-c-chain-rpc.publicnode.com'],
+          blockExplorerUrls: ['https://testnet.snowtrace.io'],
+        }]});
+      } catch (_) {}
+    }
+  }
+  __setWalletConnected(accounts[0], { demo: false });
+}
+
+async function __walletRefreshBalances() {
+  const addr = document.getElementById('wm-addr').dataset.full;
+  if (!addr) return;
+  // AVAX
+  try {
+    const r = await fetch('https://avalanche-fuji-c-chain-rpc.publicnode.com', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({jsonrpc:'2.0', method:'eth_getBalance', params:[addr,'latest'], id:1}),
+    }).then(r => r.json());
+    const wei = BigInt(r.result);
+    const avax = Number(wei) / 1e18;
+    document.getElementById('wm-avax').textContent = avax.toFixed(4);
+  } catch (e) { document.getElementById('wm-avax').textContent = '—'; }
+  // USDC — balanceOf(address) on MockUSDC 0x9C49D730...
+  try {
+    const data = '0x70a08231' + '000000000000000000000000' + addr.slice(2);
+    const r = await fetch('https://avalanche-fuji-c-chain-rpc.publicnode.com', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({jsonrpc:'2.0', method:'eth_call',
+        params:[{to:'0x9C49D730Dfb82B7663aBE6069B5bFe867fa34c9f', data}, 'latest'], id:2}),
+    }).then(r => r.json());
+    const usdc = Number(BigInt(r.result)) / 1e6;
+    document.getElementById('wm-usdc').textContent = usdc.toLocaleString(undefined, { maximumFractionDigits: 2 });
+  } catch (e) { document.getElementById('wm-usdc').textContent = '—'; }
+}
+
+function __walletCopy() {
+  const addr = document.getElementById('wm-addr').dataset.full;
+  if (!addr) return;
+  navigator.clipboard.writeText(addr);
+  const s = document.getElementById('wm-copy-state');
+  if (s) { s.textContent = '✓'; setTimeout(() => s.textContent = '⎘', 1200); }
+}
+
+function __walletDisconnect() {
+  document.cookie = 'buyer_wallet=; path=/; max-age=0';
+  document.cookie = 'seller_wallet=; path=/; max-age=0';
+  const btn = document.getElementById('wallet-btn');
+  if (btn) {
+    btn.innerHTML = '<span>Connect Wallet</span>';
+    btn.setAttribute('data-connected', 'false');
+  }
+  document.getElementById('wallet-menu').style.display = 'none';
+  if (window.AgentHire) { window.AgentHire.connected = false; window.AgentHire.address = null; }
+  // If we're on a wallet-scoped page with a ?wallet= param, strip it
+  if (location.search.includes('wallet=')) location.href = location.pathname;
+}
+
+// Backwards-compat: old callers still invoke __agentHireConnect / __useDemoWallet
+window.__agentHireConnect = function(e) { __walletClick(e); };
+window.__useDemoWallet = function(e) { if (e && e.preventDefault) e.preventDefault(); __setWalletConnected(__DEMO_WALLET, {demo:true}); };
 
 function __setWalletConnected(addr, opts) {
   const isDemo = !!(opts && opts.demo);
-  const short = addr.slice(0, 6) + '…' + addr.slice(-4);
+  const silent = !!(opts && opts.silent);
+  const short  = addr.slice(0, 6) + '…' + addr.slice(-4);
   const btn = document.getElementById('wallet-btn');
   if (btn) {
-    btn.innerHTML = '<span style="font-family:var(--font-mono)" title="' + (isDemo ? 'Demo wallet · fully funded' : addr) + '">' + short + (isDemo ? ' (demo)' : '') + '</span>';
+    btn.innerHTML = '<span style="font-family:var(--font-mono)" title="' + (isDemo ? 'Demo wallet · fully funded' : addr) + '">' + (isDemo ? '◆ ' : '') + short + '</span>';
     btn.setAttribute('data-connected', 'true');
   }
   document.cookie = 'buyer_wallet='  + addr + '; path=/; max-age=604800; SameSite=Lax';
   document.cookie = 'seller_wallet=' + addr + '; path=/; max-age=604800; SameSite=Lax';
   if (window.AgentHire) { window.AgentHire.address = addr; window.AgentHire.connected = true; }
+  // Populate menu
+  const ma = document.getElementById('wm-addr');
+  const mk = document.getElementById('wm-kind');
+  const me = document.getElementById('wm-explorer');
+  if (ma) { ma.textContent = short; ma.dataset.full = addr; ma.title = addr; }
+  if (mk) { mk.textContent = isDemo ? 'Demo wallet · Fuji 43113' : 'Injected · Fuji 43113'; }
+  if (me) me.href = 'https://testnet.snowtrace.io/address/' + addr;
   window.dispatchEvent(new CustomEvent('agenthire:connected', { detail: { address: addr, demo: isDemo } }));
-  const walletPages = ['/active-jobs', '/past-jobs', '/seller/earnings'];
-  if (walletPages.includes(location.pathname) && !new URLSearchParams(location.search).get('wallet')) {
-    location.href = location.pathname + '?wallet=' + addr;
+  // Reload wallet-scoped pages (unless silent restore from cookie)
+  if (!silent) {
+    const walletPages = ['/active-jobs', '/past-jobs', '/seller/earnings'];
+    if (walletPages.includes(location.pathname) && !new URLSearchParams(location.search).get('wallet')) {
+      location.href = location.pathname + '?wallet=' + addr;
+    }
   }
 }
 

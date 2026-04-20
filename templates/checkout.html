@@ -21,12 +21,32 @@
           <h3>Wallet</h3>
           <span class="badge badge-pending" id="wallet-status-badge">Not Connected</span>
         </div>
-        <p class="text-sm mb-16">Connect your wallet to pay with USDC.</p>
-        <button class="btn btn-secondary w-full" id="checkout-wallet-btn">Connect Wallet</button>
+        <p class="text-sm mb-16" id="checkout-wallet-desc">Connect your wallet to pay with USDC on Avalanche Fuji.</p>
+        <button class="btn btn-secondary w-full" id="checkout-wallet-btn" type="button" onclick="__walletClick(event)">Connect Wallet</button>
         <div class="flex-between mt-12 text-xs text-muted" style="font-family:var(--font-mono);">
-          <span>Token</span><span>USDC</span>
+          <span>Token</span><span>USDC · MockUSDC 0x9C49…</span>
         </div>
       </div>
+      <script>
+      // Sync this card with the global wallet state
+      (function() {
+        function sync() {
+          const addr = (document.cookie.match(/(?:^|;\s*)buyer_wallet=(0x[a-fA-F0-9]{40})/) || [])[1];
+          const badge = document.getElementById('wallet-status-badge');
+          const btn   = document.getElementById('checkout-wallet-btn');
+          const desc  = document.getElementById('checkout-wallet-desc');
+          if (addr) {
+            const short = addr.slice(0,6) + '…' + addr.slice(-4);
+            const isDemo = addr.toLowerCase() === '0xdb4135c6884d81497769440788306ee985dd1a6e';
+            if (badge) { badge.textContent = 'Connected'; badge.className = 'badge badge-approved'; }
+            if (btn)   { btn.textContent = (isDemo?'◆ ':'') + short; }
+            if (desc)  { desc.textContent = 'Connected to Avalanche Fuji. Ready to fund escrow.'; }
+          }
+        }
+        document.addEventListener('DOMContentLoaded', sync);
+        window.addEventListener('agenthire:connected', sync);
+      })();
+      </script>
 
       <!-- Task Details -->
       <div class="card">
