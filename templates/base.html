@@ -283,12 +283,11 @@ document.addEventListener('DOMContentLoaded', () => {
       __setWalletConnected(__DEMO_WALLET, { demo: true });
     });
   });
-  // Restore connection from cookie so nav shows address across page loads
-  const m = document.cookie.match(/(?:^|;\s*)buyer_wallet=(0x[a-fA-F0-9]{40})/);
-  if (m) {
-    const isDemo = m[1].toLowerCase() === __DEMO_WALLET.toLowerCase();
-    __setWalletConnected(m[1], { demo: isDemo, silent: true });
-  }
+  // No auto-restore. Every page load starts with 'Connect Wallet' until
+  // the user clicks it. The buyer_wallet cookie still persists for the
+  // server-side routes that use it (active-jobs etc. when visited via the
+  // connected flow), but we don't make the nav look 'hard-coded' by
+  // auto-filling on fresh page loads.
 });
 
 async function __connectInjected() {
