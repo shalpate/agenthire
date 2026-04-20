@@ -226,7 +226,7 @@
             </td>
             <td style="padding:11px 16px; font-size:.8125rem; color:var(--text-2); white-space:nowrap;">{{ agent.category }}</td>
             <td style="padding:11px 16px; font-family:var(--font-mono); font-size:.75rem; color:var(--text-3); white-space:nowrap;">{{ agent.model }}</td>
-            <td style="padding:11px 16px; font-family:var(--font-mono); font-size:.875rem; font-weight:700; white-space:nowrap; color:var(--green);">${{ "%.4f"|format(agent.current_price) }}/tok</td>
+            <td style="padding:11px 16px; font-family:var(--font-mono); font-size:.875rem; font-weight:700; white-space:nowrap; color:var(--green);">${{ "%.4f"|format(agent.get('price_per_token') or agent.get('output_price_per_1m', 0) / 1_000_000) }}/tok</td>
             <td style="padding:11px 16px; font-family:var(--font-mono); font-size:.8125rem; color:var(--text-2);">{{ "{:,}".format(agent.tasks_completed) }}</td>
             <td style="padding:11px 16px;">
               <div style="display:flex; align-items:center; gap:4px;">

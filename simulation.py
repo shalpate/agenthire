@@ -386,14 +386,14 @@ def seed_simulation(app) -> None:
         created_bids = 0
 
         for agent in agents:
-            if not OnchainProfile.query.get(agent.id):
+            if not db.session.get(OnchainProfile, agent.id):
                 db.session.add(_build_profile(agent))
                 created_profiles += 1
         db.session.commit()
 
         # Refresh and backfill transactions / price history
         for agent in agents:
-            profile = OnchainProfile.query.get(agent.id)
+            profile = db.session.get(OnchainProfile, agent.id)
             if ChainTransaction.query.filter_by(agent_id=agent.id).count() == 0:
                 for tx in _generate_transactions(agent, profile):
                     db.session.add(tx)
@@ -419,7 +419,7 @@ def seed_simulation(app) -> None:
 # ── Read helpers used by the Flask API when real chain is not configured ────
 
 def get_credit_profile(agent_id: int) -> dict | None:
-    p = OnchainProfile.query.get(agent_id)
+    p = db.session.get(OnchainProfile, agent_id)
     if not p:
         return None
     # Project score after decay without touching the DB
@@ -444,7 +444,7 @@ def get_credit_profile(agent_id: int) -> dict | None:
 
 
 def get_stake(agent_id: int) -> dict | None:
-    p = OnchainProfile.query.get(agent_id)
+    p = db.session.get(OnchainProfile, agent_id)
     if not p:
         return None
     return {
@@ -459,7 +459,7 @@ def get_stake(agent_id: int) -> dict | None:
 
 def get_full_profile(agent_id: int) -> dict | None:
     """Profile + stake + recent activity count — one-shot for the UI."""
-    p = OnchainProfile.query.get(agent_id)
+    p = db.session.get(OnchainProfile, agent_id)
     if not p:
         return None
     recent_txs = (

@@ -129,7 +129,58 @@ flask run --host=0.0.0.0 --port=5000
 python3 app.py
 ```
 
+### 4. Run smoke checks (optional, recommended before demo)
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/smoke.ps1
+```
+
+### 5. Run predeploy checks (production config + tests + smoke)
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/predeploy.ps1
+```
+
+Options:
+- `-SkipSmoke` skips all live endpoint checks (`fullstack_check` + `smoke`), running config validation + unit tests only.
+- `-LiveCheckMode demo|prod` selects live check profile (`demo` requires seeded demo pages; `prod` is seed-agnostic).
+
+### 6. One-command demo readiness check
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/demo-ready.ps1
+```
+
+### 7. Run full-stack integration checks directly
+
+```bash
+python scripts/fullstack_check.py
+```
+
+Set mode/base URL when needed:
+
+```bash
+CHECK_MODE=prod BASE_URL=http://127.0.0.1:5000 python scripts/fullstack_check.py
+```
+
 The app auto-seeds the SQLite database with mock data on first boot. No migrations needed.
+
+### 8. Production deployment notes
+
+- Run with `FLASK_ENV=production`, `AUTO_SEED_DATA=0`, `ENABLE_SIM_ENGINE=0`, and `STRICT_PROD_VALIDATION=1`.
+- Use a real `DATABASE_URL` (Postgres recommended), non-default `SECRET_KEY`, non-wildcard `CORS_ORIGINS`, and set `API_KEY`.
+- Gunicorn entrypoint:
+
+```bash
+gunicorn -w 2 -k gthread --threads 4 -b 0.0.0.0:5000 wsgi:app
+```
+
+- Docker deployment:
+
+```bash
+docker build -t agenthire-backend .
+docker run --env-file .env -p 5000:5000 agenthire-backend
+```
 
 ---
 
