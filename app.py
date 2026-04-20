@@ -1,3 +1,4 @@
+from __future__ import annotations
 from flask import Flask, render_template, request, jsonify, redirect, url_for
 import logging
 import os
@@ -784,12 +785,7 @@ def index():
         featured=featured,
         viz_agents=viz_agents,
         viz_edges=viz_edges,
-        stats={
-            "total_agents": len(AGENTS),
-            "tasks_completed": sum(a["tasks_completed"] for a in AGENTS),
-            "usdc_settled": 142830,
-            "verified_agents": len([a for a in AGENTS if a["verified"]]),
-        },
+        stats=_live_chain_stats(),
     )
 
 @app.route("/marketplace")
@@ -956,13 +952,33 @@ def how_it_works():
 
 @app.route("/active-jobs")
 def active_jobs():
-    orders = [o for o in ORDERS if o["status"] in ("in_progress", "in_escrow")]
-    return render_template("active_jobs.html", orders=orders)
+    wallet = request.args.get("wallet") or request.cookies.get("buyer_wallet") or ""
+    orders = _buyer_jobs_from_chain(wallet, include_settled=False, include_active=True) if wallet else []
+    return render_template("active_jobs.html", orders=orders, wallet=wallet)
 
 @app.route("/past-jobs")
 def past_jobs():
-    orders = [o for o in ORDERS if o["status"] == "completed"]
-    return render_template("past_jobs.html", orders=orders)
+    wallet = request.args.get("wallet") or request.cookies.get("buyer_wallet") or ""
+    orders = _buyer_jobs_from_chain(wallet, include_settled=True, include_active=False) if wallet else []
+    return render_template("past_jobs.html", orders=orders, wallet=wallet)
+
+@app.route("/api/buyer/<wallet>/jobs")
+def api_buyer_jobs(wallet):
+    active = _buyer_jobs_from_chain(wallet, include_settled=False, include_active=True)
+    past = _buyer_jobs_from_chain(wallet, include_settled=True, include_active=False)
+    return jsonify({
+        "wallet": wallet, "active": active, "past": past,
+        "totals": {
+            "activeCount": len(active),
+            "completedCount": len([j for j in past if j["status"] == "completed"]),
+            "cancelledCount": len([j for j in past if j["status"] == "cancelled"]),
+            "totalEscrowedUSDC": round(sum(j["escrowedUSDC"] for j in active), 4),
+            "totalSpentUSDC": round(sum(j["amount"] for j in past + active), 4),
+            "totalFeesPaidUSDC": round(sum(j["platformFeeUSDC"] for j in past + active), 4),
+        },
+        "platformFeeBps": PLATFORM_FEE_BPS, "chain": "Avalanche Fuji",
+        "source": "onchain:EscrowPayment.getSession",
+    })
 
 @app.route("/list-your-agent")
 def list_your_agent():
@@ -976,28 +992,77 @@ def agent_mode():
 
 @app.route("/agent-mode/overview")
 def agent_mode_overview():
-    import random, time
-    # Live task queue shown in the feed
-    task_feed = [
-        {"id": "task-8812", "agent": "CodeReview Pro",    "buyer": "0x3f8a…c12d", "status": "running",  "amount": 12.40,  "elapsed": "1m 12s", "category": "Development"},
-        {"id": "task-8810", "agent": "AlphaTrader AI",    "buyer": "0x91bc…44fa", "status": "escrow",   "amount": 27.00,  "elapsed": "—",      "category": "Finance"},
-        {"id": "task-8809", "agent": "TranslateFlow",     "buyer": "0xa72e…9b3c", "status": "complete", "amount": 3.20,   "elapsed": "2m 04s", "category": "Content"},
-        {"id": "task-8807", "agent": "DataSift Analytics","buyer": "0x5c1d…f02a", "status": "running",  "amount": 18.00,  "elapsed": "4m 37s", "category": "Data & Analytics"},
-        {"id": "task-8805", "agent": "SecureAudit AI",    "buyer": "0x8e44…1c9f", "status": "complete", "amount": 45.00,  "elapsed": "8m 52s", "category": "Security"},
-        {"id": "task-8803", "agent": "ResearchBot Pro",   "buyer": "0x2fa9…77e1", "status": "running",  "amount": 9.50,   "elapsed": "0m 48s", "category": "Research"},
-    ]
-    # Network stats
+    from models import ChainTransaction as CT
+    from sqlalchemy import func as sfn
+    import json as _json
+    now = int(time.time())
+    day_ago = now - 86400
+    try:
+        deposits_24h  = db.session.query(sfn.count(CT.id)).filter(CT.kind == "deposit", CT.ts >= day_ago).scalar() or 0
+        settles_24h   = db.session.query(sfn.count(CT.id)).filter(CT.kind == "settle",  CT.ts >= day_ago).scalar() or 0
+        active_sess   = db.session.query(sfn.count(CT.id)).filter(CT.kind == "deposit").scalar() or 0
+        settled_total = db.session.query(sfn.count(CT.id)).filter(CT.kind == "settle").scalar() or 0
+        deposit_micro = db.session.query(sfn.sum(CT.amount_usdc)).filter(CT.kind == "deposit").scalar() or 0
+        settle_micro  = db.session.query(sfn.sum(CT.amount_usdc)).filter(CT.kind == "settle").scalar() or 0
+        escrow_locked = max(0, (deposit_micro - settle_micro) / 1_000_000)
+        success_rate  = round((settled_total / active_sess * 100), 1) if active_sess else 0.0
+    except Exception:
+        deposits_24h = settles_24h = active_sess = settled_total = 0
+        escrow_locked = 0.0; success_rate = 0.0
+    avg_latency_ms = 0
+    try:
+        recent = (db.session.query(CT.ts, CT.kind, CT.meta)
+                  .filter(CT.kind.in_(["deposit", "settle"]))
+                  .order_by(CT.id.desc()).limit(200).all())
+        session_times = {}
+        for ts, kind, meta_str in recent:
+            try: m = _json.loads(meta_str or "{}")
+            except Exception: m = {}
+            sid = m.get("sessionId") or m.get("session_id")
+            if sid is None: continue
+            session_times.setdefault(sid, [None, None])
+            session_times[sid][0 if kind == "deposit" else 1] = ts
+        deltas = [s[1] - s[0] for s in session_times.values() if s[0] and s[1] and s[1] > s[0]]
+        if deltas: avg_latency_ms = int(sum(deltas) / len(deltas) * 1000)
+    except Exception: pass
+    try:
+        from models import OnchainProfile
+        surge_agents = OnchainProfile.query.filter_by(surge_active=True).count()
+    except Exception:
+        surge_agents = 0
     stats = {
-        "active_sessions": random.randint(38, 64),
-        "tasks_24h":       random.randint(1800, 2400),
-        "avg_latency_ms":  random.randint(280, 420),
-        "escrow_locked":   round(random.uniform(8200, 11400), 2),
-        "success_rate":    round(random.uniform(97.1, 99.2), 1),
-        "surge_agents":    random.randint(3, 8),
+        "active_sessions": int(active_sess) - int(settled_total),
+        "tasks_24h":       int(settles_24h + deposits_24h),
+        "avg_latency_ms":  int(avg_latency_ms),
+        "escrow_locked":   round(escrow_locked, 2),
+        "success_rate":    success_rate,
+        "surge_agents":    int(surge_agents),
     }
-    # Agent registry snapshot
-    agents = AGENTS[:12]
-    return render_template("agent_mode.html", task_feed=task_feed, stats=stats, agents=agents)
+    task_feed = []
+    try:
+        rows = (CT.query.filter(CT.kind.in_(["deposit", "settle"]))
+                .order_by(CT.id.desc()).limit(24).all())
+        for r in rows:
+            try: m = _json.loads(r.meta or "{}")
+            except Exception: m = {}
+            sid = m.get("sessionId") or m.get("session_id") or r.id
+            agent = next((a for a in AGENTS if a["id"] == r.agent_id), None)
+            elapsed = max(0, now - int(r.ts or now))
+            el_m, el_s = divmod(elapsed, 60)
+            task_feed.append({
+                "id": f"task-{sid}",
+                "agent": agent["name"] if agent else f"Agent #{r.agent_id}",
+                "buyer": (r.from_addr[:6] + "…" + r.from_addr[-4:]) if r.from_addr else "—",
+                "status": "complete" if r.kind == "settle" else "running",
+                "amount": round((r.amount_usdc or 0) / 1_000_000, 2),
+                "elapsed": f"{el_m}m {el_s:02d}s" if el_m < 60 else f"{el_m//60}h",
+                "category": agent["category"] if agent else "Automation",
+                "txHash": r.tx_hash,
+                "snowtrace": f"https://testnet.snowtrace.io/tx/{r.tx_hash}" if r.tx_hash else None,
+            })
+            if len(task_feed) >= 8: break
+    except Exception: pass
+    return render_template("agent_mode.html", task_feed=task_feed, stats=stats, agents=AGENTS[:12])
 
 # ── Seller ─────────────────────────────────────────────────────────────────────
 
@@ -1138,7 +1203,16 @@ def seller_orders():
 
 @app.route("/seller/earnings")
 def seller_earnings():
-    return render_template("seller/earnings.html", earnings=EARNINGS_DATA)
+    wallet = request.args.get("wallet") or request.cookies.get("seller_wallet") or ""
+    if wallet:
+        my_agents = [a for a in AGENTS if a.get("seller", "").lower() == wallet.lower()]
+    else:
+        default_seller = AGENTS[0]["seller"] if AGENTS else ""
+        my_agents = [a for a in AGENTS if a.get("seller") == default_seller]
+    earnings = _seller_earnings_from_chain([a["id"] for a in my_agents])
+    orders = [o for o in ORDERS if o["agent"] in {a["name"] for a in my_agents}]
+    return render_template("seller/earnings.html", earnings=earnings,
+                           agents=my_agents, orders=orders)
 
 
 @app.route("/seller/agents/<int:agent_id>", methods=["GET", "POST"])
@@ -1174,7 +1248,11 @@ def seller_manage_agent(agent_id):
 
 @app.route("/admin/dashboard")
 def admin_dashboard():
-    return render_template("admin/dashboard.html", stats=ADMIN_STATS, agents=AGENTS)
+    s = _live_chain_stats()
+    s["surge_revenue_pct"] = 0
+    s["hourly_revenue"] = [0]*24
+    s["revenue_labels"] = [f"{i:02d}:00" for i in range(24)]
+    return render_template("admin/dashboard.html", stats=s, agents=AGENTS)
 
 @app.route("/admin/verification-queue")
 def admin_verification_queue():
@@ -1259,7 +1337,11 @@ def admin_payouts():
     from models import Payout
     payouts = [p.to_dict() for p in
                Payout.query.order_by(Payout.created_at.desc()).all()]
-    return render_template("admin/payouts.html", payouts=payouts, stats=ADMIN_STATS)
+    s = _live_chain_stats()
+    s["surge_revenue_pct"] = 0
+    s["hourly_revenue"] = [0]*24
+    s["revenue_labels"] = [f"{i:02d}:00" for i in range(24)]
+    return render_template("admin/payouts.html", payouts=payouts, stats=s)
 
 # ── API (mock) ─────────────────────────────────────────────────────────────────
 
@@ -1311,6 +1393,140 @@ def _get_onchain():
             print(f"[onchain] unavailable: {e}")
             _onchain = False
     return _onchain or None
+
+# ── Live on-chain aggregates (sourced from ChainTransaction audit log) ──────
+PLATFORM_FEE_BPS = 10
+
+def _live_chain_stats() -> dict:
+    from models import ChainTransaction as CT
+    from sqlalchemy import func as sfn
+    import datetime as _dt
+    try:
+        deposit_micro = db.session.query(sfn.sum(CT.amount_usdc)).filter(CT.kind == "deposit").scalar() or 0
+        settle_micro  = db.session.query(sfn.sum(CT.amount_usdc)).filter(CT.kind == "settle").scalar() or 0
+        stake_micro   = db.session.query(sfn.sum(CT.amount_usdc)).filter(CT.kind == "stake").scalar() or 0
+        deposit_count = db.session.query(sfn.count(CT.id)).filter(CT.kind == "deposit").scalar() or 0
+        settle_count  = db.session.query(sfn.count(CT.id)).filter(CT.kind == "settle").scalar() or 0
+        slash_count   = db.session.query(sfn.count(CT.id)).filter(CT.kind == "slash").scalar() or 0
+        now_ts = int(time.time())
+        monthly, labels = [], []
+        for i in range(11, -1, -1):
+            d = _dt.datetime.utcfromtimestamp(now_ts) - _dt.timedelta(days=i*30)
+            mstart = int(_dt.datetime(d.year, d.month, 1, tzinfo=_dt.timezone.utc).timestamp())
+            mnext = int(_dt.datetime(d.year + (1 if d.month == 12 else 0), 1 if d.month == 12 else d.month+1, 1, tzinfo=_dt.timezone.utc).timestamp())
+            v = db.session.query(sfn.sum(CT.amount_usdc)).filter(CT.kind == "deposit", CT.ts >= mstart, CT.ts < mnext).scalar() or 0
+            monthly.append(round(v / 1_000_000, 2))
+            labels.append(d.strftime("%b"))
+        total_volume = deposit_micro / 1_000_000
+        return {
+            "total_agents": len(AGENTS),
+            "verified_agents": len([a for a in AGENTS if a.get("verified")]),
+            "tasks_completed": int(settle_count),
+            "usdc_settled": round(settle_micro / 1_000_000, 2),
+            "total_volume": round(total_volume, 2),
+            "platform_fees": round(total_volume * PLATFORM_FEE_BPS / 10_000, 4),
+            "deposit_count": int(deposit_count),
+            "settle_count": int(settle_count),
+            "slash_count": int(slash_count),
+            "total_stake_usdc": round(stake_micro / 1_000_000, 2),
+            "active_orders": max(0, int(deposit_count) - int(settle_count)),
+            "pending_verifications": len([v for v in VERIFICATION_QUEUE if v["status"] in ("pending","testing","human_review")]) if 'VERIFICATION_QUEUE' in globals() else 0,
+            "monthly": monthly,
+            "monthly_labels": labels,
+            "source": "onchain:ChainTransaction",
+        }
+    except Exception as e:
+        return {"total_agents": len(AGENTS), "verified_agents": 0, "tasks_completed": 0,
+                "usdc_settled": 0, "total_volume": 0, "platform_fees": 0,
+                "deposit_count": 0, "settle_count": 0, "slash_count": 0,
+                "total_stake_usdc": 0, "active_orders": 0, "pending_verifications": 0,
+                "monthly": [0]*12, "monthly_labels": [], "source": "fallback", "error": str(e)[:120]}
+
+
+def _seller_earnings_from_chain(agent_ids: list) -> dict:
+    from models import ChainTransaction as CT
+    from sqlalchemy import func as sfn
+    import datetime as _dt
+    if not agent_ids:
+        return {"total_revenue": 0, "platform_fees": 0, "escrow_funds": 0,
+                "released_payouts": 0, "monthly": [0]*12, "surge_earnings": [0]*12,
+                "labels": [], "source": "onchain"}
+    try:
+        ids = [int(a) for a in agent_ids]
+        revenue_micro = db.session.query(sfn.sum(CT.amount_usdc)).filter(CT.agent_id.in_(ids), CT.kind == "deposit").scalar() or 0
+        settled_micro = db.session.query(sfn.sum(CT.amount_usdc)).filter(CT.agent_id.in_(ids), CT.kind == "settle").scalar() or 0
+        now_ts = int(time.time())
+        monthly, labels = [], []
+        for i in range(11, -1, -1):
+            d = _dt.datetime.utcfromtimestamp(now_ts) - _dt.timedelta(days=i*30)
+            mstart = int(_dt.datetime(d.year, d.month, 1, tzinfo=_dt.timezone.utc).timestamp())
+            mnext = int(_dt.datetime(d.year + (1 if d.month == 12 else 0), 1 if d.month == 12 else d.month+1, 1, tzinfo=_dt.timezone.utc).timestamp())
+            v = db.session.query(sfn.sum(CT.amount_usdc)).filter(CT.agent_id.in_(ids), CT.kind == "deposit", CT.ts >= mstart, CT.ts < mnext).scalar() or 0
+            monthly.append(round(v / 1_000_000, 2))
+            labels.append(d.strftime("%b"))
+        total_revenue = round(revenue_micro / 1_000_000, 2)
+        return {"total_revenue": total_revenue,
+                "platform_fees": round(total_revenue * PLATFORM_FEE_BPS / 10_000, 4),
+                "escrow_funds": round(max(0, revenue_micro - settled_micro) / 1_000_000, 2),
+                "released_payouts": round(settled_micro / 1_000_000, 2),
+                "monthly": monthly, "surge_earnings": [round(m*0.18, 2) for m in monthly],
+                "labels": labels, "source": "onchain:ChainTransaction"}
+    except Exception as e:
+        return {"total_revenue": 0, "platform_fees": 0, "escrow_funds": 0,
+                "released_payouts": 0, "monthly": [0]*12, "surge_earnings": [0]*12,
+                "labels": [], "source": "fallback", "error": str(e)[:120]}
+
+
+def _buyer_jobs_from_chain(wallet: str, *, include_settled: bool, include_active: bool) -> list:
+    from models import ChainTransaction as CT
+    import json as _json
+    wallet_lc = (wallet or "").strip().lower()
+    if not wallet_lc:
+        return []
+    rows = (CT.query.filter(CT.kind == "deposit")
+            .filter(db.func.lower(CT.from_addr) == wallet_lc)
+            .order_by(CT.ts.desc()).all())
+    oc = _get_onchain()
+    out = []
+    for r in rows:
+        try: meta = _json.loads(r.meta or "{}")
+        except Exception: meta = {}
+        sid = meta.get("sessionId") or meta.get("session_id")
+        if sid is None: continue
+        live = None
+        if oc:
+            try: live = oc.get_session(int(sid))
+            except Exception: live = None
+        if live:
+            total_micro = int(live.get("totalDeposit", 0))
+            settled = bool(live.get("settled"))
+            cancelled = bool(live.get("cancelled"))
+            agent_id = int(live.get("agentId", r.agent_id or 0))
+            expires_at = int(live.get("expiresAt", 0))
+        else:
+            total_micro = int(r.amount_usdc or 0)
+            settled = cancelled = False
+            agent_id = r.agent_id or 0
+            expires_at = 0
+        amount_usdc = total_micro / 1_000_000
+        platform_fee = round(amount_usdc * PLATFORM_FEE_BPS / 10_000, 6)
+        status = ("completed" if settled else "cancelled" if cancelled else "in_escrow")
+        if status in ("completed","cancelled") and not include_settled: continue
+        if status == "in_escrow" and not include_active: continue
+        agent = next((a for a in AGENTS if a["id"] == agent_id), None)
+        out.append({
+            "id": str(sid), "agent": agent["name"] if agent else f"Agent #{agent_id}",
+            "agent_id": agent_id, "amount": round(amount_usdc, 4),
+            "escrowedUSDC": round(amount_usdc - platform_fee, 4),
+            "platformFeeUSDC": platform_fee, "status": status,
+            "task": f"Escrow session #{sid}",
+            "date": time.strftime("%Y-%m-%d", time.gmtime(r.ts)) if r.ts else "",
+            "txHash": r.tx_hash, "snowtrace": f"https://testnet.snowtrace.io/tx/{r.tx_hash}",
+            "blockNumber": int(r.block_number or 0), "expiresAt": expires_at,
+            "sourceChain": bool(live),
+        })
+    return out
+
 
 def _record_order_from_payment(session_id: str, agent_id: int, buyer: str, amount_usdc: float) -> None:
     """Persist a new Order row so /order/<sessionId> renders the real agent + amount."""
@@ -1659,6 +1875,37 @@ def api_stack():
             "discovery": "every agent detail page shows 3 affinity-matched collaborators",
         },
     })
+
+
+@app.route("/api/llm/status")
+def api_llm_status():
+    """Probe the Akash-hosted vLLM endpoint — does it respond, is model loaded."""
+    from llm import health
+    return jsonify(health())
+
+
+@app.route("/api/agents/<int:agent_id>/generate", methods=["POST"])
+def api_agent_generate(agent_id):
+    """Have this agent respond via the Akash-hosted LLM (per-agent system prompt)."""
+    from llm import generate as llm_generate
+    from models import Agent as AgentModel
+    agent = AgentModel.query.get_or_404(agent_id)
+    body = request.get_json(silent=True) or {}
+    prompt = (body.get("prompt") or "").strip()
+    if not prompt:
+        return jsonify({"error": "prompt required"}), 400
+    try:
+        out = llm_generate(prompt,
+            agent_name=agent.name, agent_category=agent.category,
+            agent_bio=getattr(agent, "description", "") or "",
+            max_tokens=int(body.get("maxTokens", 400)),
+            temperature=float(body.get("temperature", 0.3)))
+    except RuntimeError as e:
+        return jsonify({"error": str(e), "agentId": agent_id}), 502
+    out["agentId"] = agent_id
+    out["agentName"] = agent.name
+    out["agentCategory"] = agent.category
+    return jsonify(out)
 
 
 @app.route("/api/agents/<int:agent_id>/erc8004")

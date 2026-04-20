@@ -94,60 +94,104 @@
     <!-- Right: Protocol Telemetry -->
     <div style="display:flex; flex-direction:column; gap:12px;">
 
-      <!-- ERC-8004 Status -->
+      <!-- Deployed Contracts — each row is a real Fuji address linking to Snowtrace -->
       <div style="padding:18px 20px; background:var(--card); border:1px solid var(--border); border-radius:var(--radius);">
-        <div style="font-family:var(--font-mono); font-size:.5rem; font-weight:700; color:var(--blue); letter-spacing:.12em; text-transform:uppercase; margin-bottom:10px;">ERC-8004 Protocol</div>
-        {% for label, val, ok in [
-          ('Registry Contract', 'AgentRegistry.sol', true),
-          ('Escrow Contract',   'EscrowManager.sol', true),
-          ('Bonding Contract',  'BondingSlashing.sol', true),
-          ('ICM Bridge',        'Avalanche C-Chain', true),
-          ('Gatekeeper',        'Online', true),
-        ] %}
-        <div style="display:flex; justify-content:space-between; align-items:center; padding:7px 0; border-bottom:1px solid {{ 'var(--border)' if not loop.last else 'transparent' }};">
-          <span style="font-size:.75rem; color:var(--text-3);">{{ label }}</span>
-          <div style="display:flex; align-items:center; gap:5px;">
-            <span style="width:5px; height:5px; border-radius:50%; background:var(--green); display:inline-block;"></span>
-            <span style="font-family:var(--font-mono); font-size:.6875rem; color:var(--text-2);">{{ val }}</span>
-          </div>
-        </div>
-        {% endfor %}
-      </div>
-
-      <!-- Surge Multipliers -->
-      <div style="padding:18px 20px; background:var(--card); border:1px solid rgba(245,158,11,.2); border-radius:var(--radius);">
         <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
-          <span style="font-family:var(--font-mono); font-size:.5rem; font-weight:700; color:var(--amber); letter-spacing:.12em; text-transform:uppercase;">Surge Multipliers</span>
-          <span style="font-family:var(--font-mono); font-size:.45rem; color:var(--amber); text-transform:uppercase; padding:2px 6px; border:1px solid rgba(245,158,11,.3); border-radius:3px; background:rgba(245,158,11,.07);">Live</span>
+          <span style="font-family:var(--font-mono); font-size:.5rem; font-weight:700; color:var(--blue); letter-spacing:.12em; text-transform:uppercase;">Deployed on Fuji</span>
+          <span id="erc8004-status-badge" style="font-family:var(--font-mono); font-size:.45rem; color:var(--green); text-transform:uppercase; padding:2px 6px; border:1px solid var(--green); border-radius:3px; background:rgba(34,197,94,.07);">Checking…</span>
         </div>
-        {% for agent, mult in [('AlphaTrader AI','2.1×'),('SecureAudit AI','1.8×'),('DataSift Analytics','1.6×'),('CodeReview Pro','1.3×')] %}
-        <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid {{ 'var(--border)' if not loop.last else 'transparent' }};">
-          <span style="font-size:.75rem; color:var(--text-2);">{{ agent }}</span>
-          <span style="font-family:var(--font-mono); font-size:.75rem; font-weight:700; color:var(--amber);">{{ mult }}</span>
-        </div>
-        {% endfor %}
+        <div id="erc8004-panel" style="display:flex; flex-direction:column;"></div>
       </div>
 
-      <!-- Live Simulation CTA -->
-      <a href="/sim" style="display:block; padding:18px 20px; background:linear-gradient(135deg, rgba(95,227,227,.08), rgba(95,227,227,.03)); border:1px solid rgba(95,227,227,.25); border-radius:var(--radius); text-decoration:none; transition:border-color .2s ease;" onmouseover="this.style.borderColor='rgba(95,227,227,.5)'" onmouseout="this.style.borderColor='rgba(95,227,227,.25)'">
-        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
-          <span style="font-family:var(--font-mono); font-size:.5rem; font-weight:700; color:#5fe3e3; letter-spacing:.12em; text-transform:uppercase;">A2A Simulation</span>
-          <span style="width:6px; height:6px; border-radius:50%; background:#5fe3e3; animation:pulse-dot 1.5s infinite; display:inline-block;"></span>
+      <!-- Surges — only shown when agents are actually surging -->
+      <div id="surge-wrap" style="padding:18px 20px; background:var(--card); border:1px solid rgba(245,158,11,.2); border-radius:var(--radius); display:none;">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+          <span style="font-family:var(--font-mono); font-size:.5rem; font-weight:700; color:var(--amber); letter-spacing:.12em; text-transform:uppercase;">Surge Pricing Active</span>
+          <span id="surge-count" style="font-family:var(--font-mono); font-size:.45rem; color:var(--amber); text-transform:uppercase; padding:2px 6px; border:1px solid rgba(245,158,11,.3); border-radius:3px; background:rgba(245,158,11,.07);">—</span>
         </div>
-        <div style="font-size:.8125rem; color:var(--text-2); margin-bottom:2px;">Live Control Room</div>
-        <div style="font-size:.6875rem; color:var(--text-3); font-family:var(--font-mono);">Agent-to-agent payments on Avalanche →</div>
-      </a>
-
-      <!-- Quick Actions -->
-      <div style="padding:18px 20px; background:var(--card); border:1px solid var(--border); border-radius:var(--radius);">
-        <div style="font-family:var(--font-mono); font-size:.5rem; font-weight:700; color:var(--text-3); letter-spacing:.12em; text-transform:uppercase; margin-bottom:12px;">Quick Actions</div>
-        <div style="display:flex; flex-direction:column; gap:7px;">
-          <a href="/marketplace" class="btn btn-ghost btn-sm" style="justify-content:flex-start; font-size:.8125rem;">Browse & Hire Agent</a>
-          <a href="/seller/create" class="btn btn-ghost btn-sm" style="justify-content:flex-start; font-size:.8125rem;">List New Agent</a>
-          <a href="/seller/verification" class="btn btn-ghost btn-sm" style="justify-content:flex-start; font-size:.8125rem;">Verification Queue</a>
-          <a href="/how-it-works" class="btn btn-ghost btn-sm" style="justify-content:flex-start; font-size:.8125rem;">Protocol Docs</a>
-        </div>
+        <div id="surge-panel" style="display:flex; flex-direction:column;"></div>
       </div>
+
+      <script>
+      // ── Deployed Contracts panel — real addresses from /api/stack, real LLM from /api/llm/status
+      (async function () {
+        const panel = document.getElementById('erc8004-panel');
+        const badge = document.getElementById('erc8004-status-badge');
+        try {
+          const [stack, llm] = await Promise.all([
+            fetch('/api/stack').then(r => r.json()),
+            fetch('/api/llm/status').then(r => r.json()).catch(() => ({ok:false})),
+          ]);
+          const ct = stack.contracts || {};
+          const rows = [
+            ['AgentRegistry',     ct.AgentRegistry],
+            ['Reputation',        ct.ReputationContract],
+            ['StakingSlashing',   ct.StakingSlashing],
+            ['EscrowPayment',     ct.EscrowPayment],
+            ['AuctionMarket',     ct.AuctionMarket],
+            ['MockUSDC',          ct.MockUSDC],
+          ].filter(([, v]) => v);
+          let html = '';
+          rows.forEach((row, i) => {
+            const [label, info] = row;
+            const short = info.address.slice(0,6) + '…' + info.address.slice(-4);
+            html += `
+              <div style="display:flex; justify-content:space-between; align-items:center; padding:7px 0; ${i===rows.length-1?'':'border-bottom:1px solid var(--border);'}">
+                <span style="font-size:.75rem; color:var(--text-3);">${label}</span>
+                <a href="${info.snowtrace}" target="_blank" style="display:flex; align-items:center; gap:5px; text-decoration:none;">
+                  <span style="width:5px; height:5px; border-radius:50%; background:var(--green); display:inline-block;"></span>
+                  <span style="font-family:var(--font-mono); font-size:.6875rem; color:var(--accent);">${short}</span>
+                </a>
+              </div>`;
+          });
+          if (llm.ok) {
+            html += `
+              <div style="display:flex; justify-content:space-between; align-items:center; padding:7px 0; border-top:1px solid var(--border); margin-top:3px;">
+                <span style="font-size:.75rem; color:var(--text-3);">Akash vLLM</span>
+                <span style="display:flex; align-items:center; gap:5px;">
+                  <span style="width:5px; height:5px; border-radius:50%; background:var(--green); display:inline-block;"></span>
+                  <span style="font-family:var(--font-mono); font-size:.6875rem; color:var(--text-2);">${llm.model}</span>
+                </span>
+              </div>`;
+          }
+          panel.innerHTML = html;
+          badge.textContent = rows.length + ' live';
+        } catch (e) {
+          panel.innerHTML = '<div style="font-size:.7rem; color:var(--text-3); padding:6px 0;">Contract stack unavailable</div>';
+          badge.textContent = 'Offline';
+          badge.style.color = 'var(--red)';
+          badge.style.borderColor = 'var(--red)';
+        }
+      })();
+
+      // ── Surges — only show if agents are actually surging
+      async function refreshSurges() {
+        const wrap = document.getElementById('surge-wrap');
+        const panel = document.getElementById('surge-panel');
+        const count = document.getElementById('surge-count');
+        try {
+          const d = await fetch('/api/sim/all-agents').then(r => r.json());
+          const surging = (d.agents || [])
+            .filter(a => a.surge_active && a.surge_multiplier > 1.0)
+            .sort((a,b) => b.surge_multiplier - a.surge_multiplier)
+            .slice(0, 6);
+          if (!surging.length) { wrap.style.display = 'none'; return; }
+          wrap.style.display = 'block';
+          count.textContent = surging.length + ' agents';
+          let html = '';
+          surging.forEach((a, i) => {
+            html += `
+              <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; ${i===surging.length-1?'':'border-bottom:1px solid var(--border);'}">
+                <a href="/agent/${a.id}" style="font-size:.75rem; color:var(--text-2); text-decoration:none;">${a.name}</a>
+                <span style="font-family:var(--font-mono); font-size:.75rem; font-weight:700; color:var(--amber);">${Number(a.surge_multiplier).toFixed(2)}×</span>
+              </div>`;
+          });
+          panel.innerHTML = html;
+        } catch (e) { wrap.style.display = 'none'; }
+      }
+      refreshSurges();
+      setInterval(refreshSurges, 15000);
+      </script>
     </div>
   </div>
 

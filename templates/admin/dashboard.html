@@ -30,12 +30,12 @@
       </div>
     </div>
 
-    <!-- Key Metrics -->
+    <!-- Key Metrics — live from ChainTransaction -->
     <div class="grid-4 mb-32">
       <div class="stat-card">
         <div class="text-xs text-muted mb-8" style="text-transform:uppercase; letter-spacing:.06em;">Total Agents</div>
         <div class="stat-value">{{ stats.total_agents }}</div>
-        <div class="stat-change up mt-8">↑ 3 new this week</div>
+        <div class="stat-change up mt-8">{{ stats.verified_agents }} verified on-chain</div>
       </div>
       <div class="stat-card">
         <div class="text-xs text-muted mb-8" style="text-transform:uppercase; letter-spacing:.06em;">Pending Verifications</div>
@@ -45,12 +45,12 @@
       <div class="stat-card">
         <div class="text-xs text-muted mb-8" style="text-transform:uppercase; letter-spacing:.06em;">Active Orders</div>
         <div class="stat-value">{{ stats.active_orders }}</div>
-        <div class="stat-change up mt-8">2 in escrow</div>
+        <div class="stat-change up mt-8">{{ stats.settle_count }} total settled</div>
       </div>
       <div class="stat-card">
-        <div class="text-xs text-muted mb-8" style="text-transform:uppercase; letter-spacing:.06em;">Surge Revenue %</div>
-        <div class="stat-value" style="color:var(--warning);">{{ stats.surge_revenue_pct }}%</div>
-        <div class="stat-change up mt-8">↑ of total volume</div>
+        <div class="text-xs text-muted mb-8" style="text-transform:uppercase; letter-spacing:.06em;">Total Stake Locked</div>
+        <div class="stat-value" style="color:var(--warning);">${{ "{:,.0f}".format(stats.total_stake_usdc) }}</div>
+        <div class="stat-change up mt-8">across {{ stats.verified_agents }} bonded agents</div>
       </div>
     </div>
 
@@ -77,31 +77,35 @@
       </div>
     </div>
 
-    <!-- Volume + Surge -->
+    <!-- Volume + Breakdown — all live from CT -->
+    {% set this_mo = stats.monthly[-1] if stats.monthly else 0 %}
+    {% set last_mo = stats.monthly[-2] if stats.monthly and stats.monthly|length > 1 else 0 %}
+    {% set delta_pct = ((this_mo - last_mo) / last_mo * 100) if last_mo > 0 else 0 %}
+    {% set avg_order = (stats.total_volume / stats.deposit_count) if stats.deposit_count > 0 else 0 %}
     <div class="card mb-24">
       <div class="flex-between mb-20">
         <h3>Total Volume</h3>
         <div class="flex-center gap-12">
           <span class="text-2xl font-bold" style="font-size:1.5rem; font-weight:700;">${{ "{:,.2f}".format(stats.total_volume) }} USDC</span>
-          <span class="stat-change up">↑ 22.4%</span>
+          <span class="stat-change {% if delta_pct >= 0 %}up{% else %}down{% endif %}">{% if delta_pct >= 0 %}↑{% else %}↓{% endif %} {{ "{:.1f}".format(delta_pct|abs) }}% MoM</span>
         </div>
       </div>
       <div class="grid-4">
         <div>
-          <div class="text-xs text-muted mb-4">Settled Today</div>
-          <div class="font-bold" style="font-size:1.125rem;">$8,420</div>
+          <div class="text-xs text-muted mb-4">Settled (lifetime)</div>
+          <div class="font-bold" style="font-size:1.125rem;">${{ "{:,.2f}".format(stats.usdc_settled) }}</div>
         </div>
         <div>
-          <div class="text-xs text-muted mb-4">Surge Volume</div>
-          <div class="font-bold" style="font-size:1.125rem; color:var(--warning);">$1,548</div>
+          <div class="text-xs text-muted mb-4">Deposits Total</div>
+          <div class="font-bold" style="font-size:1.125rem; color:var(--warning);">{{ "{:,}".format(stats.deposit_count) }}</div>
         </div>
         <div>
           <div class="text-xs text-muted mb-4">Protocol Fees (10 bps)</div>
-          <div class="font-bold" style="font-size:1.125rem; color:var(--success);">$142.83</div>
+          <div class="font-bold" style="font-size:1.125rem; color:var(--success);">${{ "{:,.2f}".format(stats.platform_fees) }}</div>
         </div>
         <div>
           <div class="text-xs text-muted mb-4">Avg Order Value</div>
-          <div class="font-bold" style="font-size:1.125rem;">$24.20</div>
+          <div class="font-bold" style="font-size:1.125rem;">${{ "{:,.2f}".format(avg_order) }}</div>
         </div>
       </div>
     </div>
