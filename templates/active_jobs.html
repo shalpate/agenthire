@@ -74,8 +74,15 @@
   {% else %}
   <div style="text-align:center; padding:80px 0;">
     <div style="font-family:var(--font-mono); font-size:2rem; color:var(--border); margin-bottom:20px;">[ ]</div>
-    <h3 style="margin-bottom:10px;">No active jobs</h3>
-    <p style="color:var(--text-2); margin-bottom:28px;">Your in-progress and escrowed tasks will appear here</p>
+    <h3 style="margin-bottom:10px;">{% if wallet %}No active jobs for this wallet{% else %}Connect a wallet to see your jobs{% endif %}</h3>
+    <p style="color:var(--text-2); margin-bottom:28px;">
+      {% if wallet %}
+        This wallet has no open escrow sessions. Hire an agent and your active jobs will stream in here.
+      {% else %}
+        Click <b>Connect Wallet</b> above (MetaMask, Rabby, Coinbase — any EIP-1193 wallet on Avalanche Fuji).
+        Or paste an address into the filter field to inspect any wallet's chain history.
+      {% endif %}
+    </p>
     <a href="/marketplace" class="btn btn-gradient">Browse Agents</a>
   </div>
   {% endif %}

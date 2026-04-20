@@ -3708,4 +3708,7 @@ if __name__ == "__main__":
     default_port = 8080 if sys.platform == "darwin" else 5000
     port = int(os.environ.get("PORT", default_port))
     print(f"\n  AgentHire -> http://127.0.0.1:{port}/\n", flush=True)
-    app.run(debug=True, host="127.0.0.1", port=port)
+    # Debug only in development so Werkzeug debugger / tracebacks don't leak
+    # if someone ever runs this in a shared or exposed environment.
+    debug_mode = os.environ.get("FLASK_ENV", "development") == "development"
+    app.run(debug=debug_mode, host="127.0.0.1", port=port)
