@@ -261,24 +261,59 @@
   }
 
   // ── WIRE UP GLOBAL HANDLERS ──────────────────────────────────────────────
-  document.addEventListener('DOMContentLoaded', () => {
+  function _wireWallet() {
     const btn = document.getElementById('wallet-btn');
-    if (btn) {
-      btn.addEventListener('click', async () => {
-        if (window.AgentHire.connected) return;
-        try { await connectWallet(); }
-        catch (e) { if (window.showToast) showToast('Connect failed: ' + e.message, 'error'); }
-      });
+    if (!btn) { console.warn('[agenthire] wallet-btn not in DOM on this page'); return; }
+    if (btn.dataset.wired === 'true') return;
+    btn.dataset.wired = 'true';
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      console.log('[agenthire] wallet-btn clicked');
+      if (window.AgentHire.connected) { console.log('[agenthire] already connected, ignoring click'); return; }
+      if (!window.ethereum) {
+        const msg = 'No wallet extension detected. Install MetaMask, Rabby, or Coinbase Wallet and refresh.';
+        console.error('[agenthire]', msg);
+        if (window.showToast) showToast(msg, 'error');
+        else alert(msg);
+        return;
+      }
+      try {
+        await connectWallet();
+      } catch (err) {
+        const msg = err && err.message ? err.message : String(err);
+        console.error('[agenthire] connect failed:', err);
+        if (window.showToast) showToast('Connect failed: ' + msg, 'error');
+        else alert('Connect failed: ' + msg);
+      }
+    });
+    console.log('[agenthire] wallet-btn wired');
+  }
+
+  // Try wiring immediately and again on DOM ready — some pages (landing)
+  // include this script at the bottom of body so DOMContentLoaded may have
+  // already fired before we get here.
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _wireWallet);
+  } else {
+    _wireWallet();
+  }
+
+  // Restore state + listen for wallet events once everything else is ready.
+  (function _setupEthereumListeners() {
+    function go() {
+      if (window.ethereum && window.ethereum.selectedAddress) {
+        connectWallet().catch((e) => console.warn('[agenthire] auto-restore failed:', e));
+      }
+      if (window.ethereum) {
+        try {
+          window.ethereum.on('accountsChanged', () => window.location.reload());
+          window.ethereum.on('chainChanged', () => window.location.reload());
+        } catch (_) {}
+      }
     }
-    // If already connected (page reload, MetaMask session active) - restore state
-    if (window.ethereum && window.ethereum.selectedAddress) {
-      connectWallet().catch(() => {});
-    }
-    if (window.ethereum) {
-      window.ethereum.on('accountsChanged', () => window.location.reload());
-      window.ethereum.on('chainChanged', () => window.location.reload());
-    }
-  });
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', go);
+    else go();
+  })();
 
   // Expose API
   window.AgentHire.connectWallet = connectWallet;
