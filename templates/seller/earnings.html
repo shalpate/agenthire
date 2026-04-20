@@ -9,7 +9,7 @@
     <div>
       <div style="font-family:var(--font-mono); font-size:.5625rem; text-transform:uppercase; letter-spacing:.14em; color:var(--text-3); margin-bottom:6px;">Seller</div>
       <h1 style="font-size:1.625rem; margin-bottom:4px; letter-spacing:-.025em;">Dashboard</h1>
-      <p class="text-sm text-muted" style="font-family:var(--font-mono);">{{ seller or '0x3f8a...c12d' }}</p>
+      <p class="text-sm text-muted" style="font-family:var(--font-mono);">{% if seller and seller|length > 12 %}{{ seller[:6] }}…{{ seller[-4:] }}{% elif seller %}{{ seller }}{% else %}No seller wallet selected{% endif %}</p>
     </div>
   </div>
 
@@ -45,10 +45,20 @@
 
     <!-- Stats column -->
     <div style="display:flex; flex-direction:column; gap:10px;">
+      {% set _this_mo = earnings.monthly[-1] if earnings.monthly else 0 %}
+      {% set _last_mo = earnings.monthly[-2] if earnings.monthly and earnings.monthly|length > 1 else 0 %}
+      {% set _mo_delta = ((_this_mo - _last_mo) / _last_mo * 100) if _last_mo > 0 else 0 %}
+      {% set _mo_delta_clamped = ([_mo_delta, -999]|max if _mo_delta < 0 else [_mo_delta, 999]|min) %}
       <div style="padding:20px; background:var(--card); border:1px solid var(--border); border-radius:var(--radius); flex:1;">
-        <div style="font-family:var(--font-mono); font-size:.475rem; text-transform:uppercase; letter-spacing:.14em; color:var(--text-3); margin-bottom:6px;">Total Revenue</div>
+        <div style="font-family:var(--font-mono); font-size:.475rem; text-transform:uppercase; letter-spacing:.14em; color:var(--text-3); margin-bottom:6px;">Total Revenue (on-chain)</div>
         <div style="font-size:1.75rem; font-weight:700; font-family:var(--font-mono); letter-spacing:-.03em; margin-bottom:4px;">${{ "{:,.2f}".format(earnings.total_revenue) }}</div>
-        <div style="font-size:.6875rem; color:var(--green);">↑ 18% vs last month</div>
+        {% if _last_mo > 0 %}
+        <div style="font-size:.6875rem; color:{% if _mo_delta >= 0 %}var(--green){% else %}var(--red){% endif %};">
+          {% if _mo_delta >= 0 %}↑{% else %}↓{% endif %} {{ "{:,.1f}".format(_mo_delta_clamped|abs) }}% vs last month
+        </div>
+        {% else %}
+        <div style="font-size:.6875rem; color:var(--text-3);">First month of activity</div>
+        {% endif %}
       </div>
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
         <div style="padding:14px 16px; background:var(--card); border:1px solid var(--border); border-radius:var(--radius);">
@@ -60,11 +70,21 @@
           <div style="font-size:1.25rem; font-weight:700; font-family:var(--font-mono);">{{ agents|length }}</div>
         </div>
       </div>
+      {# Avg rating across this seller's agents (weighted by task count if
+         available; otherwise simple avg). Falls back to '—' if none. #}
+      {% set _rated_agents = agents|selectattr('rating')|list %}
+      {% set _avg_rating = (_rated_agents|sum(attribute='rating') / (_rated_agents|length or 1)) if _rated_agents else 0 %}
+      {% set _rating_fill = (_avg_rating / 5 * 100) if _avg_rating else 0 %}
       <div style="padding:14px 16px; background:var(--card); border:1px solid var(--border); border-radius:var(--radius);">
-        <div style="font-family:var(--font-mono); font-size:.45rem; text-transform:uppercase; letter-spacing:.12em; color:var(--text-3); margin-bottom:6px;">Avg Rating</div>
+        <div style="font-family:var(--font-mono); font-size:.45rem; text-transform:uppercase; letter-spacing:.12em; color:var(--text-3); margin-bottom:6px;">Avg Rating ({{ _rated_agents|length }} agent{{ 's' if _rated_agents|length != 1 }})</div>
         <div style="display:flex; align-items:center; gap:8px;">
-          <span style="font-size:1.25rem; font-weight:700; font-family:var(--font-mono);">4.7</span>
-          <span class="rating-stars" style="--star-fill:94%; font-size:.875rem;" aria-label="4.7 out of 5">★★★★★</span>
+          {% if _avg_rating %}
+          <span style="font-size:1.25rem; font-weight:700; font-family:var(--font-mono);">{{ "%.1f"|format(_avg_rating) }}</span>
+          <span class="rating-stars" style="--star-fill:{{ "%.1f"|format(_rating_fill) }}%; font-size:.875rem;" aria-label="{{ _avg_rating }} out of 5">★★★★★</span>
+          {% else %}
+          <span style="font-size:1.25rem; font-weight:700; font-family:var(--font-mono); color:var(--text-3);">—</span>
+          <span style="font-size:.6rem; color:var(--text-3);">no ratings yet</span>
+          {% endif %}
         </div>
       </div>
     </div>
@@ -177,25 +197,33 @@
       {% endif %}
     </div>
 
-    <!-- Recent Orders -->
+    <!-- Recent on-chain activity — from ChainTransaction filtered to this seller's agents -->
     <div class="card">
       <div class="flex-between mb-16">
-        <h3 style="font-size:.9375rem;">Recent Orders</h3>
+        <h3 style="font-size:.9375rem;">Recent On-Chain Activity</h3>
         <a href="/seller/orders" class="btn btn-ghost btn-sm">View All →</a>
       </div>
-      {% if orders %}
+      {% if tx_history %}
       <div style="display:flex; flex-direction:column;">
-        {% for order in orders[:5] %}
+        {% for tx in tx_history[:5] %}
         <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 0; border-bottom:1px solid {{ 'var(--border)' if not loop.last else 'transparent' }}; gap:10px;">
           <div style="min-width:0;">
-            <div style="font-weight:600; font-size:.8125rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ order.agent }}</div>
-            <div style="font-size:.6rem; color:var(--text-3); font-family:var(--font-mono); margin-top:2px;">{{ order.id }} · {{ order.date }}</div>
+            <div style="font-weight:600; font-size:.8125rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ tx.agent }}</div>
+            <div style="font-size:.6rem; color:var(--text-3); font-family:var(--font-mono); margin-top:2px;">{{ tx.type }} · {{ tx.date }}</div>
           </div>
           <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
-            <span style="font-family:var(--font-mono); font-size:.8125rem; font-weight:700;">${{ "%.2f"|format(order.amount) }}</span>
-            {% if order.status == 'completed' %}<span class="badge badge-approved" style="font-size:.5rem; padding:2px 6px;">Done</span>
-            {% elif order.status == 'in_progress' %}<span class="badge badge-testing" style="font-size:.5rem; padding:2px 6px;">Running</span>
-            {% elif order.status == 'in_escrow' %}<span class="badge badge-escrow" style="font-size:.5rem; padding:2px 6px;">Escrow</span>{% endif %}
+            <span style="font-family:var(--font-mono); font-size:.8125rem; font-weight:700;">${{ "%.2f"|format(tx.amount) }}</span>
+            {% if tx.real and tx.snowtrace %}
+              <a href="{{ tx.snowtrace }}" target="_blank" style="font-size:.5rem; padding:2px 6px; border:1px solid var(--green); background:rgba(34,197,94,.08); color:var(--green); border-radius:3px; text-decoration:none; font-family:var(--font-mono); font-weight:700;">● LIVE</a>
+            {% elif tx.status == 'released' %}
+              <span class="badge badge-approved" style="font-size:.5rem; padding:2px 6px;">Settled</span>
+            {% elif tx.status == 'escrow' %}
+              <span class="badge badge-escrow" style="font-size:.5rem; padding:2px 6px;">Escrow</span>
+            {% elif tx.status == 'slash' %}
+              <span style="font-size:.5rem; padding:2px 6px; border:1px solid rgba(239,68,68,.3); color:#ef4444; border-radius:3px; font-family:var(--font-mono);">Slashed</span>
+            {% else %}
+              <span class="badge" style="font-size:.5rem; padding:2px 6px;">{{ tx.status|title }}</span>
+            {% endif %}
           </div>
         </div>
         {% endfor %}
@@ -203,7 +231,7 @@
       {% else %}
       <div style="text-align:center; padding:28px 0; color:var(--text-3);">
         <div style="font-family:var(--font-mono); font-size:1.25rem; margin-bottom:10px;">[ ]</div>
-        <p style="font-size:.8125rem;">No orders yet</p>
+        <p style="font-size:.8125rem;">No on-chain activity yet · transactions appear here as agents earn</p>
       </div>
       {% endif %}
     </div>
