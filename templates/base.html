@@ -281,19 +281,54 @@ async function __connectProvider(w) {
 }
 
 function __showEmptyWalletHelp(walletName) {
-  const lines = [
-    walletName + ' is installed but has no accounts imported.',
-    '',
-    'Fix — takes 30 seconds:',
-    '  1. Click the ' + walletName + ' icon in your browser toolbar',
-    '  2. Create a new account OR import this demo key:',
-    '     0xff319427edeb7b9410081e8cb2c61ee4c1081fb1bd422353704fec7eb020f23e',
-    '  3. Add the Avalanche Fuji network if prompted',
-    '  4. Click Connect Wallet here again',
-    '',
-    'Or pick "Demo wallet" from the dropdown to skip setup entirely.',
-  ].join('\n');
-  alert(lines);
+  const existing = document.getElementById('wallet-help-modal');
+  if (existing) existing.remove();
+  const DEMO_KEY = '0xff319427edeb7b9410081e8cb2c61ee4c1081fb1bd422353704fec7eb020f23e';
+  const modal = document.createElement('div');
+  modal.id = 'wallet-help-modal';
+  modal.innerHTML = `
+    <div style="position:fixed; inset:0; background:rgba(0,0,0,.65); backdrop-filter:blur(4px); z-index:10000; display:flex; align-items:center; justify-content:center; padding:24px;" onclick="if(event.target===this)this.remove()">
+      <div style="max-width:440px; width:100%; background:var(--card); border:1px solid var(--border); border-radius:14px; padding:24px; font-family:var(--font-body);">
+        <div style="font-size:1.05rem; font-weight:700; margin-bottom:6px;">${walletName} has no accounts</div>
+        <div style="color:var(--text-2); font-size:.85rem; line-height:1.5; margin-bottom:16px;">
+          ${walletName} is installed but hasn't been set up with an account yet. Either finish setup, or skip straight to the demo wallet — it's pre-funded with 2 AVAX and 10,408 MockUSDC.
+        </div>
+        <button type="button" id="wh-demo-btn" style="width:100%; padding:12px; background:linear-gradient(135deg, #f59e0b, #E84142); color:#fff; border:none; border-radius:8px; font-weight:700; font-size:.875rem; cursor:pointer; margin-bottom:14px;">
+          Use demo wallet now (recommended)
+        </button>
+
+        <details style="margin-top:8px;">
+          <summary style="cursor:pointer; font-size:.78rem; color:var(--text-3); font-family:var(--font-mono); padding:8px 0;">Or set up ${walletName} manually (30 seconds) ▸</summary>
+          <ol style="font-size:.78rem; color:var(--text-2); line-height:1.65; padding-left:18px; margin-top:8px;">
+            <li>Click the ${walletName} icon in your browser toolbar</li>
+            <li>Create a new account <em>or</em> import this demo key:
+              <div style="display:flex; gap:6px; margin-top:6px; align-items:center;">
+                <code id="wh-key" style="flex:1; background:var(--bg); border:1px solid var(--border); padding:6px 8px; border-radius:5px; font-size:.62rem; word-break:break-all; font-family:var(--font-mono);">${DEMO_KEY}</code>
+                <button type="button" id="wh-copy-btn" style="padding:6px 10px; background:var(--bg); border:1px solid var(--border); border-radius:5px; cursor:pointer; font-size:.7rem; font-family:var(--font-mono); color:var(--text);">Copy</button>
+              </div>
+            </li>
+            <li>Add the Avalanche Fuji network if prompted</li>
+            <li>Return here and click Connect Wallet again</li>
+          </ol>
+        </details>
+
+        <div style="margin-top:16px; display:flex; justify-content:flex-end;">
+          <button type="button" onclick="document.getElementById('wallet-help-modal').remove()" style="padding:8px 14px; background:transparent; border:1px solid var(--border); border-radius:6px; color:var(--text-2); cursor:pointer; font-size:.78rem;">Close</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  document.getElementById('wh-demo-btn').addEventListener('click', () => {
+    modal.remove();
+    __setWalletConnected(__DEMO_WALLET, { demo: true });
+  });
+  document.getElementById('wh-copy-btn').addEventListener('click', () => {
+    navigator.clipboard.writeText(DEMO_KEY);
+    const b = document.getElementById('wh-copy-btn');
+    b.textContent = 'Copied ✓';
+    setTimeout(() => b.textContent = 'Copy', 1500);
+  });
 }
 
 // Wire picker options once DOM is ready
