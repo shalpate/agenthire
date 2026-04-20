@@ -1057,6 +1057,23 @@ def agent_mode_overview():
             agent = next((a for a in AGENTS if a["id"] == r.agent_id), None)
             elapsed = max(0, now - int(r.ts or now))
             el_m, el_s = divmod(elapsed, 60)
+            # For real txs, link to the tx page. For sim rows, link to the
+            # deployed contract address so the click lands on a valid Snowtrace
+            # page instead of "tx not found."
+            is_real = bool(m.get("real"))
+            kind_to_contract = {
+                "deposit":  "0xD19990C7CB8C386fa865135Ce9706A5A37A3f2f2",  # EscrowPayment
+                "settle":   "0xD19990C7CB8C386fa865135Ce9706A5A37A3f2f2",
+                "stake":    "0xfc942b4d1Eb363F25886b3F5935394BD4932B896",  # StakingSlashing
+                "slash":    "0x40ef89Ce1E248Df00AF6Dc37f96BBf92A9Bf603A",  # ReputationContract
+                "register": "0x6B71b84Fa3C313ccC43D63A400Ab47e6A0d4BCbB",  # AgentRegistry
+            }
+            if is_real and r.tx_hash:
+                snowtrace_url = f"https://testnet.snowtrace.io/tx/{r.tx_hash}"
+            elif kind_to_contract.get(r.kind):
+                snowtrace_url = f"https://testnet.snowtrace.io/address/{kind_to_contract[r.kind]}"
+            else:
+                snowtrace_url = None
             task_feed.append({
                 "id": f"task-{sid}",
                 "agent": agent["name"] if agent else (f"Agent #{r.agent_id}" if r.agent_id else "—"),
@@ -1066,8 +1083,8 @@ def agent_mode_overview():
                 "elapsed": f"{el_m}m {el_s:02d}s" if el_m < 60 else f"{el_m//60}h",
                 "category": agent["category"] if agent else "Automation",
                 "txHash": r.tx_hash,
-                "snowtrace": f"https://testnet.snowtrace.io/tx/{r.tx_hash}" if r.tx_hash else None,
-                "real": bool(m.get("real")),
+                "snowtrace": snowtrace_url,
+                "real": is_real,
                 "kind": r.kind,
             })
             if len(task_feed) >= 12: break
@@ -1611,7 +1628,9 @@ def _buyer_jobs_from_chain(wallet: str, *, include_settled: bool, include_active
             "task": f"Escrow session {display_id}",
             "date": time.strftime("%Y-%m-%d", time.gmtime(r.ts)) if r.ts else "",
             "txHash": r.tx_hash,
-            "snowtrace": f"https://testnet.snowtrace.io/tx/{r.tx_hash}",
+            "snowtrace": (f"https://testnet.snowtrace.io/tx/{r.tx_hash}"
+                          if bool(meta.get("real"))
+                          else "https://testnet.snowtrace.io/address/0xD19990C7CB8C386fa865135Ce9706A5A37A3f2f2"),
             "blockNumber": int(r.block_number or 0),
             "expiresAt": expires_at,
             "sourceChain": bool(live),
