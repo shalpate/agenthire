@@ -376,12 +376,16 @@
                 }
               }
 
-              // Route B — server-side facilitator signs the real Fuji tx
+              // Route B — server-side facilitator signs the real Fuji tx.
+              // fromId is any "buyer" agent (different from the seller) so
+              // the endpoint's sender≠receiver check passes. The actual
+              // payment signer is the facilitator wallet server-side.
+              const buyerId = agentId === 1 ? 2 : 1;
               setStatus('Firing real Fuji tx via facilitator...');
               const d = await fetch('/api/sim/trigger-direct', {
                 method: 'POST', headers: {'Content-Type':'application/json'},
                 body: JSON.stringify({
-                  fromId: agentId, toId: agentId,   // pay the agent you're hiring
+                  fromId: buyerId, toId: agentId,
                   amountUSDC: depositUSDC, tokens: Math.max(1, Math.floor(depositUSDC * 100)),
                   prompt: 'Hired on checkout page',
                 }),
