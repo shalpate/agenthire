@@ -79,6 +79,7 @@
     padding: 24px; margin-bottom: 20px;
   }
   .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  .form-row.single { grid-template-columns: 1fr; }
   .form-row:last-of-type { margin-bottom: 0; }
   .f-group { display: flex; flex-direction: column; gap: 6px; }
   .f-group label {
@@ -164,6 +165,50 @@
     display: flex; align-items: center; gap: 14px; margin-top: 20px;
     padding-top: 20px; border-top: 1px solid var(--line);
   }
+  .rate-row {
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--line);
+  }
+  .rate-controls {
+    display: grid;
+    grid-template-columns: 1.2fr .8fr .8fr auto;
+    gap: 10px;
+    align-items: end;
+  }
+  .rate-stars {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    height: 42px;
+  }
+  .rate-star {
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: 1.35rem;
+    line-height: 1;
+    color: var(--border-2);
+    cursor: pointer;
+    transition: transform .12s ease, color .12s ease;
+  }
+  .rate-star:hover,
+  .rate-star.active {
+    color: var(--amber);
+    transform: translateY(-1px);
+  }
+  .btn-rate {
+    padding: 11px 14px;
+    font-size: .78rem;
+    font-family: var(--font-mono);
+    font-weight: 700;
+    border-radius: var(--radius);
+    border: 1px solid var(--line);
+    background: var(--card-3);
+    color: var(--text);
+    cursor: pointer;
+  }
+  .btn-rate:hover { border-color: var(--red); color: var(--red); }
   .form-action-meta {
     display: flex;
     flex-direction: column;
@@ -365,6 +410,7 @@
     .hero h1 { font-size: 1.6rem; }
     .form-row, .stage { grid-template-columns: 1fr; }
     .form-action { flex-direction: column; align-items: stretch; gap: 12px; }
+    .rate-controls { grid-template-columns: 1fr; }
     .btn-send { margin-left: 0; width: 100%; }
     .h-cols, .h-row { grid-template-columns: 60px 1.2fr 90px 80px; }
     .h-cols > :nth-child(3), .h-row > :nth-child(3) { display: none; }
@@ -391,8 +437,8 @@
   <div class="form">
     <div class="form-row">
       <div class="f-group">
-        <label>From (sender)</label>
-        <select id="from"><option value="">Choose sender</option></select>
+        <label>From</label>
+        <select id="from"><option value="">Select wallet</option></select>
         <div class="verify-line" id="v-from"></div>
       </div>
       <div class="f-group">
@@ -401,14 +447,16 @@
         <div class="verify-line" id="v-to"></div>
       </div>
     </div>
-    <div class="form-row">
+    <div class="form-row single">
+      <div class="f-group">
+        <label>Prompt</label>
+        <input type="text" id="prompt" placeholder="Describe what the sender wallet is requesting">
+      </div>
+    </div>
+    <div class="form-row single">
       <div class="f-group">
         <label>Amount (USDC)</label>
         <input type="number" id="amount" min="0.01" step="0.01" value="5.06">
-      </div>
-      <div class="f-group">
-        <label>Tokens</label>
-        <input type="number" id="tokens" min="1" step="1" value="1">
       </div>
     </div>
     <div class="form-action">
@@ -443,6 +491,34 @@
     </div>
     <div id="h-body">
       <div class="h-empty">Your transactions will appear here.</div>
+    </div>
+  </div>
+
+  <div class="form">
+    <div class="form-action-title">Rate agent</div>
+    <div class="rate-row">
+      <div class="rate-controls">
+        <div class="f-group" style="margin:0;">
+          <label>Agent</label>
+          <select id="rate-agent"><option value="">Select agent</option></select>
+        </div>
+        <div class="f-group" style="margin:0;">
+          <label>Rating</label>
+          <div class="rate-stars" id="rate-stars" aria-label="Rate this agent">
+            <button type="button" class="rate-star" data-star="1" aria-label="1 star">★</button>
+            <button type="button" class="rate-star" data-star="2" aria-label="2 stars">★</button>
+            <button type="button" class="rate-star" data-star="3" aria-label="3 stars">★</button>
+            <button type="button" class="rate-star" data-star="4" aria-label="4 stars">★</button>
+            <button type="button" class="rate-star" data-star="5" aria-label="5 stars">★</button>
+          </div>
+          <input type="hidden" id="rate-value" value="5">
+        </div>
+        <div class="f-group" style="margin:0;">
+          <label>Feedback</label>
+          <input type="text" id="rate-feedback" placeholder="Optional note">
+        </div>
+        <button class="btn-rate" id="btn-rate-agent">Submit rating</button>
+      </div>
     </div>
   </div>
 
@@ -712,9 +788,10 @@ Click ② to sign a permit + retry → server returns 200 OK with receipt.</pre>
     const btn = $('btn-send'); btn.disabled = true; btn.textContent = 'Sending…';
     const fromId = $('from').value, toId = $('to').value;
     const amount = parseFloat($('amount').value);
-    const tokens = parseInt($('tokens').value, 10) || 1;
+    const promptText = ($('prompt').value || '').trim();
+    const tokens = Math.max(1, promptText ? promptText.split(/\s+/).length : 1);
 
-    if (!fromId) return (showErr('Pick a sender.'), btn.disabled=false, btn.textContent='Send Payment');
+    if (!fromId) return (showErr('Pick a wallet.'), btn.disabled=false, btn.textContent='Send Payment');
     if (!toId) return (showErr('Pick a receiver.'), btn.disabled=false, btn.textContent='Send Payment');
     if (fromId === toId) return (showErr('Sender and receiver must differ.'), btn.disabled=false, btn.textContent='Send Payment');
 
@@ -723,7 +800,7 @@ Click ② to sign a permit + retry → server returns 200 OK with receipt.</pre>
     try {
       data = await fetchJson('/api/sim/trigger-direct', {
         method: 'POST', headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ fromId: Number(fromId), toId: Number(toId), amountUSDC: amount, tokens }),
+        body: JSON.stringify({ fromId: Number(fromId), toId: Number(toId), amountUSDC: amount, tokens, prompt: promptText }),
       });
     } catch (e) { showErr(e.message); btn.disabled = false; btn.textContent = 'Send Payment'; return; }
 
@@ -782,6 +859,40 @@ Click ② to sign a permit + retry → server returns 200 OK with receipt.</pre>
     }
 
     btn.disabled = false; btn.textContent = 'Send Payment';
+  }
+
+  async function rateAgent() {
+    const aid = Number($('rate-agent').value || 0);
+    const rating = Number($('rate-value').value || 5);
+    const feedback = ($('rate-feedback').value || '').trim();
+    const btn = $('btn-rate-agent');
+    if (!aid) return showErr('Pick an agent to rate.');
+    btn.disabled = true;
+    btn.textContent = 'Submitting…';
+    try {
+      const d = await fetchJson(`/api/agents/${aid}/rate`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ rating, feedback }),
+      });
+      btn.textContent = `Rated ${d.rating} avg`;
+      setTimeout(() => { btn.textContent = 'Submit rating'; btn.disabled = false; }, 1200);
+      $('rate-feedback').value = '';
+    } catch (e) {
+      showErr(e.message || 'Failed to rate agent.');
+      btn.disabled = false;
+      btn.textContent = 'Submit rating';
+    }
+  }
+
+  function setRateStars(val) {
+    const rating = Math.max(1, Math.min(5, Number(val) || 1));
+    $('rate-value').value = String(rating);
+    document.querySelectorAll('#rate-stars .rate-star').forEach((btn) => {
+      const star = Number(btn.dataset.star || 0);
+      btn.classList.toggle('active', star <= rating);
+      btn.setAttribute('aria-pressed', star <= rating ? 'true' : 'false');
+    });
   }
 
   // Extras panels
@@ -962,8 +1073,19 @@ Click ② to sign a permit + retry → server returns 200 OK with receipt.</pre>
   $('btn-post-bid').onclick = postBid;
   $('btn-slash').onclick = slashAgent;
   $('btn-force-surge').onclick = forceSurge;
+  $('btn-rate-agent').onclick = rateAgent;
+  document.querySelectorAll('#rate-stars .rate-star').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      setRateStars(e.currentTarget.dataset.star);
+    });
+  });
+  setRateStars(5);
   $('from').addEventListener('change', e => verify(e.target.value, 'v-from'));
-  $('to').addEventListener('change', e => verify(e.target.value, 'v-to'));
+  $('to').addEventListener('change', e => {
+    verify(e.target.value, 'v-to');
+    $('rate-agent').value = e.target.value || '';
+  });
   $('x402-step1').onclick = x402Step1;
   $('x402-step2').onclick = x402Step2;
   $('erc8004-agent').addEventListener('change', probeErc8004);
@@ -991,23 +1113,27 @@ Click ② to sign a permit + retry → server returns 200 OK with receipt.</pre>
       const byCat = {};
       for (const a of d.agents || []) (byCat[a.category] = byCat[a.category] || []).push(a);
       const fromSel = $('from'), toSel = $('to');
-      const x402Sel = $('x402-agent'), ercSel = $('erc8004-agent');
+      const x402Sel = $('x402-agent'), ercSel = $('erc8004-agent'), rateSel = $('rate-agent');
       for (const cat of Object.keys(byCat).sort()) {
         const gf = document.createElement('optgroup'); gf.label = cat;
         const gt = document.createElement('optgroup'); gt.label = cat;
         const gx = document.createElement('optgroup'); gx.label = cat;
         const ge = document.createElement('optgroup'); ge.label = cat;
+        const gr = document.createElement('optgroup'); gr.label = cat;
         for (const a of byCat[cat]) {
           const label = (FLAGSHIPS.has(a.id) ? '★ ' : '') + a.name + ' · T' + a.tier;
           const of = document.createElement('option'); of.value = a.id; of.textContent = label;
           const ot = document.createElement('option'); ot.value = a.id; ot.textContent = label;
           const ox = document.createElement('option'); ox.value = a.id; ox.textContent = label;
           const oe = document.createElement('option'); oe.value = a.id; oe.textContent = label;
+          const or = document.createElement('option'); or.value = a.id; or.textContent = label;
           gf.appendChild(of); gt.appendChild(ot);
           gx.appendChild(ox); ge.appendChild(oe);
+          gr.appendChild(or);
         }
         fromSel.appendChild(gf); toSel.appendChild(gt);
         x402Sel.appendChild(gx); ercSel.appendChild(ge);
+        rateSel.appendChild(gr);
       }
     } catch {}
 

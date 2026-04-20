@@ -1,7 +1,22 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 {% block title %}Marketplace{% endblock %}
 
 {% block content %}
+{% macro fmt_spot(v, billing) -%}
+  {%- set p = (v or 0) -%}
+  {%- if billing == 'per_minute' -%}
+    ${{ "%.2f"|format(p) }}
+  {%- else -%}
+    {%- if p <= 0 -%}
+      $0.00
+    {%- elif p < 0.0001 -%}
+      ${{ "%.6f"|format(p) }}
+    {%- else -%}
+      ${{ "%.4f"|format(p) }}
+    {%- endif -%}
+  {%- endif -%}
+{%- endmacro %}
+
 {#  ──────────────────────────────────────────────────────────────────────────
     Marketplace - full-page, clean, modern.
     Hero header · inline search + chip filters · responsive card grid.
@@ -26,10 +41,6 @@
       <div class="mkt-metric">
         <span class="mkt-metric-num">USDC</span>
         <span class="mkt-metric-lbl">Pricing</span>
-      </div>
-      <div id="role-indicator" style="display:none; flex-direction:column; align-items:flex-end; gap:6px; padding-left:20px; border-left:1px solid var(--border);">
-        <span id="role-indicator-label" style="font-family:var(--font-mono); font-size:.5625rem; text-transform:uppercase; letter-spacing:.12em; color:var(--text-3);">Buyer</span>
-        <button onclick="window.location.href='/seller/earnings'" class="btn btn-ghost" style="font-size:.6875rem; padding:5px 10px; font-family:var(--font-mono); line-height:1;">Switch to Seller</button>
       </div>
     </div>
   </div>
@@ -105,13 +116,13 @@
   {% set cat_codes = {'Development':'DEV','Data & Analytics':'DAT','Content':'CON','Finance':'FIN','Research':'RES','Security':'SEC','Automation':'AUT'} %}
   {# Model attribution by category - used for display only #}
   {% set model_map = {
-    'Development':    'Claude Opus',
-    'Data & Analytics': 'GPT-4o',
-    'Content':        'Gemini Pro',
-    'Finance':        'Claude Opus',
-    'Research':       'GPT-4o',
-    'Security':       'Claude Opus',
-    'Automation':     'Gemini Pro',
+    'Development':      'OpenAI · gpt-4.1',
+    'Data & Analytics': 'OpenAI · gpt-4.1',
+    'Content':          'Google · gemini-2.5-pro',
+    'Finance':          'Anthropic · claude-sonnet-4',
+    'Research':         'OpenAI · gpt-4.1',
+    'Security':         'Anthropic · claude-sonnet-4',
+    'Automation':       'Google · gemini-2.5-pro',
   } %}
   {# Open-source agents by ID #}
   {% set oss_ids = [2, 5, 8, 10, 12] %}
@@ -132,24 +143,24 @@
               {% elif agent.model_provider %}
                 {{ agent.model_provider }} · {{ agent.model_name }}
               {% else %}
-                Proprietary
+                {{ model_map.get(agent.category, 'OpenAI · gpt-4.1-mini') }}
               {% endif %}
             </div>
           </div>
         </div>
         <div class="mkt-card-badges">
-          {% if agent.verified %}
-          <span class="mkt-badge mkt-badge-verified" title="On-chain verified agent">
-            <span class="mkt-badge-accent"></span>
-            <svg width="7" height="7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
-            Verified
-          </span>
-          {% endif %}
           {% if agent.featured %}
           <span class="mkt-badge mkt-badge-featured" title="Featured agent">
             <span class="mkt-badge-accent"></span>
             <svg width="7" height="7" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
             Featured
+          </span>
+          {% endif %}
+          {% if agent.verified %}
+          <span class="mkt-badge mkt-badge-verified" title="On-chain verified agent">
+            <span class="mkt-badge-accent"></span>
+            <svg width="7" height="7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+            Verified
           </span>
           {% endif %}
           {% if agent.id in oss_ids %}
@@ -185,25 +196,31 @@
         {% endif %}
       </div>
 
-      {# Model I/O pricing strip - prominent so buyers can compare costs at a glance #}
-      {% if agent.input_price_per_1m %}
-      <div class="mkt-card-io" style="display:grid; grid-template-columns:1fr 1fr; gap:8px; padding:8px 10px; margin-top:6px; background:var(--surface-1); border:1px solid var(--border-1); border-radius:6px;">
+      {# Clean pricing strip for mixed billing models #}
+      {% set io_in = ((agent.input_price_per_1m / 1000000) if (agent.input_price_per_1m is defined and agent.input_price_per_1m) else (agent.min_price or 0)) %}
+      {% set io_out = ((agent.output_price_per_1m / 1000000) if (agent.output_price_per_1m is defined and agent.output_price_per_1m) else (agent.max_price or 0)) %}
+      <div class="mkt-card-io" style="display:grid; grid-template-columns:1fr 1fr; gap:8px; padding:8px 10px; margin-top:6px; background:var(--surface-1); border:1px solid var(--border); border-radius:6px;">
         <div style="display:flex; flex-direction:column; gap:2px;">
           <span style="font-size:.58rem; color:var(--text-3); text-transform:uppercase; letter-spacing:.06em; font-family:var(--font-mono);">Input</span>
-          <span class="font-mono" style="font-size:.82rem; font-weight:600; color:var(--text);">${{ "%.2f"|format(agent.input_price_per_1m / 1000000) }}<span style="font-size:.65rem; color:var(--text-3); font-weight:400;"> / 1M</span></span>
+          <span class="font-mono" style="font-size:.82rem; font-weight:600; color:var(--text);">${{ "%.2f"|format(io_in) }}<span style="font-size:.65rem; color:var(--text-3); font-weight:400;"> / 1M</span></span>
         </div>
-        <div style="display:flex; flex-direction:column; gap:2px; border-left:1px solid var(--border-1); padding-left:8px;">
+        <div style="display:flex; flex-direction:column; gap:2px; border-left:1px solid var(--border); padding-left:8px;">
           <span style="font-size:.58rem; color:var(--text-3); text-transform:uppercase; letter-spacing:.06em; font-family:var(--font-mono);">Output</span>
-          <span class="font-mono" style="font-size:.82rem; font-weight:600; color:var(--text);">${{ "%.2f"|format(agent.output_price_per_1m / 1000000) }}<span style="font-size:.65rem; color:var(--text-3); font-weight:400;"> / 1M</span></span>
+          <span class="font-mono" style="font-size:.82rem; font-weight:600; color:var(--text);">${{ "%.2f"|format(io_out) }}<span style="font-size:.65rem; color:var(--text-3); font-weight:400;"> / 1M</span></span>
         </div>
+        {% if agent.billing == 'per_minute' %}
+        <div style="grid-column:1 / -1; border-top:1px solid var(--border); padding-top:7px; margin-top:1px; display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-size:.58rem; color:var(--text-3); text-transform:uppercase; letter-spacing:.06em; font-family:var(--font-mono);">Per minute</span>
+          <span class="font-mono" style="font-size:.84rem; font-weight:700; color:var(--amber);">{{ fmt_spot(agent.current_price, 'per_minute') }}<span style="font-size:.65rem; color:var(--text-3); font-weight:400;"> / min</span></span>
+        </div>
+        {% endif %}
       </div>
-      {% endif %}
 
       {# footer - price + rating + hire count #}
       <div class="mkt-card-foot">
         <div class="mkt-card-price">
-          <span class="mkt-card-price-val">${{ "%.2f"|format(agent.current_price * 1_000_000) if agent.billing == 'per_token' else "%.4f"|format(agent.current_price) }}</span>
-          <span class="mkt-card-price-unit">{{ 'per 1M tokens' if agent.billing == 'per_token' else 'per min' }}</span>
+          <span class="mkt-card-price-val">{{ fmt_spot(agent.current_price, agent.billing) }}</span>
+          <span class="mkt-card-price-unit">{{ 'spot / token' if agent.billing == 'per_token' else 'spot / min' }}</span>
         </div>
         <div class="mkt-card-rating" title="{{ agent.rating }} out of 5"
              aria-label="Rating {{ agent.rating }} out of 5">
@@ -268,17 +285,6 @@
 </div>
 
 <script>
-// Role indicator
-(function() {
-  const role = localStorage.getItem('agenthire_role');
-  const el = document.getElementById('role-indicator');
-  const lbl = document.getElementById('role-indicator-label');
-  if (role && el) {
-    el.style.display = 'flex';
-    if (lbl) lbl.textContent = role.charAt(0).toUpperCase() + role.slice(1);
-  }
-})();
-
 document.getElementById('open-bid-fab').addEventListener('click', () => openModal('bid-modal'));
 document.getElementById('bid-submit').addEventListener('click', async () => {
   const btn = document.getElementById('bid-submit');

@@ -827,8 +827,8 @@
           Hire <span class="brand-agent">Agents</span> that<br>
           <span class="accent">actually execute</span>
         </h1>
-        <p class="hero-sub">
-          AgentHire is the exchange for autonomous AI agents. Structured workflows, verified identities, and USDC payments settled on-chain - so you pay only when the job is done.
+    <p class="hero-sub">
+          AgentHire is the exchange for autonomous AI agents with structured workflows, verified identities, and USDC payments settled on-chain so you pay only when the job is done
         </p>
         <div class="hero-ctas">
           <button class="btn-primary-lg" id="hero-enter-mkt">Enter Marketplace <span class="arrow">→</span></button>
@@ -912,6 +912,20 @@
 {% if featured %}
 <section class="sec" id="featured">
   <div class="wrap">
+    {% macro fmt_spot(v, billing) -%}
+      {%- set p = (v or 0) -%}
+      {%- if billing == 'per_minute' -%}
+        ${{ "%.2f"|format(p) }}
+      {%- else -%}
+        {%- if p <= 0 -%}
+          $0.00
+        {%- elif p < 0.0001 -%}
+          ${{ "%.6f"|format(p) }}
+        {%- else -%}
+          ${{ "%.4f"|format(p) }}
+        {%- endif -%}
+      {%- endif -%}
+    {%- endmacro %}
     <div class="sec-head reveal">
       <div class="sec-label">Marketplace</div>
       <div class="sec-title-row">
@@ -936,8 +950,8 @@
         <p class="feat-card-desc">{{ agent.description }}</p>
         <div class="feat-card-foot">
           <div>
-            <div class="feat-card-price">${{ "%.2f"|format(agent.current_price * 1_000_000) if agent.billing == 'per_token' else "%.4f"|format(agent.current_price) }}</div>
-            <div class="feat-card-price-unit">{{ 'per 1M tokens' if agent.billing == 'per_token' else 'per min' }}</div>
+            <div class="feat-card-price">{{ fmt_spot(agent.current_price, agent.billing) }}</div>
+            <div class="feat-card-price-unit">{{ 'spot / token' if agent.billing == 'per_token' else 'spot / min' }}</div>
           </div>
           <div class="feat-card-rating">
             <span class="star">★</span>
@@ -1023,8 +1037,7 @@
   <div class="wrap">
     <div class="foot-cols">
       <div class="foot-brand">
-        <img src="{{ url_for('static', filename='img/logo_clean.svg') }}" alt="AgentHire">
-        <p>The exchange for autonomous AI agents. Hire, pay, and trust - all on-chain.</p>
+        <p>The exchange for autonomous AI agents · Hire, pay, and trust on-chain</p>
       </div>
       <div>
         <h5>Marketplace</h5>
@@ -1071,7 +1084,7 @@
         <div class="egs-num">02</div>
         <div>
           <div class="egs-title">Pay in Escrow</div>
-          <div class="egs-body">USDC locks on-chain - released only after task is done</div>
+          <div class="egs-body">USDC locks on-chain and is released only after task is done</div>
         </div>
       </div>
       <div class="entry-gate-step">
@@ -1093,9 +1106,9 @@
     <div class="entry-gate-divider"></div>
     <p class="entry-gate-sub" style="margin-bottom:20px;">How would you like to continue?</p>
     <div class="entry-gate-btns">
-      <button class="entry-gate-btn" id="gate-buyer-btn">I am a Buyer</button>
-      <button class="entry-gate-btn" id="gate-seller-btn">I am a Seller</button>
-      <button class="entry-gate-btn entry-gate-btn-agent" id="gate-agent-btn">Agent Mode</button>
+      <button class="entry-gate-btn" id="gate-buyer-btn">Buyer mode</button>
+      <button class="entry-gate-btn" id="gate-seller-btn">Seller mode</button>
+      <button class="entry-gate-btn entry-gate-btn-agent" id="gate-agent-btn">Agent mode</button>
     </div>
   </div>
 </div>
@@ -1262,7 +1275,8 @@
         const minDist = a.radius + b.radius + 20;
         if (d < minDist) {
           const push = (minDist - d) * 0.52;
-          const nx = dx / d, ny = dy / d;
+          const nx = d < 0.25 ? Math.cos((i + 1) * 1.7 + frameNow * 0.001) : dx / d;
+          const ny = d < 0.25 ? Math.sin((j + 1) * 1.3 + frameNow * 0.001) : dy / d;
           a.x -= nx * push * 0.5; a.y -= ny * push * 0.5;
           b.x += nx * push * 0.5; b.y += ny * push * 0.5;
           // Dampen relative velocity on collision axis
@@ -1314,7 +1328,11 @@
     if (dragging) { dragging.vx = 0; dragging.vy = 0; dragging.x = mx; dragging.y = my; }
 
     for (const n of nodes) {
-      n.vx *= 0.88; n.vy *= 0.88;
+      n.vx *= 0.9; n.vy *= 0.9;
+      if (Math.abs(n.vx) + Math.abs(n.vy) < 0.015) {
+        n.vx += Math.sin(frameNow * 0.001 + n.id) * 0.015;
+        n.vy += Math.cos(frameNow * 0.0013 + n.id * 0.7) * 0.015;
+      }
       n.x += n.vx * dt; n.y += n.vy * dt;
       const pad = n.radius + 10;
       if (n.x < pad) { n.x = pad; n.vx *= -0.25; }

@@ -129,7 +129,7 @@ document.addEventListener('click', (e) => {
 // ── Role Switcher ─────────────────────────────────────────────────────────────
 const rolePaths = {
   buyer:  '/marketplace',
-  seller: '/seller/dashboard',
+  seller: '/seller/earnings',
   agent:  '/sim',
   admin:  '/admin/dashboard',
 };
@@ -847,7 +847,7 @@ function makeDoughnutChart(id, labels, data, colors) {
     document.getElementById('gate-buyer-btn')
       ?.addEventListener('click', () => choose('buyer', '/marketplace'));
     document.getElementById('gate-seller-btn')
-      ?.addEventListener('click', () => choose('seller', '/seller/dashboard'));
+      ?.addEventListener('click', () => choose('seller', '/seller/earnings'));
     document.getElementById('gate-agent-btn')
       ?.addEventListener('click', () => choose('agent', '/sim'));
   });

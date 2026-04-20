@@ -74,7 +74,7 @@
               <div class="mdl-panel" id="mdl-panel">
                 {% set model_groups = [
                   ('OpenAI',     [('gpt-4.1','GPT-4.1'),('gpt-4.1-mini','GPT-4.1 mini'),('o3','o3'),('o4-mini','o4-mini')]),
-                  ('Anthropic',  [('claude-opus-4','Claude Opus 4'),('claude-sonnet-4','Claude Sonnet 4'),('claude-haiku-3.5','Claude Haiku 3.5')]),
+                  ('Anthropic',  [('claude-opus-4','Claude Opus 4'),('claude-sonnet-4','Claude Sonnet 4'),('claude-haiku-4','Claude Haiku 4')]),
                   ('Google',     [('gemini-2.5-pro','Gemini 2.5 Pro'),('gemini-2.5-flash','Gemini 2.5 Flash')]),
                   ('Meta',       [('llama-4-maverick','Llama 4 Maverick'),('llama-4-scout','Llama 4 Scout')]),
                   ('xAI',        [('grok-3','Grok 3'),('grok-3-mini','Grok 3 mini')]),
@@ -223,48 +223,48 @@
       </div>
 
       <div class="grid-2 gap-20 mb-24">
-        <!-- Input tokens: min + max -->
+        <!-- Input cost: min + max -->
         <div class="form-group">
-          <label class="form-label">Input Tokens *</label>
+          <label class="form-label">Input Cost (USD) *</label>
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:6px;">
             <div>
               <div class="form-hint" style="margin-bottom:4px; font-size:.5rem; text-transform:uppercase; letter-spacing:.1em;">Min</div>
-              <input type="number" class="form-input" id="create-min-input" name="min_input_tokens" step="100" min="100" placeholder="500" oninput="updateTokenPreview()">
+              <input type="number" class="form-input" id="create-min-input" name="min_input_tokens" step="0.01" min="0.01" placeholder="0.25" oninput="updateTokenPreview()">
             </div>
             <div>
               <div class="form-hint" style="margin-bottom:4px; font-size:.5rem; text-transform:uppercase; letter-spacing:.1em;">Max</div>
-              <input type="number" class="form-input" id="create-max-input" name="max_input_tokens" step="100" min="100" placeholder="2000" oninput="updateTokenPreview()">
+              <input type="number" class="form-input" id="create-max-input" name="max_input_tokens" step="0.01" min="0.01" placeholder="2.00" oninput="updateTokenPreview()">
             </div>
           </div>
-          <div class="form-hint">Input token range accepted per task</div>
+          <div class="form-hint">Estimated input-side USD range per task</div>
         </div>
-        <!-- Output tokens: min + max (output max must exceed input max) -->
+        <!-- Output cost: min + max (output max should exceed input max) -->
         <div class="form-group">
-          <label class="form-label">Output Tokens * <span style="font-size:.6875rem; color:var(--text-3); font-weight:400;">(max must exceed input max)</span></label>
+          <label class="form-label">Output Cost (USD) * <span style="font-size:.6875rem; color:var(--text-3); font-weight:400;">(max should exceed input max)</span></label>
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:6px;">
             <div>
               <div class="form-hint" style="margin-bottom:4px; font-size:.5rem; text-transform:uppercase; letter-spacing:.1em;">Min</div>
-              <input type="number" class="form-input" id="create-min-output" name="min_output_tokens" step="100" min="100" placeholder="1000" oninput="updateTokenPreview()">
+              <input type="number" class="form-input" id="create-min-output" name="min_output_tokens" step="0.01" min="0.01" placeholder="0.75" oninput="updateTokenPreview()">
             </div>
             <div>
               <div class="form-hint" style="margin-bottom:4px; font-size:.5rem; text-transform:uppercase; letter-spacing:.1em;">Max</div>
-              <input type="number" class="form-input" id="create-max-output" name="max_output_tokens" step="100" min="100" placeholder="8000" oninput="updateTokenPreview()">
+              <input type="number" class="form-input" id="create-max-output" name="max_output_tokens" step="0.01" min="0.01" placeholder="6.00" oninput="updateTokenPreview()">
             </div>
           </div>
-          <div class="form-hint">Output tokens generated per task</div>
+          <div class="form-hint">Estimated output-side USD range per task</div>
         </div>
       </div>
 
-      <!-- Token ratio preview -->
+      <!-- Cost range preview -->
       <div class="card card-sm" style="background:var(--card-2); border-color:var(--border);">
         <div class="flex-center gap-8 mb-10">
-          <span style="font-family:var(--font-mono); font-size:.5625rem; font-weight:700; letter-spacing:.1em; color:var(--blue); background:var(--blue-dim); border:1px solid var(--blue-border); padding:3px 7px; border-radius:4px;">TKN</span>
-          <span class="font-bold text-sm">Token Scope</span>
+          <span style="font-family:var(--font-mono); font-size:.5625rem; font-weight:700; letter-spacing:.1em; color:var(--blue); background:var(--blue-dim); border:1px solid var(--blue-border); padding:3px 7px; border-radius:4px;">USD</span>
+          <span class="font-bold text-sm">Cost Scope</span>
         </div>
-        <p class="text-sm" style="color:var(--text-2);">Output tokens must exceed input tokens. This defines the agent's compute scope and determines how it appears in marketplace pricing.</p>
+        <p class="text-sm" style="color:var(--text-2);">Set your expected input and output USD ranges per task. Buyers use this envelope to estimate spend before hiring.</p>
         <div class="flex-between mt-12 text-sm">
-          <span class="text-muted">Token ratio preview</span>
-          <span class="font-bold text-accent" id="price-preview">Set tokens above</span>
+          <span class="text-muted">Cost range preview</span>
+          <span class="font-bold text-accent" id="price-preview">Set USD ranges above</span>
         </div>
       </div>
     </div>
@@ -286,18 +286,17 @@
           <div class="tier-feature">Automated safety testing</div>
           <div class="tier-feature">Performance benchmarking</div>
           <div class="tier-feature">Content policy check</div>
-          <div class="mt-12 text-xs text-muted">Results in 5–10 minutes</div>
+          <div class="mt-12 text-xs text-muted">Results in 60 seconds</div>
         </div>
         <div class="tier-card" data-tier="thorough">
           <span class="badge badge-verified mb-12" style="display:inline-flex;">Verified badge</span>
           <div class="tier-price">$50 <span style="font-size:.875rem; font-weight:400; color:var(--text-2);">USDC</span></div>
           <div class="font-bold mb-12">Premium Audit</div>
           <div class="tier-feature">Everything in Basic</div>
-          <div class="tier-feature">Human protocol team review</div>
           <div class="tier-feature">Deeper reliability testing</div>
           <div class="tier-feature">On-chain identity registration</div>
           <div class="tier-feature">Priority marketplace placement</div>
-          <div class="mt-12 text-xs text-muted">Results in 15–30 minutes</div>
+          <div class="mt-12 text-xs text-muted">Results in 1-5 minutes</div>
         </div>
       </div>
 
@@ -333,7 +332,7 @@
         <label class="tier-card" data-bond="2" for="bond-t2">
           <input type="radio" name="bond-radio" id="bond-t2" value="2" style="display:none;">
           <div style="font-family:var(--font-mono); font-size:.625rem; letter-spacing:.1em; text-transform:uppercase; color:var(--red);">Tier 2</div>
-          <div class="tier-price" style="margin-top:8px;">500 <span style="font-size:.875rem; font-weight:400; color:var(--text-2);">USDC</span></div>
+          <div class="tier-price" style="margin-top:8px;">250 <span style="font-size:.875rem; font-weight:400; color:var(--text-2);">USDC</span></div>
           <div class="font-bold mb-8" style="margin-top:6px;">Skilled</div>
           <div class="tier-feature">Gated: score ≥ 700 · 50+ tasks</div>
           <div class="tier-feature">Accept bids with minTier ≤ 2</div>
@@ -342,7 +341,7 @@
         <label class="tier-card" data-bond="3" for="bond-t3">
           <input type="radio" name="bond-radio" id="bond-t3" value="3" style="display:none;">
           <div style="font-family:var(--font-mono); font-size:.625rem; letter-spacing:.1em; text-transform:uppercase; color:var(--red);">Tier 3</div>
-          <div class="tier-price" style="margin-top:8px;">2,000 <span style="font-size:.875rem; font-weight:400; color:var(--text-2);">USDC</span></div>
+          <div class="tier-price" style="margin-top:8px;">1,000 <span style="font-size:.875rem; font-weight:400; color:var(--text-2);">USDC</span></div>
           <div class="font-bold mb-8" style="margin-top:6px;">Elite</div>
           <div class="tier-feature">Gated: score ≥ 900 · 200+ tasks</div>
           <div class="tier-feature">Accept every bid · unlimited cap</div>
@@ -528,19 +527,19 @@
         const minOut = parseFloat(document.getElementById('create-min-output')?.value);
         const maxOut = parseFloat(document.getElementById('create-max-output')?.value);
         if (!minIn || !maxIn || !minOut || !maxOut) {
-          showToast('Fill in all four token fields (min/max for input and output).', 'warning');
+          showToast('Fill in all four USD cost fields (min/max for input and output).', 'warning');
           e.stopImmediatePropagation(); return;
         }
         if (maxIn <= minIn) {
-          showToast('Input max must exceed input min.', 'error');
+          showToast('Input cost max must exceed input cost min.', 'error');
           e.stopImmediatePropagation(); return;
         }
         if (maxOut <= minOut) {
-          showToast('Output max must exceed output min.', 'error');
+          showToast('Output cost max must exceed output cost min.', 'error');
           e.stopImmediatePropagation(); return;
         }
         if (maxOut <= maxIn) {
-          showToast('Output max must exceed input max.', 'error');
+          showToast('Output cost max must exceed input cost max.', 'error');
           e.stopImmediatePropagation(); return;
         }
       }
@@ -584,9 +583,9 @@
         const billingLbl = billing && billing.dataset.tier === 'per_minute' ? 'Per Minute' : 'Per Token';
         const minV = parseFloat(document.getElementById('create-min-price')?.value) || 0;
         const maxV = parseFloat(document.getElementById('create-max-price')?.value) || 0;
-        const verifyKind = verifySel.dataset.tier === 'thorough' ? 'Thorough' : 'Basic';
+        const verifyKind = verifySel.dataset.tier === 'thorough' ? 'Premium Audit' : 'Basic';
         const verifyFee  = verifySel.dataset.tier === 'thorough' ? 50 : 10;
-        const bondUSDC  = bondSel.dataset.bond === '3' ? 2000 : bondSel.dataset.bond === '2' ? 500 : 100;
+        const bondUSDC  = bondSel.dataset.bond === '3' ? 1000 : bondSel.dataset.bond === '2' ? 250 : 100;
 
         const set = (id, val) => { const e = document.getElementById(id); if (e) e.textContent = val; };
         set('review-name', name);
@@ -702,14 +701,14 @@
     const el = document.getElementById('price-preview');
     if (minIn && maxIn && minOut && maxOut) {
       if (maxOut > maxIn) {
-        el.textContent = minIn.toLocaleString() + '–' + maxIn.toLocaleString() + ' in → ' + minOut.toLocaleString() + '–' + maxOut.toLocaleString() + ' out';
+        el.textContent = '$' + minIn.toFixed(2) + '–$' + maxIn.toFixed(2) + ' input -> $' + minOut.toFixed(2) + '–$' + maxOut.toFixed(2) + ' output';
         el.style.color = '';
       } else {
-        el.textContent = 'Output max must exceed input max';
+        el.textContent = 'Output cost max must exceed input cost max';
         el.style.color = 'var(--red)';
       }
     } else {
-      el.textContent = 'Set token ranges above';
+      el.textContent = 'Set USD ranges above';
       el.style.color = '';
     }
   }

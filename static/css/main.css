@@ -1831,8 +1831,9 @@ tbody tr:hover { background: var(--card-2); }
   padding: 48px 0 32px;
   margin-top: 80px;
 }
-.footer-grid { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 48px; margin-bottom: 48px; }
+.footer-grid { display: grid; grid-template-columns: repeat(3, minmax(160px, 1fr)); gap: 34px; margin-bottom: 40px; justify-items: center; }
 .footer-brand p { font-size: 0.875rem; margin-top: 12px; max-width: 260px; }
+.footer-col { text-align: center; }
 .footer-col h5 {
   font-family: var(--font-mono);
   font-size: 0.5625rem;
@@ -1847,7 +1848,9 @@ tbody tr:hover { background: var(--card-2); }
 .footer-bottom {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
+  gap: 24px;
+  flex-wrap: wrap;
   padding-top: 24px;
   border-top: 1px solid var(--border);
 }
@@ -2625,7 +2628,7 @@ tbody tr:hover { background: var(--card-2); }
 @media (max-width: 1100px) {
   .hero-split     { grid-template-columns: 1fr; gap: 44px; padding: 72px 0 64px; }
   .market-panel   { max-width: 480px; margin: 0 auto; }
-  .footer-grid    { grid-template-columns: 1fr 1fr; }
+  .footer-grid    { grid-template-columns: repeat(3, minmax(150px, 1fr)); }
   .filter-sidebar { width: 190px; }
 }
 @media (max-width: 768px) {
@@ -3343,9 +3346,9 @@ tbody tr:hover { background: var(--card-2); }
   position: fixed;
   inset: 0;
   z-index: 9999;
-  background: rgba(5, 5, 9, 0.90);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
+  background: rgba(6, 8, 12, 0.78);
+  backdrop-filter: blur(22px) saturate(130%);
+  -webkit-backdrop-filter: blur(22px) saturate(130%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3360,17 +3363,18 @@ tbody tr:hover { background: var(--card-2); }
   content: '';
   position: absolute;
   inset: 0;
-  background-image: radial-gradient(circle, rgba(255,255,255,.055) 1px, transparent 1px);
-  background-size: 30px 30px;
+  background:
+    radial-gradient(ellipse at 18% 16%, rgba(232,65,66,.18) 0%, transparent 62%),
+    radial-gradient(ellipse at 82% 84%, rgba(59,130,246,.14) 0%, transparent 62%);
   pointer-events: none;
 }
 /* Ambient red glow behind the modal */
 .entry-gate-overlay::after {
   content: '';
   position: absolute;
-  width: 600px;
-  height: 500px;
-  background: radial-gradient(ellipse at center, rgba(232,65,66,.12) 0%, transparent 68%);
+  width: 760px;
+  height: 560px;
+  background: radial-gradient(ellipse at center, rgba(232,65,66,.16) 0%, transparent 70%);
   pointer-events: none;
   animation: eg-orb 8s ease-in-out infinite alternate;
 }
@@ -3385,22 +3389,22 @@ tbody tr:hover { background: var(--card-2); }
 .entry-gate-modal {
   position: relative;
   z-index: 1;
-  background: rgba(14, 14, 20, 0.95);
-  border: 1px solid rgba(255,255,255,.10);
-  border-radius: 28px;
-  padding: 44px 44px 40px;
+  background: linear-gradient(165deg, rgba(20,22,30,.95) 0%, rgba(14,16,24,.92) 100%);
+  border: 1px solid rgba(255,255,255,.14);
+  border-radius: 30px;
+  padding: 46px 44px 40px;
   max-width: 640px;
   width: 100%;
   text-align: center;
   transform: scale(0.92) translateY(16px);
   transition: transform 0.38s cubic-bezier(.16, 1, .3, 1);
   box-shadow:
-    0 0 0 1px rgba(232,65,66,.12),
+    0 0 0 1px rgba(232,65,66,.16),
     0 40px 80px rgba(0, 0, 0, 0.70),
     inset 0 1px 0 rgba(255,255,255,.06);
 }
 [data-theme="light"] .entry-gate-modal {
-  background: rgba(255,255,255,.96);
+  background: linear-gradient(165deg, rgba(255,255,255,.98) 0%, rgba(250,250,253,.96) 100%);
   border-color: var(--border-2);
   box-shadow: 0 0 0 1px rgba(232,65,66,.10), 0 40px 80px rgba(0,0,0,.22);
 }
@@ -3418,7 +3422,7 @@ tbody tr:hover { background: var(--card-2); }
   opacity: .9;
 }
 .entry-gate-title {
-  font-size: 1.6875rem;
+  font-size: 1.8rem;
   font-weight: 700;
   color: var(--text);
   letter-spacing: -.03em;
@@ -3426,7 +3430,7 @@ tbody tr:hover { background: var(--card-2); }
   margin-bottom: 8px;
 }
 .entry-gate-sub {
-  font-size: .875rem;
+  font-size: .9rem;
   color: var(--text-2);
   line-height: 1.55;
   margin-bottom: 28px;
@@ -3435,8 +3439,8 @@ tbody tr:hover { background: var(--card-2); }
 /* ── How It Works steps inside entry gate ── */
 .entry-gate-steps {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 14px;
+  grid-template-columns: 1fr;
+  gap: 10px;
   margin-bottom: 28px;
   text-align: left;
 }
@@ -3444,14 +3448,14 @@ tbody tr:hover { background: var(--card-2); }
   display: flex;
   align-items: flex-start;
   gap: 12px;
-  background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
-  border: 1px solid rgba(255,255,255,.09);
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.10);
   border-radius: 18px;
   padding: 16px 16px;
   transition: border-color .18s ease, transform .18s ease, box-shadow .18s ease;
 }
 [data-theme="light"] .entry-gate-step {
-  background: linear-gradient(180deg, #ffffff, #f8f8fa);
+  background: rgba(0,0,0,.02);
   border-color: var(--border);
 }
 .entry-gate-step:hover {
@@ -3491,18 +3495,18 @@ tbody tr:hover { background: var(--card-2); }
 
 .entry-gate-btns {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 14px;
 }
 .entry-gate-btn-agent {
-  grid-column: 1 / -1;
-  justify-self: center;
+  grid-column: auto;
+  justify-self: stretch;
   width: 100%;
-  max-width: 360px;
+  max-width: none;
 }
 .entry-gate-btn {
   padding: 18px 16px;
-  border-radius: 16px;
+  border-radius: 18px;
   border: 1.5px solid rgba(255,255,255,.10);
   background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
   color: var(--text);

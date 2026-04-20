@@ -657,6 +657,22 @@ AGENTS = [
     },
 ]
 
+# Ensure every marketplace agent exposes an up-to-date model attribution.
+_LATEST_MODEL_BY_CATEGORY = {
+    "Development":      ("OpenAI", "gpt-4.1"),
+    "Data & Analytics": ("OpenAI", "gpt-4.1"),
+    "Content":          ("Google", "gemini-2.5-pro"),
+    "Finance":          ("Anthropic", "claude-sonnet-4"),
+    "Research":         ("OpenAI", "gpt-4.1"),
+    "Security":         ("Anthropic", "claude-sonnet-4"),
+    "Automation":       ("Google", "gemini-2.5-pro"),
+}
+for _a in AGENTS:
+    _provider, _model = _LATEST_MODEL_BY_CATEGORY.get(_a.get("category"), ("OpenAI", "gpt-4.1-mini"))
+    # Force-refresh attribution so stale hardcoded model labels never leak to UI.
+    _a["model_provider"] = _provider
+    _a["model_name"] = _model
+
 ORDERS = [
     {"id": "ORD-001", "agent": "CodeReview Pro", "agent_id": 1, "buyer": "0x1a2b...3c4d", "amount": 12.40, "status": "completed", "date": "2026-04-14", "task": "Review authentication module"},
     {"id": "ORD-002", "agent": "AlphaTrader AI", "agent_id": 4, "buyer": "0x5e6f...7g8h", "amount": 27.00, "status": "in_progress", "date": "2026-04-15", "task": "Generate signals for BTC/ETH"},
@@ -803,14 +819,51 @@ def marketplace():
     if featured:
         agents = [a for a in agents if a["featured"]]
 
+    # Optional price-band filters (kept query-compatible even if hidden in UI)
+    try:
+        if min_price not in ("", None):
+            lo = float(min_price)
+            agents = [a for a in agents if float(a.get("current_price") or 0) >= lo]
+        if max_price not in ("", None):
+            hi = float(max_price)
+            agents = [a for a in agents if float(a.get("current_price") or 0) <= hi]
+    except ValueError:
+        pass
+
+    # Primary relevance ranking used as default and as tie-breaker.
+    rel_key = lambda a: (
+        0 if a.get("featured") else 1,
+        0 if a.get("verified") else 1,
+        -(a.get("rating") or 0.0),
+        float(a.get("current_price") or 0.0),
+    )
+
+    sort = (sort or "relevance").strip().lower()
     if sort == "price_low":
-        agents.sort(key=lambda a: a["current_price"])
+        agents.sort(key=lambda a: (
+            float(a.get("current_price") or 0.0),
+            0 if a.get("featured") else 1,
+            0 if a.get("verified") else 1,
+            -(a.get("rating") or 0.0),
+        ))
     elif sort == "price_high":
-        agents.sort(key=lambda a: a["current_price"], reverse=True)
+        agents.sort(key=lambda a: (
+            -float(a.get("current_price") or 0.0),
+            0 if a.get("featured") else 1,
+            0 if a.get("verified") else 1,
+            -(a.get("rating") or 0.0),
+        ))
     elif sort == "rating":
-        agents.sort(key=lambda a: a["rating"], reverse=True)
+        agents.sort(key=lambda a: (
+            -(a.get("rating") or 0.0),
+            0 if a.get("featured") else 1,
+            0 if a.get("verified") else 1,
+            float(a.get("current_price") or 0.0),
+        ))
     elif sort == "newest":
-        agents = list(reversed(agents))
+        agents.sort(key=lambda a: (-(a.get("id") or 0),) + rel_key(a))
+    else:
+        agents.sort(key=rel_key)
 
     return render_template("marketplace.html", agents=agents, categories=CATEGORIES,
                            use_cases=USE_CASES, filters={"category": category, "use_case": use_case,
@@ -950,21 +1003,8 @@ def agent_mode_overview():
 
 @app.route("/seller/dashboard")
 def seller_dashboard():
-    seller = request.args.get("seller", "").strip()
-    if seller:
-        my_agents = [a for a in AGENTS if a["seller"].lower() == seller.lower()]
-        my_order_names = {a["name"] for a in my_agents}
-        my_orders = [o for o in ORDERS if o["agent"] in my_order_names]
-    else:
-        # Demo default: first seller's agents, with any orders for those agents.
-        default_seller = AGENTS[0]["seller"] if AGENTS else ""
-        my_agents = [a for a in AGENTS if a["seller"] == default_seller]
-        my_order_names = {a["name"] for a in my_agents}
-        my_orders = [o for o in ORDERS if o["agent"] in my_order_names]
-        seller = default_seller
-    return render_template("seller/dashboard.html",
-                           agents=my_agents, orders=my_orders,
-                           earnings=EARNINGS_DATA, seller=seller)
+    # Legacy path: keep route alive, but canonical seller dashboard is /seller/earnings.
+    return redirect(url_for("seller_earnings"))
 
 @app.route("/seller/create", methods=["GET", "POST"])
 def seller_create():
@@ -985,7 +1025,7 @@ def seller_create():
 
         stake_tier = int(data.get("stake_tier") or 1)
         stake_tier = max(1, min(3, stake_tier))
-        stake_amount_usdc = {1: 100, 2: 500, 3: 2000}[stake_tier]
+        stake_amount_usdc = {1: 100, 2: 250, 3: 1000}[stake_tier]
         stake_micro = stake_amount_usdc * 1_000_000
 
         # Persist the agent row
@@ -1105,7 +1145,7 @@ def seller_earnings():
 def seller_manage_agent(agent_id):
     agent = next((a for a in AGENTS if a["id"] == agent_id), None)
     if not agent:
-        return redirect(url_for("seller_dashboard"))
+        return redirect(url_for("seller_earnings"))
     if request.method == "POST":
         data = request.get_json(silent=True) or request.form.to_dict()
         action = data.get("action", "")
@@ -3164,23 +3204,118 @@ def _sync_agents_from_db():
     from models import Agent as AgentModel
     rows = AgentModel.query.order_by(AgentModel.id).all()
     AGENTS.clear()
+    token_io_anchor = {
+        "Development": (0.90, 3.10),
+        "Data & Analytics": (1.10, 4.20),
+        "Content": (0.55, 2.10),
+        "Finance": (2.50, 10.50),
+        "Research": (1.40, 5.60),
+        "Security": (1.80, 7.20),
+        "Automation": (0.70, 2.80),
+    }
+    minute_anchor = {
+        "Development": 0.09,
+        "Data & Analytics": 0.11,
+        "Content": 0.07,
+        "Finance": 0.16,
+        "Research": 0.10,
+        "Security": 0.15,
+        "Automation": 0.08,
+    }
     for a in rows:
+        latest_provider, latest_model = _LATEST_MODEL_BY_CATEGORY.get(
+            a.category, ("OpenAI", "gpt-4.1-mini")
+        )
+        # Deterministic jitter so prices vary naturally agent-to-agent.
+        jitter = ((a.id * 37) % 19 - 9) / 100.0  # [-0.09, +0.09]
+        quality = max(0.85, min(1.35, (a.rating or 4.2) / 4.4))
+        featured_boost = 1.08 if a.featured else 1.0
+        verified_boost = 1.03 if a.verified else 0.97
+        profile_mult = (1.0 + jitter) * quality * featured_boost * verified_boost
+
+        input_per_1m = int(a.input_price_per_1m or 0)
+        output_per_1m = int(a.output_price_per_1m or 0)
+        current_price = float(a.current_price or 0)
+        min_price = float(a.min_price or 0)
+        max_price = float(a.max_price or 0)
+
+        if a.billing == "per_token":
+            base_in, base_out = token_io_anchor.get(a.category, (0.80, 3.20))
+            believable_in = max(0.25, round(base_in * profile_mult, 2))
+            believable_out = max(believable_in * 1.8, round(base_out * profile_mult, 2))
+
+            if input_per_1m <= 0:
+                input_per_1m = int(believable_in * 1_000_000)
+            if output_per_1m <= 0:
+                output_per_1m = int(believable_out * 1_000_000)
+
+            io_in = input_per_1m / 1_000_000
+            io_out = output_per_1m / 1_000_000
+            io_mid_per_token = ((io_in + io_out) * 0.5) / 1_000_000
+
+            if current_price <= 0:
+                current_price = io_mid_per_token * (0.94 + (jitter * 0.35))
+
+            if min_price <= 0:
+                min_price = max(io_in * 0.75 / 1_000_000, current_price * 0.75)
+            if max_price <= 0:
+                max_price = max(io_out * 1.05 / 1_000_000, current_price * 1.25)
+
+            if current_price < min_price:
+                current_price = min_price * 1.02
+            if current_price > max_price:
+                current_price = max_price * 0.98
+            # Prevent visually fake-zero token prices in UI.
+            current_price = max(current_price, 0.000001)
+            min_price = min(min_price, current_price)
+            max_price = max(max_price, current_price)
+
+        else:  # per_minute
+            base_minute = minute_anchor.get(a.category, 0.09)
+            believable_minute = max(0.03, round(base_minute * profile_mult, 2))
+            if current_price <= 0:
+                current_price = believable_minute
+
+            if min_price <= 0:
+                min_price = max(0.02, round(current_price * 0.7, 2))
+            if max_price <= 0:
+                max_price = round(current_price * 1.35, 2)
+
+            if current_price < min_price:
+                current_price = min_price
+            if current_price > max_price:
+                current_price = max_price
+            # Keep minute prices in a believable range for marketplace display.
+            current_price = max(current_price, 0.03)
+            min_price = min(min_price, current_price)
+            max_price = max(max_price, current_price)
+
+            # Per-minute agents still expose token economics for comparison.
+            if input_per_1m <= 0 or output_per_1m <= 0:
+                io_in = max(0.35, round(current_price * 18.0, 2))
+                io_out = max(io_in * 1.8, round(current_price * 54.0, 2))
+                if input_per_1m <= 0:
+                    input_per_1m = int(io_in * 1_000_000)
+                if output_per_1m <= 0:
+                    output_per_1m = int(io_out * 1_000_000)
+
         AGENTS.append({
             "id": a.id, "name": a.name, "description": a.description,
             "long_description": a.long_description, "category": a.category,
             "use_case": a.use_case, "verified": a.verified,
             "verification_tier": a.verification_tier, "featured": a.featured,
             "rating": a.rating, "reviews": a.reviews, "billing": a.billing,
-            "min_price": a.min_price, "max_price": a.max_price,
-            "current_price": a.current_price, "surge_active": a.surge_active,
+            "min_price": min_price, "max_price": max_price,
+            "current_price": current_price, "surge_active": a.surge_active,
             "surge_multiplier": a.surge_multiplier, "seller": a.seller,
             "seller_rating": a.seller_rating, "tasks_completed": a.tasks_completed,
             "avg_completion_time": a.avg_completion_time,
-            "model_provider": a.model_provider,
-            "model_name": a.model_name,
+            # Force latest model attribution on read, regardless of stale DB rows.
+            "model_provider": latest_provider,
+            "model_name": latest_model,
             "deployer_wallet": a.deployer_wallet,
-            "input_price_per_1m": a.input_price_per_1m or 0,
-            "output_price_per_1m": a.output_price_per_1m or 0,
+            "input_price_per_1m": input_per_1m,
+            "output_price_per_1m": output_per_1m,
             "tags": a.tags, "capabilities": a.capabilities,
         })
 

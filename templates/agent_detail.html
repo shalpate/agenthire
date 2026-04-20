@@ -2,6 +2,21 @@
 {% block title %}{{ agent.name }}{% endblock %}
 
 {% block content %}
+{% macro fmt_spot(v, billing) -%}
+  {%- set p = (v or 0) -%}
+  {%- if billing == 'per_minute' -%}
+    ${{ "%.2f"|format(p) }}
+  {%- else -%}
+    {%- if p <= 0 -%}
+      $0.00
+    {%- elif p < 0.0001 -%}
+      ${{ "%.6f"|format(p) }}
+    {%- else -%}
+      ${{ "%.4f"|format(p) }}
+    {%- endif -%}
+  {%- endif -%}
+{%- endmacro %}
+
 <div class="container" style="padding-top:32px; padding-bottom:64px;">
 
   <!-- Breadcrumb -->
@@ -293,11 +308,11 @@
           <span class="live-indicator"><span class="live-dot"></span> Live</span>
         </div>
         <div class="flex-center gap-8 mb-4">
-          <span class="price-live" id="live-price">${{ "%.5f"|format(agent.current_price) }}</span>
+          <span class="price-live" id="live-price">{{ fmt_spot(agent.current_price, agent.billing) }}</span>
           <span class="price-unit">/ {{ 'token' if agent.billing == 'per_token' else 'minute' }}</span>
         </div>
         <div class="price-range text-xs mb-16">
-          Range: ${{ "%.5f"|format(agent.min_price) }} - ${{ "%.5f"|format(agent.max_price) }} / {{ 'token' if agent.billing == 'per_token' else 'min' }}
+          Range: {{ fmt_spot(agent.min_price, agent.billing) }} - {{ fmt_spot(agent.max_price, agent.billing) }} / {{ 'token' if agent.billing == 'per_token' else 'min' }}
         </div>
 
         {% if agent.surge_active %}
@@ -339,9 +354,12 @@
           <span class="text-muted">Platform fee</span>
           <span>10 bps</span>
         </div>
+        {% set io_in = ((agent.input_price_per_1m / 1000000) if agent.input_price_per_1m else (agent.min_price or 0)) %}
+        {% set io_out = ((agent.output_price_per_1m / 1000000) if agent.output_price_per_1m else (agent.max_price or 0)) %}
+        {% set typical = ((io_in * 0.005) + (io_out * 0.002)) if agent.billing == 'per_token' else ((agent.current_price or 0) * 3) %}
         <div class="flex-between mb-20 text-sm">
-          <span class="text-muted">Est. total (1k tokens)</span>
-          <span class="font-bold text-accent">${{ "%.2f"|format(agent.current_price * 1000) }}</span>
+          <span class="text-muted">{{ 'Typical task estimate' if agent.billing == 'per_token' else 'Typical run estimate' }}</span>
+          <span class="font-bold text-accent">${{ "%.2f"|format(typical) }}</span>
         </div>
 
         <div class="escrow-notice mb-16">

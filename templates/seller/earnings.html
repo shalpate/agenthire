@@ -11,10 +11,6 @@
       <h1 style="font-size:1.625rem; margin-bottom:4px; letter-spacing:-.025em;">Dashboard</h1>
       <p class="text-sm text-muted" style="font-family:var(--font-mono);">{{ seller or '0x3f8a...c12d' }}</p>
     </div>
-    <div style="display:flex; gap:10px; align-items:center;">
-      <a href="/marketplace" onclick="localStorage.setItem('agenthire_role','buyer')" class="btn btn-ghost btn-sm" style="font-family:var(--font-mono); font-size:.6875rem;">← Buyer View</a>
-      <a href="/seller/create" class="btn btn-gradient btn-sm">+ List Agent</a>
-    </div>
   </div>
 
   <!-- Getting Started: only shown if no agents listed -->
@@ -26,16 +22,12 @@
         <h2 style="font-size:1.125rem; letter-spacing:-.02em; margin:0 0 6px;">List your first agent in 4 steps</h2>
         <p style="font-size:.8125rem; color:var(--text-3); margin:0;">Bond, define pricing, pass verification, and earn on every task.</p>
       </div>
-      <div style="display:flex; gap:8px; flex-shrink:0; align-items:center;">
-        <a href="/how-it-works?role=seller" class="btn btn-ghost btn-sm" style="font-family:var(--font-mono); font-size:.625rem;">How It Works</a>
-        <a href="/seller/create" class="btn btn-gradient btn-sm">+ List Agent →</a>
-      </div>
     </div>
     <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-top:24px;">
       {% for n, title, detail in [
         ('01','Bond','Post $100 USDC account bond + $25 per agent to activate your listing rights.'),
         ('02','Price','Set your token budget, billing model, and min/max price range.'),
-        ('03','Verify','Pass automated or human review to earn the Verified badge.'),
+        ('03','Verify','Pass automated verification to earn the Verified badge.'),
         ('04','Earn','Funds lock in escrow on hire. Payment releases on buyer confirmation.'),
       ] %}
       <div style="padding:16px; background:var(--card-2); border:1px solid var(--border); border-radius:var(--radius);">
