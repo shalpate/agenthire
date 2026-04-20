@@ -127,7 +127,10 @@
           </a>
           <a class="wm-row" href="/active-jobs"><span>My active jobs</span><span>→</span></a>
           <a class="wm-row" href="/past-jobs"><span>My past jobs</span><span>→</span></a>
-          <button class="wm-row" type="button" onclick="__walletDisconnect()" style="color:var(--red); border-top:1px solid var(--border); margin-top:6px; padding-top:10px;">
+          <button class="wm-row" type="button" onclick="__switchWallet()" style="border-top:1px solid var(--border); margin-top:6px; padding-top:10px;">
+            <span>Switch wallet (MetaMask / Rabby)</span><span>⇄</span>
+          </button>
+          <button class="wm-row" type="button" onclick="__walletDisconnect()" style="color:var(--red);">
             <span>Disconnect</span><span>✕</span>
           </button>
         </div>
@@ -156,17 +159,20 @@ const __CHAIN_ID_HEX = '0xa869'; // Avalanche Fuji (43113)
 
 function __walletClick(e) {
   if (e && e.preventDefault) e.preventDefault();
-  const picker = document.getElementById('wallet-picker');
-  const menu   = document.getElementById('wallet-menu');
+  const menu = document.getElementById('wallet-menu');
   const connected = document.getElementById('wallet-btn').getAttribute('data-connected') === 'true';
   if (connected) {
-    picker.style.display = 'none';
+    // Already connected — open the account menu (balances, disconnect, etc.)
+    const picker = document.getElementById('wallet-picker');
+    if (picker) picker.style.display = 'none';
     menu.style.display = (menu.style.display === 'block') ? 'none' : 'block';
     if (menu.style.display === 'block') __walletRefreshBalances();
-  } else {
-    menu.style.display = 'none';
-    picker.style.display = (picker.style.display === 'block') ? 'none' : 'block';
+    return;
   }
+  // Not connected — one click connects the demo wallet immediately.
+  // No picker, no modal. Users who want to connect MetaMask/Rabby
+  // instead can open the account menu (after connect) → 'Switch wallet'.
+  __setWalletConnected(__DEMO_WALLET, { demo: true });
 }
 
 // Close popups on outside click
@@ -416,6 +422,14 @@ function __walletCopy() {
   navigator.clipboard.writeText(addr);
   const s = document.getElementById('wm-copy-state');
   if (s) { s.textContent = '✓'; setTimeout(() => s.textContent = '⎘', 1200); }
+}
+
+function __switchWallet() {
+  document.getElementById('wallet-menu').style.display = 'none';
+  const picker = document.getElementById('wallet-picker');
+  if (picker) picker.style.display = 'block';
+  // Hide the demo option inside the picker in switch mode (they already
+  // have demo) — users can always click Disconnect first if they want demo again.
 }
 
 function __walletDisconnect() {
