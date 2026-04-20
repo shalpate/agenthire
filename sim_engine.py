@@ -452,7 +452,10 @@ class SimulationEngine:
             a_template = self._rng.choice(agents)
             category = _category_id(a_template)
             tokens = self._rng.choice([500, 1000, 2000, 5000])
-            price_ceiling = a_template.min_price * self._rng.uniform(1.05, 1.8)
+            # Floor price so bids with near-zero seed min_price still have
+            # a meaningful dollar value (no $0.00 bids in the feed).
+            base_price = max(a_template.min_price, 0.0005)
+            price_ceiling = base_price * self._rng.uniform(1.05, 1.8)
             deposit = int(tokens * price_ceiling * 1_000_000)
             min_tier = self._rng.choices([1, 2, 3], weights=[70, 22, 8])[0]
             # Narrative — a real task + a real-looking buyer name

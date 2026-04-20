@@ -392,7 +392,12 @@ Click ② to sign a permit + retry → server returns 200 OK with receipt.</pre>
   const initials = n => (n || '').split(/\s+/).slice(0,2).map(w => w[0]).join('').toUpperCase();
   const shorten = a => a ? a.slice(0,6) + '…' + a.slice(-4) : '—';
   const fmtTs = u => new Date(u * 1000).toISOString().slice(11,19);
-  const mockTx = id => '0x' + [...Array(10)].map((_,i) => ((id*31 + i*7) % 16).toString(16)).join('');
+  const mockTx = id => {
+    const s = String(id ?? Date.now());
+    let h = 0;
+    for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+    return '0x' + [...Array(10)].map((_,i) => (((h >>> (i * 3)) ^ (i * 7)) & 15).toString(16)).join('');
+  };
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   const showErr = m => { $('err').textContent = m; $('err').style.display = 'block'; setTimeout(() => $('err').style.display = 'none', 4000); };
 
@@ -465,21 +470,30 @@ Click ② to sign a permit + retry → server returns 200 OK with receipt.</pre>
     if (emptyShown) { $('h-body').innerHTML = ''; emptyShown = false; }
     const row = document.createElement('div');
     row.className = 'h-row';
-    const hash = txHash || mockTx(ev.id || Date.now());
     const block = Math.floor((ev.ts || Date.now()/1000) / 60) + 2_000_000;
-    const url = snow || `https://testnet.snowtrace.io/tx/${hash}`;
+    // If we have a real tx hash, link to the tx. Otherwise link to the real
+    // contract address for this event kind so the user always lands on a
+    // valid Snowtrace page instead of a dead tx.
+    const realTx = !!txHash;
+    const hash = txHash || mockTx(ev.id || Date.now());
+    const ctr = contractMap[ev.kind];
+    const url = snow
+      || (realTx ? `https://testnet.snowtrace.io/tx/${hash}` : (ctr?.explorer || `https://testnet.snowtrace.io/address/${ctr?.address || ''}`));
+    const label = realTx ? hash.slice(0,10)+'…'
+                         : (ctr ? ctr.contract : 'sim');
+    const badge = realTx ? '' : `<span style="font-size:.54rem; background:rgba(255,255,255,.05); color:var(--text-3); padding:1px 5px; border-radius:3px; margin-right:5px; font-weight:700;">sim</span>`;
     row.innerHTML = `
       <span class="ts">${fmtTs(ev.ts || Date.now()/1000)}</span>
       <span class="msg" title="${(ev.message || '').replace(/"/g,'&quot;')}"><span class="kind ${ev.kind}">${ev.kind.replace('_',' ')}</span> ${ev.message}</span>
       <span style="color:var(--text-3);">#${block.toLocaleString()}</span>
-      <a href="${url}" target="_blank" class="tx ${live ? 'live' : ''}">${hash.slice(0,10)}…</a>
+      <a href="${url}" target="_blank" class="tx ${live ? 'live' : ''}">${badge}${label}</a>
       <span class="amt">${(ev.amountUSDC || 0).toFixed(2)}</span>
     `;
     $('h-body').prepend(row);
     sessionTx++;
     $('h-count').textContent = sessionTx + ' tx';
     saveHist({ ts: ev.ts || Math.floor(Date.now()/1000), kind: ev.kind, message: ev.message,
-               amountUSDC: ev.amountUSDC || 0, txHash: hash, block, snow: url, live: !!live });
+               amountUSDC: ev.amountUSDC || 0, txHash: hash, block, snow: url, live: !!live, realTx });
   }
 
   function restoreHist() {
@@ -488,11 +502,16 @@ Click ② to sign a permit + retry → server returns 200 OK with receipt.</pre>
     for (const e of arr.slice().reverse()) {
       const row = document.createElement('div');
       row.className = 'h-row';
+      const ctr = contractMap[e.kind];
+      const isReal = !!e.realTx;
+      const label = isReal ? e.txHash.slice(0,10)+'…' : (ctr ? ctr.contract : 'sim');
+      const badge = isReal ? '' : `<span style="font-size:.54rem; background:rgba(255,255,255,.05); color:var(--text-3); padding:1px 5px; border-radius:3px; margin-right:5px; font-weight:700;">sim</span>`;
+      const url = isReal ? e.snow : (ctr?.explorer || e.snow);
       row.innerHTML = `
         <span class="ts">${fmtTs(e.ts)}</span>
         <span class="msg" title="${(e.message || '').replace(/"/g,'&quot;')}"><span class="kind ${e.kind}">${e.kind.replace('_',' ')}</span> ${e.message}</span>
         <span style="color:var(--text-3);">#${e.block.toLocaleString()}</span>
-        <a href="${e.snow}" target="_blank" class="tx ${e.live ? 'live' : ''}">${e.txHash.slice(0,10)}…</a>
+        <a href="${url}" target="_blank" class="tx ${e.live ? 'live' : ''}">${badge}${label}</a>
         <span class="amt">${(e.amountUSDC || 0).toFixed(2)}</span>
       `;
       $('h-body').prepend(row);
@@ -629,50 +648,51 @@ Click ② to sign a permit + retry → server returns 200 OK with receipt.</pre>
     } catch {}
   }
 
-  // Actions
+  // Actions — one-click, randomized sensible defaults (no prompt() chains).
+  const CATS = ['Development','Data & Analytics','Content','Finance','Research','Security','Automation'];
+  const rand = arr => arr[Math.floor(Math.random() * arr.length)];
+
   async function postBid() {
-    const tokens = prompt('Token budget?', '2000'); if (!tokens) return;
-    const price = prompt('Max price / token (USDC)?', '0.01'); if (!price) return;
-    const tier = prompt('Min tier (1,2,3)?', '1'); if (!tier) return;
-    const cat = prompt('Category id (0=Dev,1=Data,2=Content,3=Finance,4=Research,5=Security,6=Auto)?', '0');
-    if (cat == null) return;
+    const tokens = rand([500, 1000, 2000, 5000]);
+    const price = Number((0.001 + Math.random() * 0.015).toFixed(4));
+    const tier = rand([1, 1, 1, 2, 2, 3]);
+    const cat = Math.floor(Math.random() * 7);
     try {
       const d = await fetchJson('/api/sim/post-bid', {
         method: 'POST', headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ tokenBudget: Number(tokens), maxPricePerToken: Number(price),
-                                minTier: Number(tier), categoryId: Number(cat) }),
+        body: JSON.stringify({ tokenBudget: tokens, maxPricePerToken: price, minTier: tier, categoryId: cat }),
       });
-      addRow({ id: 'BID-' + Date.now(), ts: Math.floor(Date.now()/1000), kind: 'bid_post',
-               message: `Posted bid ${d.bidId} · ${tokens} tokens`, amountUSDC: d.depositUSDC },
+      addRow({ id: d.bidId || ('BID-' + Date.now()), ts: Math.floor(Date.now()/1000), kind: 'bid_post',
+               message: `Posted ${d.bidId} · ${tokens} tok · T${tier}+ · ${CATS[cat]}`, amountUSDC: d.depositUSDC },
              d.txHash || null, d.snowtrace || null, !!d.onChainSubmitted);
       refreshExtras();
-    } catch (e) { showErr(e.message); }
+    } catch (e) { showErr('postBid: ' + e.message); }
   }
 
   async function slashAgent() {
-    const id = prompt('Agent id (1-125)?', '50'); if (!id) return;
-    const reason = prompt('Reason?', 'Buyer dispute'); if (reason == null) return;
+    const id = 1 + Math.floor(Math.random() * 125);
     try {
       const d = await fetchJson('/api/sim/slash-agent', {
         method: 'POST', headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ agentId: Number(id), reason }),
+        body: JSON.stringify({ agentId: id, reason: 'Buyer dispute' }),
       });
       for (const ev of d.newEvents || []) addRow(ev, d.txHash || null, d.snowtrace || null, !!d.onChainSubmitted);
-    } catch (e) { showErr(e.message); }
+      if (!(d.newEvents || []).length) showErr(`agent ${id} had nothing to slash`);
+    } catch (e) { showErr('slash: ' + e.message); }
   }
 
   async function forceSurge() {
-    const id = prompt('Agent id?', '9'); if (!id) return;
-    const mult = prompt('Multiplier (1.0–3.0)?', '2.0'); if (!mult) return;
+    const id = 1 + Math.floor(Math.random() * 125);
+    const mult = 1.5 + Math.random();
     try {
       const d = await fetchJson('/api/sim/force-surge', {
         method: 'POST', headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ agentId: Number(id), multiplier: Number(mult) }),
+        body: JSON.stringify({ agentId: id, multiplier: Number(mult.toFixed(2)) }),
       });
       addRow({ id: 'S-' + Date.now(), ts: Math.floor(Date.now()/1000), kind: 'settle',
-               message: `Surge forced on ${d.agentName} → ×${d.surgeMultiplier.toFixed(2)}`,
+               message: `Surge on ${d.agentName} → ×${(d.surgeMultiplier||mult).toFixed(2)} (price $${(d.currentPrice||0).toFixed(4)}/tok)`,
                amountUSDC: 0 });
-    } catch (e) { showErr(e.message); }
+    } catch (e) { showErr('surge: ' + e.message); }
   }
 
   // Live-writes toggle

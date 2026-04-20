@@ -2804,6 +2804,7 @@ def api_sim_open_bids():
     now = int(_t.time())
     rows = (BidModel.query
             .filter_by(settled=False, cancelled=False)
+            .filter(BidModel.deposit_amount >= 10_000)  # hide $0.00 bids (legacy rows with sub-cent deposits)
             .order_by(BidModel.id.desc())
             .limit(25).all())
     out = []
