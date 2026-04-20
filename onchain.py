@@ -80,6 +80,8 @@ ADDRESSES = {
 CHAIN_ID = int(os.environ.get("CHAIN_ID", _DEFAULT_CHAIN_ID))
 CHAIN_NAME = os.environ.get("CHAIN_NAME", _DEFAULT_CHAIN_NAME)
 EXPLORER_URL = os.environ.get("EXPLORER_URL", _DEFAULT_EXPLORER).rstrip("/")
+# Keep a small AVAX reserve so automated writes cannot drain the signer.
+MIN_SIGNER_AVAX_RESERVE = float(os.environ.get("MIN_SIGNER_AVAX_RESERVE", "0.25"))
 
 
 def get_deployment() -> dict:
@@ -329,13 +331,24 @@ class OnChain:
         """Post an open auction bid. Facilitator pays gas."""
         if not self.facilitator:
             raise RuntimeError("FACILITATOR_PRIVATE_KEY not set")
+        usdc = self._contracts["MockUSDC"]
         auc = self._contracts["AuctionMarket"]
-        tx = auc.functions.postBid(
+        base_nonce = self.w3.eth.get_transaction_count(self.facilitator.address)
+
+        # AuctionMarket pulls funds via transferFrom, so approve deposit first.
+        tx1 = usdc.functions.approve(
+            ADDRESSES["AuctionMarket"],
+            int(deposit_amount),
+        ).build_transaction(self._tx_params(nonce=base_nonce))
+        h1 = self._sign_send(tx1, self.facilitator)
+        self.w3.eth.wait_for_transaction_receipt(h1)
+
+        tx2 = auc.functions.postBid(
             int(deposit_amount), int(token_budget), int(max_price_per_token),
             int(category_id), int(min_tier), int(expires_at)
-        ).build_transaction(self._tx_params())
-        h = self._sign_send(tx, self.facilitator)
-        receipt = self.w3.eth.wait_for_transaction_receipt(h)
+        ).build_transaction(self._tx_params(nonce=base_nonce + 1))
+        h2 = self._sign_send(tx2, self.facilitator)
+        receipt = self.w3.eth.wait_for_transaction_receipt(h2)
         bid_id = None
         for log in receipt["logs"]:
             if log["address"].lower() == ADDRESSES["AuctionMarket"].lower():
@@ -345,8 +358,12 @@ class OnChain:
         return {
             "bidId": str(bid_id) if bid_id is not None else None,
             "status": "posted",
-            "txHash": h.hex(),
-            "snowtrace": f"https://testnet.snowtrace.io/tx/{h.hex()}",
+            "txHashes": {
+                "approve": h1.hex(),
+                "postBid": h2.hex(),
+            },
+            "txHash": h2.hex(),
+            "snowtrace": f"https://testnet.snowtrace.io/tx/{h2.hex()}",
         }
 
     def cancel_bid(self, bid_id: int) -> dict:
@@ -461,6 +478,20 @@ class OnChain:
                 tx["gas"] = int(self.w3.eth.estimate_gas(tx) * 1.2)
             except Exception:
                 tx["gas"] = 500_000
+        self._assert_signer_reserve(tx, signer.address)
         signed = signer.sign_transaction(tx)
         h = self.w3.eth.send_raw_transaction(signed.raw_transaction if hasattr(signed, "raw_transaction") else signed.rawTransaction)
         return h
+
+    def _assert_signer_reserve(self, tx: dict, signer_address: str) -> None:
+        reserve_wei = self.w3.to_wei(MIN_SIGNER_AVAX_RESERVE, "ether")
+        balance_wei = int(self.w3.eth.get_balance(signer_address))
+        gas_wei = int(tx.get("gas", 0)) * int(tx.get("gasPrice", 0))
+        value_wei = int(tx.get("value", 0))
+        required_wei = gas_wei + value_wei + reserve_wei
+        if balance_wei < required_wei:
+            needed_avax = float(self.w3.from_wei(required_wei - balance_wei, "ether"))
+            raise RuntimeError(
+                f"Insufficient AVAX reserve for signer {signer_address}. "
+                f"Need +{needed_avax:.6f} AVAX to keep reserve floor {MIN_SIGNER_AVAX_RESERVE:.3f}."
+            )

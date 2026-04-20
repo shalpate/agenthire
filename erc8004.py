@@ -119,8 +119,8 @@ class ERC8004Adapter:
         contract; until the deployed Rep contract supports that, we apply
         a specialization multiplier if category matches agent's category.
         """
-        import sys; sys.path.insert(0, "/Users/nichar/agenthire")
         from models import Agent as AgentModel
+        from extensions import db
 
         base = self.get_score(agent_id)
         score = base["score"]
@@ -131,7 +131,7 @@ class ERC8004Adapter:
         try:
             from app import app
             with app.app_context():
-                agent = AgentModel.query.get(agent_id)
+                agent = db.session.get(AgentModel, agent_id)
         except Exception:
             pass
         CATEGORY_IDS = {

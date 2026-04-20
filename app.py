@@ -1,8 +1,9 @@
-from flask import Flask, render_template, request, jsonify, redirect, url_for
+from flask import Flask, render_template, request, jsonify, redirect, url_for, g
 import logging
 import os
 import random
 import time
+import uuid
 
 # Load .env manually (no python-dotenv dependency). Must happen BEFORE onchain
 # or any module that reads FACILITATOR_PRIVATE_KEY at import time.
@@ -16,7 +17,7 @@ if _env_file.exists():
         _k, _v = _line.split("=", 1)
         os.environ.setdefault(_k, _v)
 
-from config import config as _config_map
+from config import config as _config_map, validate_runtime_config
 from extensions import db, cors, limiter
 from auth import require_api_key
 
@@ -33,6 +34,7 @@ app = Flask(__name__)
 
 _env = os.environ.get("FLASK_ENV", "development")
 app.config.from_object(_config_map.get(_env, _config_map["default"]))
+validate_runtime_config(app)
 
 # Init extensions
 db.init_app(app)
@@ -44,12 +46,52 @@ app.jinja_env.globals['enumerate'] = enumerate
 # Request logging
 @app.before_request
 def _log_request():
-    log.info("%s %s", request.method, request.path)
+    req_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
+    g.request_id = req_id
+    log.info("[%s] %s %s", req_id, request.method, request.path)
 
 @app.after_request
 def _log_response(response):
-    log.info("%s %s → %s", request.method, request.path, response.status_code)
+    req_id = getattr(g, "request_id", None) or request.headers.get("X-Request-ID") or str(uuid.uuid4())
+    response.headers["X-Request-ID"] = req_id
+    log.info("[%s] %s %s → %s", req_id, request.method, request.path, response.status_code)
     return response
+
+
+def _bad_request(message: str, *, field: str | None = None, code: str = "INVALID_REQUEST"):
+    payload = {"error": message, "code": code}
+    if field:
+        payload["field"] = field
+    return jsonify(payload), 400
+
+
+def _not_found(message: str, *, code: str = "NOT_FOUND"):
+    return jsonify({"error": message, "code": code}), 404
+
+
+def _is_hex_address(value: str) -> bool:
+    if not isinstance(value, str):
+        return False
+    v = value.strip()
+    if not (v.startswith("0x") and len(v) == 42):
+        return False
+    try:
+        int(v[2:], 16)
+        return True
+    except ValueError:
+        return False
+
+
+def _coerce_int(data: dict, field: str, *, minimum: int | None = None, maximum: int | None = None):
+    try:
+        value = int(data.get(field))
+    except (TypeError, ValueError):
+        return None, _bad_request(f"{field} must be an integer", field=field)
+    if minimum is not None and value < minimum:
+        return None, _bad_request(f"{field} must be >= {minimum}", field=field)
+    if maximum is not None and value > maximum:
+        return None, _bad_request(f"{field} must be <= {maximum}", field=field)
+    return value, None
 
 # ── Mock Data ──────────────────────────────────────────────────────────────────
 
@@ -1013,7 +1055,7 @@ def order_detail(order_id):
         # Fall back to DB (x402 payments create Order rows keyed by session id).
         try:
             from models import Order as OrderModel
-            db_order = OrderModel.query.get(order_id)
+            db_order = db.session.get(OrderModel, order_id)
             if db_order:
                 order = db_order.to_dict()
         except Exception:
@@ -1441,7 +1483,7 @@ def admin_payouts():
 def api_price(agent_id):
     from models import Agent as AgentModel, PricePoint
     from simulation import current_price
-    agent_row = AgentModel.query.get(agent_id)
+    agent_row = db.session.get(AgentModel, agent_id)
     if not agent_row:
         return jsonify({"error": "not found"}), 404
     # Pull the most-recent simulation point for utilization / demand signal.
@@ -1634,7 +1676,7 @@ def _record_order_from_payment(session_id: str, agent_id: int, buyer: str, amoun
             "task": "Escrow session opened via x402",
         })
         # DB row (if schema allows)
-        if not OrderModel.query.get(sid):
+        if not db.session.get(OrderModel, sid):
             db.session.add(OrderModel(
                 id=sid, agent_id=int(agent_id), buyer=(buyer or "0x0000...0000"),
                 amount=float(amount_usdc), status="in_escrow",
@@ -1652,15 +1694,42 @@ def api_x402_pay():
     required = ["from", "to", "value", "validBefore", "nonce", "v", "r", "s", "agentId"]
     missing = [k for k in required if k not in payload]
     if missing:
-        return jsonify({"error": f"missing fields: {missing}"}), 400
+        return _bad_request(f"missing fields: {missing}", code="MISSING_FIELDS")
+
+    buyer_addr = str(payload.get("from", "")).strip()
+    to_addr = str(payload.get("to", "")).strip()
+    if not buyer_addr.startswith("0x") or len(buyer_addr) != 42:
+        return _bad_request("from must be a 42-char hex wallet address", field="from")
+    if not to_addr.startswith("0x") or len(to_addr) != 42:
+        return _bad_request("to must be a 42-char hex wallet address", field="to")
+
+    value_raw, err = _coerce_int(payload, "value", minimum=1)
+    if err:
+        return err
+    nonce_hex = str(payload.get("nonce", "")).strip()
+    if not nonce_hex.startswith("0x") or len(nonce_hex) != 66:
+        return _bad_request("nonce must be a 32-byte hex string (0x + 64 hex chars)", field="nonce")
+    try:
+        int(nonce_hex[2:], 16)
+    except Exception:
+        return _bad_request("nonce must be valid hex", field="nonce")
+    _valid_before_raw, err = _coerce_int(payload, "validBefore", minimum=1)
+    if err:
+        return err
+    _v_raw, err = _coerce_int(payload, "v", minimum=0)
+    if err:
+        return err
+    agent_id, err = _coerce_int(payload, "agentId", minimum=1)
+    if err:
+        return err
+    if not any(a["id"] == agent_id for a in AGENTS):
+        return _bad_request("agentId does not exist", field="agentId", code="AGENT_NOT_FOUND")
 
     # Amount is in USDC micro-units in the permit; convert to human USDC for display.
     try:
-        amount_usdc = float(int(payload["value"])) / 1_000_000.0
+        amount_usdc = float(value_raw) / 1_000_000.0
     except Exception:
         amount_usdc = 0.0
-    buyer_addr = payload.get("from", "")
-    agent_id = payload.get("agentId")
 
     if FACILITATOR_URL:
         try:
@@ -1706,7 +1775,23 @@ def api_dispute_submit():
     required = ["agentId", "severity", "reason", "affectedUser"]
     for k in required:
         if k not in payload:
-            return jsonify({"error": f"missing {k}"}), 400
+            return _bad_request(f"missing {k}", field=k, code="MISSING_FIELDS")
+
+    agent_id, err = _coerce_int(payload, "agentId", minimum=1)
+    if err:
+        return err
+    if not any(a["id"] == agent_id for a in AGENTS):
+        return _bad_request("agentId does not exist", field="agentId", code="AGENT_NOT_FOUND")
+
+    severity, err = _coerce_int(payload, "severity", minimum=1, maximum=5)
+    if err:
+        return err
+    affected_user = str(payload.get("affectedUser", "")).strip()
+    if not affected_user.startswith("0x") or len(affected_user) != 42:
+        return _bad_request("affectedUser must be a 42-char hex wallet address", field="affectedUser")
+    reason = str(payload.get("reason", "")).strip()
+    if len(reason) < 8:
+        return _bad_request("reason must be at least 8 characters", field="reason")
 
     gk_url = os.environ.get("GATEKEEPER_URL")
     if gk_url:
@@ -1721,15 +1806,15 @@ def api_dispute_submit():
     if oc and oc.gatekeeper:
         try:
             return jsonify(oc.submit_incident(
-                int(payload["agentId"]),
-                payload["affectedUser"],
-                int(payload["severity"]),
+                agent_id,
+                affected_user,
+                severity,
             ))
         except Exception as e:
             return jsonify({"error": f"onchain gatekeeper failed: {e}"}), 500
 
     # Mock path: log and accept without signing
-    print(f"[dispute] agent={payload['agentId']} sev={payload['severity']} reason={payload['reason']!r}")
+    print(f"[dispute] agent={agent_id} sev={severity} reason={reason!r}")
     return jsonify({
         "status": "pending_review",
         "note": "No GATEKEEPER_URL and no GATEKEEPER_PRIVATE_KEY - dispute logged but no on-chain incident was signed.",
@@ -1843,12 +1928,22 @@ def api_agents_register():
     required = ["wallet", "name", "endpointURL"]
     missing = [k for k in required if k not in payload]
     if missing:
-        return jsonify({"error": f"missing fields: {missing}"}), 400
+        return _bad_request(f"missing fields: {missing}", code="MISSING_FIELDS")
+
+    wallet = str(payload.get("wallet", "")).strip()
+    if not _is_hex_address(wallet):
+        return _bad_request("wallet must be a 42-char hex wallet address", field="wallet")
+    name = str(payload.get("name", "")).strip()
+    if len(name) < 3:
+        return _bad_request("name must be at least 3 characters", field="name")
+    endpoint_url = str(payload.get("endpointURL", "")).strip()
+    if not (endpoint_url.startswith("http://") or endpoint_url.startswith("https://")):
+        return _bad_request("endpointURL must start with http:// or https://", field="endpointURL")
 
     oc = _get_onchain()
     if oc:
         try:
-            result = oc.register_agent(payload["wallet"], payload["name"], payload["endpointURL"])
+            result = oc.register_agent(wallet, name, endpoint_url)
             return jsonify(result), 201
         except Exception as e:
             return jsonify({"error": str(e)}), 500
@@ -1911,19 +2006,37 @@ def api_icm_info():
 def api_icm_send():
     """Send a cross-L1 bid via Teleporter. Requires FACILITATOR funding."""
     data = request.get_json(silent=True) or {}
-    dest = data.get("destinationBlockchain", "dispatch")
-    dest_addr = data.get("destinationAddress")
+    dest = str(data.get("destinationBlockchain", "dispatch")).strip() or "dispatch"
+    dest_addr = str(data.get("destinationAddress", "")).strip()
     if not dest_addr:
-        return jsonify({"error": "destinationAddress required"}), 400
+        return _bad_request("destinationAddress required", field="destinationAddress")
+    if not _is_hex_address(dest_addr):
+        return _bad_request("destinationAddress must be a 42-char hex wallet address", field="destinationAddress")
+
+    buyer = str(data.get("buyer", "0x" + "0" * 40)).strip()
+    if buyer and not _is_hex_address(buyer):
+        return _bad_request("buyer must be a 42-char hex wallet address", field="buyer")
+    agent_id, err = _coerce_int(data, "agentId", minimum=0)
+    if err:
+        return err
+    token_budget, err = _coerce_int(data, "tokenBudget", minimum=1, maximum=10_000_000)
+    if err:
+        return err
+    max_price_per_token, err = _coerce_int(data, "maxPricePerToken", minimum=1, maximum=1_000_000_000)
+    if err:
+        return err
+    category_id, err = _coerce_int(data, "categoryId", minimum=0, maximum=6)
+    if err:
+        return err
     try:
         from icm import ICM
         icm_client = ICM.from_env()
         payload = icm_client.encode_bid_message(
-            buyer=data.get("buyer", "0x" + "0" * 40),
-            agent_id=int(data.get("agentId", 0)),
-            token_budget=int(data.get("tokenBudget", 1000)),
-            max_price_per_token=int(data.get("maxPricePerToken", 1_000_000)),
-            category_id=int(data.get("categoryId", 0)),
+            buyer=buyer,
+            agent_id=agent_id,
+            token_budget=token_budget,
+            max_price_per_token=max_price_per_token,
+            category_id=category_id,
         )
         result = icm_client.send_message(dest, dest_addr, payload)
         return jsonify({"ok": True, **result})
@@ -2102,7 +2215,7 @@ def api_pricing_quote(agent_id):
     """
     from models import Agent as AgentModel, PricePoint
     from simulation import current_price
-    agent_row = AgentModel.query.get(agent_id)
+    agent_row = db.session.get(AgentModel, agent_id)
     if not agent_row:
         return jsonify({"error": "not found"}), 404
     try:
@@ -2130,7 +2243,7 @@ def api_session_cancel(session_id):
     try:
         sid = int(session_id)
     except ValueError:
-        return jsonify({"error": "session id must be numeric"}), 400
+        return _bad_request("session id must be numeric", field="session_id")
 
     oc = _get_onchain()
     if oc:
@@ -2188,27 +2301,46 @@ def api_auction_post_bid():
     required = ["depositAmount", "tokenBudget", "maxPricePerToken", "categoryId", "minTier", "expiresAt"]
     missing = [k for k in required if k not in payload]
     if missing:
-        return jsonify({"error": f"missing fields: {missing}"}), 400
+        return _bad_request(f"missing fields: {missing}", code="MISSING_FIELDS")
+
+    deposit_amount, err = _coerce_int(payload, "depositAmount", minimum=1)
+    if err:
+        return err
+    token_budget, err = _coerce_int(payload, "tokenBudget", minimum=1, maximum=10_000_000)
+    if err:
+        return err
+    max_price_per_token, err = _coerce_int(payload, "maxPricePerToken", minimum=1, maximum=10_000_000_000)
+    if err:
+        return err
+    category_id, err = _coerce_int(payload, "categoryId", minimum=0, maximum=6)
+    if err:
+        return err
+    min_tier, err = _coerce_int(payload, "minTier", minimum=1, maximum=3)
+    if err:
+        return err
+    expires_at, err = _coerce_int(payload, "expiresAt", minimum=int(time.time()) + 60)
+    if err:
+        return _bad_request("expiresAt must be a future unix timestamp (>= now + 60s)", field="expiresAt")
 
     oc = _get_onchain()
     if oc and oc.facilitator:
         try:
             result = oc.post_bid(
-                int(payload["depositAmount"]),
-                int(payload["tokenBudget"]),
-                int(payload["maxPricePerToken"]),
-                int(payload["categoryId"]),
-                int(payload["minTier"]),
-                int(payload["expiresAt"]),
+                deposit_amount,
+                token_budget,
+                max_price_per_token,
+                category_id,
+                min_tier,
+                expires_at,
             )
             bid = AuctionBid(
                 on_chain_bid_id=result.get("bidId"),
-                deposit_amount=int(payload["depositAmount"]),
-                token_budget=int(payload["tokenBudget"]),
-                max_price_per_token=int(payload["maxPricePerToken"]),
-                category_id=int(payload["categoryId"]),
-                min_tier=int(payload["minTier"]),
-                expires_at=int(payload["expiresAt"]),
+                deposit_amount=deposit_amount,
+                token_budget=token_budget,
+                max_price_per_token=max_price_per_token,
+                category_id=category_id,
+                min_tier=min_tier,
+                expires_at=expires_at,
                 tx_hash=result.get("txHash"),
             )
             db.session.add(bid)
@@ -2219,12 +2351,12 @@ def api_auction_post_bid():
 
     # Mock path - persist to DB so bids survive restarts
     bid = AuctionBid(
-        deposit_amount=int(payload["depositAmount"]),
-        token_budget=int(payload["tokenBudget"]),
-        max_price_per_token=int(payload["maxPricePerToken"]),
-        category_id=int(payload["categoryId"]),
-        min_tier=int(payload["minTier"]),
-        expires_at=int(payload["expiresAt"]),
+        deposit_amount=deposit_amount,
+        token_budget=token_budget,
+        max_price_per_token=max_price_per_token,
+        category_id=category_id,
+        min_tier=min_tier,
+        expires_at=expires_at,
     )
     db.session.add(bid)
     db.session.commit()
@@ -2234,10 +2366,14 @@ def api_auction_post_bid():
 
 @app.route("/api/auctions/<bid_id>/cancel", methods=["POST"])
 def api_auction_cancel_bid(bid_id):
+    try:
+        bid_id_int = int(bid_id)
+    except (TypeError, ValueError):
+        return _bad_request("bid_id must be numeric", field="bid_id")
     oc = _get_onchain()
     if oc and oc.facilitator:
         try:
-            result = oc.cancel_bid(int(bid_id))
+            result = oc.cancel_bid(bid_id_int)
             # Update in-memory store
             for b in _AUCTION_BIDS:
                 if str(b.get("bidId")) == str(bid_id):
@@ -2259,12 +2395,14 @@ def api_auction_cancel_bid(bid_id):
 @require_api_key
 def admin_approve_verification(vrf_id):
     from models import VerificationEntry, Agent as AgentModel
-    entry = VerificationEntry.query.get(vrf_id)
+    entry = db.session.get(VerificationEntry, vrf_id)
     if not entry:
         # fallback: in-memory
         entry_mem = next((v for v in VERIFICATION_QUEUE if v["id"] == vrf_id), None)
         if not entry_mem:
-            return jsonify({"error": "not found"}), 404
+            return _not_found("verification entry not found", code="VERIFICATION_NOT_FOUND")
+        if entry_mem.get("status") == "approved":
+            return _bad_request("verification entry already approved", code="INVALID_STATE")
         entry_mem["status"] = "approved"
         if entry_mem.get("agent_id"):
             a = next((a for a in AGENTS if a["id"] == entry_mem["agent_id"]), None)
@@ -2274,7 +2412,7 @@ def admin_approve_verification(vrf_id):
         return jsonify({"id": vrf_id, "status": "approved"})
     entry.status = "approved"
     if entry.agent_id:
-        ag = AgentModel.query.get(entry.agent_id)
+        ag = db.session.get(AgentModel, entry.agent_id)
         if ag:
             ag.verified = True
             ag.verification_tier = entry.tier
@@ -2287,13 +2425,17 @@ def admin_approve_verification(vrf_id):
 @require_api_key
 def admin_reject_verification(vrf_id):
     from models import VerificationEntry
-    entry = VerificationEntry.query.get(vrf_id)
+    entry = db.session.get(VerificationEntry, vrf_id)
     if not entry:
         entry_mem = next((v for v in VERIFICATION_QUEUE if v["id"] == vrf_id), None)
         if not entry_mem:
-            return jsonify({"error": "not found"}), 404
+            return _not_found("verification entry not found", code="VERIFICATION_NOT_FOUND")
+        if entry_mem.get("status") == "rejected":
+            return _bad_request("verification entry already rejected", code="INVALID_STATE")
         entry_mem["status"] = "rejected"
         return jsonify({"id": vrf_id, "status": "rejected"})
+    if entry.status == "rejected":
+        return _bad_request("verification entry already rejected", code="INVALID_STATE")
     entry.status = "rejected"
     db.session.commit()
     log.info("Verification rejected: %s", vrf_id)
@@ -2304,10 +2446,10 @@ def admin_reject_verification(vrf_id):
 @require_api_key
 def admin_start_testing(vrf_id):
     from models import VerificationEntry
-    entry = VerificationEntry.query.get(vrf_id)
+    entry = db.session.get(VerificationEntry, vrf_id)
     entry_mem = next((v for v in VERIFICATION_QUEUE if v["id"] == vrf_id), None)
     if not entry and not entry_mem:
-        return jsonify({"error": "not found"}), 404
+        return _not_found("verification entry not found", code="VERIFICATION_NOT_FOUND")
     if entry:
         entry.status = "testing"
         db.session.commit()
@@ -2321,10 +2463,10 @@ def admin_start_testing(vrf_id):
 @require_api_key
 def admin_escalate_verification(vrf_id):
     from models import VerificationEntry
-    entry = VerificationEntry.query.get(vrf_id)
+    entry = db.session.get(VerificationEntry, vrf_id)
     entry_mem = next((v for v in VERIFICATION_QUEUE if v["id"] == vrf_id), None)
     if not entry and not entry_mem:
-        return jsonify({"error": "not found"}), 404
+        return _not_found("verification entry not found", code="VERIFICATION_NOT_FOUND")
     if entry:
         entry.status = "human_review"
         db.session.commit()
@@ -2338,11 +2480,13 @@ def admin_escalate_verification(vrf_id):
 @require_api_key
 def admin_release_payout(pay_id):
     from models import Payout
-    p = Payout.query.get(pay_id)
+    p = db.session.get(Payout, pay_id)
     if not p:
-        return jsonify({"error": "not found"}), 404
+        return _not_found("payout not found", code="PAYOUT_NOT_FOUND")
     if p.status == "released":
-        return jsonify({"error": "already released"}), 400
+        return _bad_request("already released", code="INVALID_STATE")
+    if p.status == "refunded":
+        return _bad_request("cannot release a refunded payout", code="INVALID_STATE")
     p.status = "released"
     db.session.commit()
     log.info("Payout released: %s", pay_id)
@@ -2353,9 +2497,13 @@ def admin_release_payout(pay_id):
 @require_api_key
 def admin_hold_payout(pay_id):
     from models import Payout
-    p = Payout.query.get(pay_id)
+    p = db.session.get(Payout, pay_id)
     if not p:
-        return jsonify({"error": "not found"}), 404
+        return _not_found("payout not found", code="PAYOUT_NOT_FOUND")
+    if p.status == "released":
+        return _bad_request("cannot hold a released payout", code="INVALID_STATE")
+    if p.status == "refunded":
+        return _bad_request("cannot hold a refunded payout", code="INVALID_STATE")
     p.status = "held"
     db.session.commit()
     log.info("Payout held: %s", pay_id)
@@ -2366,9 +2514,13 @@ def admin_hold_payout(pay_id):
 @require_api_key
 def admin_refund_payout(pay_id):
     from models import Payout
-    p = Payout.query.get(pay_id)
+    p = db.session.get(Payout, pay_id)
     if not p:
-        return jsonify({"error": "not found"}), 404
+        return _not_found("payout not found", code="PAYOUT_NOT_FOUND")
+    if p.status == "released":
+        return _bad_request("cannot refund a released payout", code="INVALID_STATE")
+    if p.status == "refunded":
+        return _bad_request("already refunded", code="INVALID_STATE")
     p.status = "refunded"
     db.session.commit()
     log.info("Payout refunded: %s", pay_id)
@@ -2393,9 +2545,9 @@ def admin_release_all_payouts():
 @require_api_key
 def admin_resolve_report(rpt_id):
     from models import ModerationReport
-    r = ModerationReport.query.get(rpt_id)
+    r = db.session.get(ModerationReport, rpt_id)
     if not r:
-        return jsonify({"error": "not found"}), 404
+        return _not_found("moderation report not found", code="REPORT_NOT_FOUND")
     data = request.get_json(silent=True) or {}
     r.status = "resolved"
     notes = data.get("notes", "").strip()
@@ -2410,9 +2562,9 @@ def admin_resolve_report(rpt_id):
 @require_api_key
 def admin_investigate_report(rpt_id):
     from models import ModerationReport
-    r = ModerationReport.query.get(rpt_id)
+    r = db.session.get(ModerationReport, rpt_id)
     if not r:
-        return jsonify({"error": "not found"}), 404
+        return _not_found("moderation report not found", code="REPORT_NOT_FOUND")
     r.status = "investigating"
     db.session.commit()
     log.info("Moderation report under investigation: %s", rpt_id)
@@ -2423,12 +2575,12 @@ def admin_investigate_report(rpt_id):
 @require_api_key
 def admin_suspend_agent(rpt_id):
     from models import ModerationReport, Agent as AgentModel
-    r = ModerationReport.query.get(rpt_id)
+    r = db.session.get(ModerationReport, rpt_id)
     if not r:
-        return jsonify({"error": "not found"}), 404
+        return _not_found("moderation report not found", code="REPORT_NOT_FOUND")
     r.status = "suspended"
     if r.agent_id:
-        ag = AgentModel.query.get(r.agent_id)
+        ag = db.session.get(AgentModel, r.agent_id)
         if ag:
             ag.verified = False
             ag.verification_tier = "suspended"
@@ -2448,7 +2600,7 @@ def _find_order(order_id):
     """Locate an order in-memory first, then fall back to DB. Returns (mem_dict_or_None, db_row_or_None)."""
     from models import Order as OrderModel
     mem = next((o for o in ORDERS if o["id"] == order_id), None)
-    row = OrderModel.query.get(order_id)
+    row = db.session.get(OrderModel, order_id)
     return mem, row
 
 
@@ -2457,7 +2609,7 @@ def api_order_complete(order_id):
     """Mark an order complete and release escrow. Updates status in DB and in-memory."""
     mem, row = _find_order(order_id)
     if not mem and not row:
-        return jsonify({"error": "order not found"}), 404
+        return _not_found("order not found", code="ORDER_NOT_FOUND")
     current = (mem or {}).get("status") or (row.status if row else "")
     if current not in ("in_escrow", "in_progress"):
         return jsonify({"error": f"order is already {current}"}), 400
@@ -2476,7 +2628,7 @@ def api_order_start(order_id):
     """Seller marks an escrowed order as 'in_progress' to begin execution."""
     mem, row = _find_order(order_id)
     if not mem and not row:
-        return jsonify({"error": "order not found"}), 404
+        return _not_found("order not found", code="ORDER_NOT_FOUND")
     current = (mem or {}).get("status") or (row.status if row else "")
     if current != "in_escrow":
         return jsonify({"error": f"order cannot start from state '{current}'"}), 400
@@ -2494,25 +2646,25 @@ def api_order_start(order_id):
 @app.route("/api/agents/<int:agent_id>/rate", methods=["POST"])
 def api_rate_agent(agent_id):
     payload = request.get_json(silent=True) or {}
-    rating = payload.get("rating")
-    if not rating or not (1 <= int(rating) <= 5):
-        return jsonify({"error": "rating must be between 1 and 5"}), 400
+    rating, err = _coerce_int(payload, "rating", minimum=1, maximum=5)
+    if err:
+        return err
     agent = next((a for a in AGENTS if a["id"] == agent_id), None)
     if not agent:
-        return jsonify({"error": "agent not found"}), 404
+        return _not_found("agent not found", code="AGENT_NOT_FOUND")
     # Weighted average: blend new rating in
     new_rating = round(
-        (agent["rating"] * agent["reviews"] + int(rating)) / (agent["reviews"] + 1), 1
+        (agent["rating"] * agent["reviews"] + rating) / (agent["reviews"] + 1), 1
     )
     agent["rating"] = new_rating
     agent["reviews"] += 1
     # Persist the full review so it shows up on the agent detail page.
     try:
         from models import Review as ReviewModel
-        user = payload.get("user") or "0xanon..."
-        feedback = (payload.get("feedback") or "").strip()
+        user = str(payload.get("user") or "0xanon...").strip()
+        feedback = str(payload.get("feedback") or "").strip()[:2000]
         db.session.add(ReviewModel(
-            agent_id=agent_id, user=user, rating=int(rating),
+            agent_id=agent_id, user=user, rating=rating,
             comment=feedback, date=time.strftime("%Y-%m-%d"),
         ))
         db.session.commit()
@@ -2560,12 +2712,55 @@ def api_ready():
         return jsonify({"status": "unavailable", "db": str(e)}), 503
 
 
+@app.route("/api/backend/status")
+def api_backend_status():
+    """Single backend capability snapshot for frontend/on-chain integration."""
+    db_ok = True
+    db_error = None
+    try:
+        db.session.execute(db.text("SELECT 1"))
+    except Exception as e:
+        db_ok = False
+        db_error = str(e)
+
+    oc = _get_onchain()
+    onchain_read = False
+    onchain_write = False
+    chain_error = None
+    if oc:
+        try:
+            _ = int(oc.w3.eth.block_number)
+            onchain_read = True
+            onchain_write = bool(oc.facilitator)
+        except Exception as e:
+            chain_error = str(e)
+
+    return jsonify({
+        "service": "agenthire",
+        "status": "ok" if db_ok else "degraded",
+        "ts": int(time.time()),
+        "env": os.environ.get("FLASK_ENV", "development"),
+        "db": {"ok": db_ok, "error": db_error},
+        "onchain": {
+            "readAvailable": onchain_read,
+            "writeAvailable": onchain_write,
+            "liveWritesEnabled": _live_writes_on(),
+            "error": chain_error,
+        },
+        "features": {
+            "facilitatorUrlConfigured": bool(FACILITATOR_URL),
+            "gatekeeperUrlConfigured": bool(os.environ.get("GATEKEEPER_URL")),
+            "apiKeyEnabled": bool(app.config.get("API_KEY") or os.environ.get("API_KEY")),
+        },
+    }), (200 if db_ok else 503)
+
+
 # ── Error handlers ──────────────────────────────────────────────────────────────
 
 @app.errorhandler(404)
 def not_found(e):
     if request.path.startswith("/api/"):
-        return jsonify({"error": "not found"}), 404
+        return _not_found("not found")
     return render_template("404.html"), 404
 
 
@@ -2607,7 +2802,12 @@ def api_sim_stop():
 def api_sim_speed():
     from sim_engine import get_engine
     data = request.get_json(silent=True) or {}
-    tick_s = float(data.get("tickRealSeconds", 2.0))
+    try:
+        tick_s = float(data.get("tickRealSeconds", 2.0))
+    except (TypeError, ValueError):
+        return _bad_request("tickRealSeconds must be a number", field="tickRealSeconds")
+    if tick_s < 0.1 or tick_s > 60:
+        return _bad_request("tickRealSeconds must be between 0.1 and 60", field="tickRealSeconds")
     get_engine(app).set_speed(tick_s)
     return jsonify(get_engine(app).status())
 
@@ -2644,7 +2844,10 @@ def api_sim_live_mode():
     on every click. Persisted across restarts. Frontend flips it via POST."""
     if request.method == "POST":
         data = request.get_json(silent=True) or {}
-        _live_writes_set(bool(data.get("enabled", False)))
+        enabled = data.get("enabled", None)
+        if enabled is None:
+            return _bad_request("enabled is required", field="enabled")
+        _live_writes_set(bool(enabled))
     return jsonify({"liveWritesEnabled": _live_writes_on()})
 
 
@@ -2790,26 +2993,26 @@ def api_sim_trigger_direct():
     data = request.get_json(silent=True) or {}
     for k in ("fromId", "toId", "amountUSDC"):
         if k not in data:
-            return jsonify({"error": f"missing field: {k}"}), 400
+            return _bad_request(f"missing field: {k}", field=k, code="MISSING_FIELDS")
     try:
         from_id = int(data["fromId"])
         to_id = int(data["toId"])
     except (TypeError, ValueError):
-        return jsonify({"error": "fromId and toId must be integers"}), 400
+        return _bad_request("fromId and toId must be integers")
     try:
         amount = float(data["amountUSDC"])
     except (TypeError, ValueError):
-        return jsonify({"error": "amountUSDC must be a number"}), 400
+        return _bad_request("amountUSDC must be a number", field="amountUSDC")
     if from_id == to_id:
-        return jsonify({"error": "sender and receiver must be different agents"}), 400
+        return _bad_request("sender and receiver must be different agents")
     if amount <= 0:
-        return jsonify({"error": "amountUSDC must be greater than 0"}), 400
+        return _bad_request("amountUSDC must be greater than 0", field="amountUSDC")
     try:
         tokens = int(data.get("tokens", 1000))
         if tokens < 1 or tokens > 10_000_000:
-            return jsonify({"error": "tokens must be between 1 and 10,000,000"}), 400
+            return _bad_request("tokens must be between 1 and 10,000,000", field="tokens")
     except (TypeError, ValueError):
-        return jsonify({"error": "tokens must be an integer"}), 400
+        return _bad_request("tokens must be an integer", field="tokens")
     try:
         eng = get_engine(app)
         if not eng.is_running():
@@ -2833,8 +3036,8 @@ def api_sim_trigger_direct():
                 "count": 0,
             }), 503
         from models import OnchainProfile
-        from_prof = OnchainProfile.query.get(from_id)
-        to_prof = OnchainProfile.query.get(to_id)
+        from_prof = db.session.get(OnchainProfile, from_id)
+        to_prof = db.session.get(OnchainProfile, to_id)
         chain_info = _chain_overlay_for(
             new_events,
             from_wallet=from_prof.wallet_address if from_prof else None,
@@ -2856,11 +3059,11 @@ def api_sim_agent_onchain(agent_id):
     dynamic state, not a default-zero fill.
     """
     from models import Agent as AgentModel, OnchainProfile
-    a = AgentModel.query.get(agent_id)
+    a = db.session.get(AgentModel, agent_id)
     if not a:
         return jsonify({"error": "agent not found"}), 404
 
-    db_profile = OnchainProfile.query.get(agent_id)
+    db_profile = db.session.get(OnchainProfile, agent_id)
 
     out = {"agentId": agent_id, "name": a.name, "category": a.category}
     oc = _get_onchain()
@@ -3050,17 +3253,20 @@ def api_sim_post_bid():
     try:
         tokens = int(data.get("tokenBudget", 1000))
         if tokens < 10 or tokens > 10_000_000:
-            return jsonify({"error": "tokenBudget must be 10 to 10,000,000"}), 400
+            return _bad_request("tokenBudget must be 10 to 10,000,000", field="tokenBudget")
         max_price = float(data.get("maxPricePerToken", 0.01))
         if max_price <= 0 or max_price > 10:
-            return jsonify({"error": "maxPricePerToken must be 0 to 10 USDC"}), 400
+            return _bad_request("maxPricePerToken must be 0 to 10 USDC", field="maxPricePerToken")
         min_tier = int(data.get("minTier", 1))
         min_tier = max(1, min(3, min_tier))
         category_id = int(data.get("categoryId", 0))
         if category_id < 0 or category_id > 6:
-            return jsonify({"error": "categoryId must be 0-6"}), 400
+            return _bad_request("categoryId must be 0-6", field="categoryId")
+        expires_in_sec = int(data.get("expiresInSec", 900))
+        if expires_in_sec < 60 or expires_in_sec > 86_400:
+            return _bad_request("expiresInSec must be between 60 and 86400", field="expiresInSec")
     except (TypeError, ValueError):
-        return jsonify({"error": "invalid number in request"}), 400
+        return _bad_request("invalid number in request")
 
     eng = get_engine(app)
     import time as _t, hashlib as _h
@@ -3077,7 +3283,7 @@ def api_sim_post_bid():
         max_price_per_token=int(max_price * 1_000_000),
         category_id=category_id,
         min_tier=min_tier,
-        expires_at=now + int(data.get("expiresInSec", 900)),  # 15 min default
+        expires_at=now + expires_in_sec,  # 15 min default
         settled=False, cancelled=False,
     )
     db.session.add(bid)
@@ -3132,16 +3338,16 @@ def api_sim_force_surge():
     try:
         agent_id = int(data["agentId"])
     except (KeyError, TypeError, ValueError):
-        return jsonify({"error": "agentId required"}), 400
+        return _bad_request("agentId required", field="agentId")
     try:
         multiplier = float(data.get("multiplier", 2.0))
     except (TypeError, ValueError):
-        return jsonify({"error": "multiplier must be a number"}), 400
+        return _bad_request("multiplier must be a number", field="multiplier")
     if multiplier < 1.0 or multiplier > 3.0:
-        return jsonify({"error": "multiplier must be 1.0 to 3.0"}), 400
-    a = AgentModel.query.get(agent_id)
+        return _bad_request("multiplier must be 1.0 to 3.0", field="multiplier")
+    a = db.session.get(AgentModel, agent_id)
     if not a:
-        return jsonify({"error": "agent not found"}), 404
+        return _not_found("agent not found", code="AGENT_NOT_FOUND")
     new_price = round(a.min_price * multiplier, 6)
     if new_price > a.max_price:
         new_price = a.max_price
@@ -3173,16 +3379,19 @@ def api_sim_slash_agent():
     try:
         agent_id = int(data["agentId"])
     except (KeyError, TypeError, ValueError):
-        return jsonify({"error": "agentId required"}), 400
+        return _bad_request("agentId required", field="agentId")
     reason = (data.get("reason") or "Buyer-filed dispute, gatekeeper-signed")[:120]
-    severity = int(data.get("severity", 1))
-    severity = max(1, min(2, severity))
+    severity, err = _coerce_int(data, "severity", minimum=1, maximum=2)
+    if err:
+        severity = 1
     affected_user = data.get("affectedUser") or "0x" + "0" * 39 + "1"
+    if affected_user and not _is_hex_address(str(affected_user)):
+        return _bad_request("affectedUser must be a 42-char hex wallet address", field="affectedUser")
 
-    a = AgentModel.query.get(agent_id)
-    p = OnchainProfile.query.get(agent_id)
+    a = db.session.get(AgentModel, agent_id)
+    p = db.session.get(OnchainProfile, agent_id)
     if not a or not p:
-        return jsonify({"error": "agent not found"}), 404
+        return _not_found("agent not found", code="AGENT_NOT_FOUND")
 
     eng = get_engine(app)
     before_id = eng._event_id
@@ -3299,7 +3508,7 @@ def api_sim_all_agents():
     rows = AgentModel.query.order_by(AgentModel.category, AgentModel.name).all()
     out = []
     for a in rows:
-        p = OnchainProfile.query.get(a.id)
+        p = db.session.get(OnchainProfile, a.id)
         if not p:
             continue
         out.append({
@@ -3337,25 +3546,27 @@ def api_sim_trigger_a2a():
     try:
         primary_id_int = int(primary_id) if primary_id not in (None, "", 0) else None
     except (TypeError, ValueError):
-        return jsonify({"error": "primaryId must be an integer"}), 400
+        return _bad_request("primaryId must be an integer", field="primaryId")
     try:
         token_budget_int = int(token_budget) if token_budget not in (None, "", 0) else None
         if token_budget_int is not None and (token_budget_int < 1 or token_budget_int > 10_000_000):
             return jsonify({"error": "tokenBudget must be between 1 and 10,000,000"}), 400
     except (TypeError, ValueError):
-        return jsonify({"error": "tokenBudget must be an integer"}), 400
+        return _bad_request("tokenBudget must be an integer", field="tokenBudget")
     try:
         price_f = float(price_per_token) if price_per_token not in (None, "", 0) else None
         if price_f is not None and price_f < 0:
-            return jsonify({"error": "pricePerToken must be non-negative"}), 400
+            return _bad_request("pricePerToken must be non-negative", field="pricePerToken")
     except (TypeError, ValueError):
-        return jsonify({"error": "pricePerToken must be a number"}), 400
+        return _bad_request("pricePerToken must be a number", field="pricePerToken")
 
     # If the caller specified a primary, it must be a known flagship
     if primary_id_int is not None and primary_id_int not in A2A_WORKFLOWS:
         return jsonify({
             "error": "primaryId must be a composable flagship agent",
             "validFlagships": list(A2A_WORKFLOWS.keys()),
+            "code": "INVALID_REQUEST",
+            "field": "primaryId",
         }), 400
 
     before_id = eng._event_id
@@ -3386,9 +3597,11 @@ def api_sim_trigger_a2a():
     from models import OnchainProfile
     settle = next((e for e in new_events if e["kind"] == "settle"), None)
     hire = next((e for e in new_events if e["kind"] == "a2a_hire"), None)
-    from_w = OnchainProfile.query.get(settle["agentId"]).wallet_address if settle and OnchainProfile.query.get(settle["agentId"]) else None
+    from_profile = db.session.get(OnchainProfile, settle["agentId"]) if settle else None
+    from_w = from_profile.wallet_address if from_profile else None
     to_id = hire["meta"].get("subAgentId") if hire and hire.get("meta") else None
-    to_w = OnchainProfile.query.get(to_id).wallet_address if to_id and OnchainProfile.query.get(to_id) else None
+    to_profile = db.session.get(OnchainProfile, to_id) if to_id else None
+    to_w = to_profile.wallet_address if to_profile else None
     total_usdc = sum(e.get("amountUSDC", 0) for e in new_events if e.get("kind") == "a2a_hire")
     chain_info = _chain_overlay_for(new_events, from_wallet=from_w, to_wallet=to_w, amount_usdc=total_usdc)
 
@@ -3411,7 +3624,7 @@ def api_x402_demo_execute(agent_id):
 
     # Dynamic pricing — use the agent's own current_price
     from models import Agent as A
-    agent = A.query.get(agent_id)
+    agent = db.session.get(A, agent_id)
     price_usdc = 0.01
     if agent and agent.current_price:
         # 100 tokens worth of work at the agent's current rate
@@ -3450,7 +3663,11 @@ def api_x402_auto_sign():
         amount = float(data.get("amountUSDC", 0.01))
         agent_id = int(data.get("agentId", 0))
     except (TypeError, ValueError):
-        return jsonify({"error": "amountUSDC + agentId required"}), 400
+        return _bad_request("amountUSDC + agentId required")
+    if amount <= 0 or amount > 10_000:
+        return _bad_request("amountUSDC must be > 0 and <= 10000", field="amountUSDC")
+    if agent_id <= 0:
+        return _bad_request("agentId must be a positive integer", field="agentId")
     from x402 import auto_sign_demo_permit
     from onchain import ADDRESSES
     try:
@@ -3501,13 +3718,13 @@ def api_sim_a2a_candidates():
     from models import Agent as AgentModel, OnchainProfile
     flagships = []
     for fid, wf in A2A_WORKFLOWS.items():
-        a = AgentModel.query.get(fid)
-        p = OnchainProfile.query.get(fid)
+        a = db.session.get(AgentModel, fid)
+        p = db.session.get(OnchainProfile, fid)
         if not a or not p:
             continue
         subs = []
         for sa in wf.get("sub_agents", []):
-            sub = AgentModel.query.get(sa["id"])
+            sub = db.session.get(AgentModel, sa["id"])
             if sub:
                 subs.append({"id": sub.id, "name": sub.name, "category": sub.category,
                              "billing": sa.get("billing"),
@@ -3569,37 +3786,48 @@ def _sync_agents_from_db():
 
 with app.app_context():
     try:
-        # 1. Baseline schema (idempotent)
+        # Ensure SQLAlchemy metadata is loaded before create_all.
+        import models  # noqa: F401
+
+        # 1. Baseline schema first (always)
         db.create_all()
+
         # 2. Additive column migrations (SQLite can't add columns via create_all)
         from agent_pack import _ensure_columns
         _ensure_columns(app)
-        # 3. Original fixtures
-        from models import seed_db
-        seed_db(app)
-        # 4. Bulk roster + backfill of new fields on older rows
-        from agent_pack import seed_bulk_agents, backfill_existing
-        seed_bulk_agents(app)
-        backfill_existing(app)
-        # 4b. Varied per-agent reviews
-        from review_pack import seed_reviews
-        seed_reviews(app)
-        # 5. On-chain profiles / sim seed data
-        from simulation import seed_simulation
-        seed_simulation(app)
-        _sync_agents_from_db()
-        log.info("Database ready — %d agents in memory.", len(AGENTS))
+
+        if app.config.get("AUTO_SEED_DATA", True):
+            # 3. Dev/demo fixture seeding path.
+            from models import seed_db
+            seed_db(app)
+
+            from agent_pack import seed_bulk_agents, backfill_existing
+            seed_bulk_agents(app)
+            backfill_existing(app)
+
+            from review_pack import seed_reviews
+            seed_reviews(app)
+
+            from simulation import seed_simulation
+            seed_simulation(app)
+
+            _sync_agents_from_db()
+            log.info("Database ready — %d agents in memory.", len(AGENTS))
+        else:
+            log.info("AUTO_SEED_DATA disabled; skipping fixture seed.")
     except Exception as _seed_err:
         log.warning("DB seed skipped: %s", _seed_err)
 
 
-if os.environ.get("WERKZEUG_RUN_MAIN") == "true" or not app.debug:
+if app.config.get("ENABLE_SIM_ENGINE", True) and (os.environ.get("WERKZEUG_RUN_MAIN") == "true" or not app.debug):
     try:
         from sim_engine import get_engine
         get_engine(app).start()
         log.info("Live simulation engine running.")
     except Exception as _sim_err:
         log.warning("Live sim autostart failed: %s", _sim_err)
+elif not app.config.get("ENABLE_SIM_ENGINE", True):
+    log.info("ENABLE_SIM_ENGINE disabled; simulation engine not started.")
 
 # Auto-enable live writes at boot time (runs unconditionally — cheap check,
 # self-guards on facilitator balance + existing state file).
