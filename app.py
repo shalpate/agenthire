@@ -1568,8 +1568,12 @@ def _buyer_jobs_from_chain(wallet: str, *, include_settled: bool, include_active
     if not wallet_lc:
         return []
 
+    # Only rows targeting a real agent — plain USDC transfers with no agent_id
+    # are not escrow sessions and should not appear as "jobs."
     deposit_rows = (CT.query.filter(CT.kind == "deposit")
                     .filter(db.func.lower(CT.from_addr) == wallet_lc)
+                    .filter(CT.agent_id.isnot(None))
+                    .filter(CT.agent_id > 0)
                     .order_by(CT.ts.desc()).limit(100).all())
 
     # Precompute settle counts per agent so we can pair each deposit with a
