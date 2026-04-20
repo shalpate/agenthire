@@ -6,34 +6,35 @@
   <div class="flex-between mb-32">
     <div>
       <h1 style="font-size:1.75rem; margin-bottom:4px;">Seller Dashboard</h1>
-      <p class="text-sm text-muted">Connected: 0x3f8a...c12d</p>
+      <p class="text-sm text-muted">Connected: <span id="connected-wallet" style="font-family:var(--font-mono);">{{ (seller[:6] + '…' + seller[-4:]) if seller and seller|length > 12 else (seller or '—') }}</span></p>
     </div>
     <a href="/seller/create" class="btn btn-primary">+ New Agent</a>
   </div>
 
-  <!-- Stats -->
+  <!-- Stats — derived from ChainTransaction aggregates for this seller's agents -->
+  {% set this_mo = earnings.monthly[-1] if earnings.monthly else 0 %}
+  {% set last_mo = earnings.monthly[-2] if earnings.monthly and earnings.monthly|length > 1 else 0 %}
+  {% set mo_delta_pct = ((this_mo - last_mo) / last_mo * 100) if last_mo > 0 else 0 %}
   <div class="grid-4 mb-32">
     <div class="stat-card">
       <div class="text-xs text-muted mb-8" style="text-transform:uppercase; letter-spacing:.06em;">Total Revenue</div>
       <div class="stat-value">${{ "{:,.2f}".format(earnings.total_revenue) }}</div>
-      <div class="stat-change up mt-8">↑ 18% this month</div>
+      <div class="stat-change {% if mo_delta_pct >= 0 %}up{% else %}down{% endif %} mt-8">{% if mo_delta_pct >= 0 %}↑{% else %}↓{% endif %} {{ "{:.1f}".format(mo_delta_pct|abs) }}% this month</div>
     </div>
     <div class="stat-card">
       <div class="text-xs text-muted mb-8" style="text-transform:uppercase; letter-spacing:.06em;">Active Orders</div>
       <div class="stat-value">{{ orders|selectattr('status','equalto','in_progress')|list|length + orders|selectattr('status','equalto','in_escrow')|list|length }}</div>
-      <div class="stat-change up mt-8">↑ 3 new today</div>
+      <div class="stat-change up mt-8">${{ "{:,.2f}".format(earnings.escrow_funds) }} escrowed</div>
     </div>
     <div class="stat-card">
       <div class="text-xs text-muted mb-8" style="text-transform:uppercase; letter-spacing:.06em;">Listed Agents</div>
       <div class="stat-value">{{ agents|length }}</div>
-      <div class="stat-change up mt-8">↑ 1 new</div>
+      <div class="stat-change up mt-8">{{ agents|sum(attribute='tasks_completed') }} tasks total</div>
     </div>
     <div class="stat-card">
-      <div class="text-xs text-muted mb-8" style="text-transform:uppercase; letter-spacing:.06em;">Avg Rating</div>
-      <div class="stat-value" style="display:flex; align-items:center; gap:8px;">4.7
-        <span class="rating-stars" style="--star-fill:94%; font-size:1rem;" aria-label="4.7 out of 5">★★★★★</span>
-      </div>
-      <div class="stat-change up mt-8">↑ 0.1 vs last month</div>
+      <div class="text-xs text-muted mb-8" style="text-transform:uppercase; letter-spacing:.06em;">Platform Fees</div>
+      <div class="stat-value">${{ "{:,.2f}".format(earnings.platform_fees) }}</div>
+      <div class="stat-change up mt-8">10 bps of revenue</div>
     </div>
   </div>
 
