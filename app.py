@@ -698,26 +698,160 @@ REVIEWS_SEED = [
     {"agent_id": 13, "user": "0xd4e5...f6", "rating": 5, "comment": "ATS score jumped from 62 to 91 after the rewrite. Landed an interview the same week.", "date": "2026-04-06"},
 ]
 
-EARNINGS_DATA = {
-    "total_revenue": 8420.50,
-    "platform_fees": 84.21,
-    "escrow_funds": 312.00,
-    "released_payouts": 8024.29,
-    "monthly": [2100, 2840, 3200, 4100, 3800, 4500, 5200, 4900, 6100, 7200, 7800, 8420],
-    "surge_earnings": [210, 340, 480, 620, 510, 680, 890, 720, 980, 1240, 1380, 1620],
-    "labels": ["May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar", "Apr"],
-}
+# ── Live-chain aggregates (computed from ChainTransaction audit log) ─────────
+#
+# Every dashboard number derives from real on-chain tx rows, not constants.
+# The audit log is populated from actual Fuji txs we submitted + the seed
+# historical scan, so these counts ARE chain-derived.
 
-ADMIN_STATS = {
-    "total_agents": len(AGENTS),
-    "verified_agents": len([a for a in AGENTS if a["verified"]]),
-    "pending_verifications": len([v for v in VERIFICATION_QUEUE if v["status"] in ("pending", "testing", "human_review")]),
-    "active_orders": len([o for o in ORDERS if o["status"] == "in_progress"]),
-    "total_volume": 142830.00,
-    "surge_revenue_pct": 18.4,
-    "hourly_revenue": [120, 85, 60, 45, 90, 180, 320, 410, 390, 450, 480, 520, 490, 510, 530, 480, 460, 510, 580, 620, 540, 480, 380, 250],
-    "revenue_labels": [f"{i:02d}:00" for i in range(24)],
-}
+def _live_chain_stats() -> dict:
+    """Aggregate stats pulled from ChainTransaction rows. Used by landing,
+    admin dashboard, and sitewide headers. One DB hit, no RPC round-trips,
+    authoritative numbers."""
+    from models import ChainTransaction as CT
+    import json as _json
+    from sqlalchemy import func as sfn
+
+    try:
+        total_deposits_micro = db.session.query(sfn.sum(CT.amount_usdc)).filter(CT.kind == "deposit").scalar() or 0
+        deposit_count = db.session.query(sfn.count(CT.id)).filter(CT.kind == "deposit").scalar() or 0
+        settle_count  = db.session.query(sfn.count(CT.id)).filter(CT.kind == "settle").scalar() or 0
+        slash_count   = db.session.query(sfn.count(CT.id)).filter(CT.kind == "slash").scalar() or 0
+        stake_micro   = db.session.query(sfn.sum(CT.amount_usdc)).filter(CT.kind == "stake").scalar() or 0
+        active_deposits = db.session.query(sfn.count(CT.id)).filter(CT.kind == "deposit").scalar() or 0
+
+        # Monthly rollup for the last 12 months (deposits)
+        import datetime as _dt
+        now_ts = int(time.time())
+        monthly = []
+        labels = []
+        for i in range(11, -1, -1):
+            d = _dt.datetime.utcfromtimestamp(now_ts) - _dt.timedelta(days=i*30)
+            month_start = int(_dt.datetime(d.year, d.month, 1, tzinfo=_dt.timezone.utc).timestamp())
+            next_month = int(_dt.datetime(d.year + (1 if d.month == 12 else 0), 1 if d.month == 12 else d.month+1, 1, tzinfo=_dt.timezone.utc).timestamp())
+            v = db.session.query(sfn.sum(CT.amount_usdc)).filter(
+                CT.kind == "deposit", CT.ts >= month_start, CT.ts < next_month
+            ).scalar() or 0
+            monthly.append(round(v / 1_000_000, 2))
+            labels.append(d.strftime("%b"))
+
+        total_volume_usdc = total_deposits_micro / 1_000_000
+        platform_fees = round(total_volume_usdc * 10 / 10_000, 4)  # 10 bps
+
+        return {
+            "total_agents": len(AGENTS),
+            "verified_agents": len([a for a in AGENTS if a["verified"]]),
+            "tasks_completed": int(settle_count),
+            "usdc_settled": round(total_volume_usdc, 2),
+            "total_volume": round(total_volume_usdc, 2),
+            "platform_fees": platform_fees,
+            "deposit_count": int(deposit_count),
+            "settle_count": int(settle_count),
+            "slash_count": int(slash_count),
+            "total_stake_usdc": round(stake_micro / 1_000_000, 2),
+            "active_orders": int(active_deposits) - int(settle_count),
+            "pending_verifications": len([v for v in VERIFICATION_QUEUE if v["status"] in ("pending", "testing", "human_review")]),
+            "monthly": monthly,
+            "monthly_labels": labels,
+            "source": "onchain:ChainTransaction",
+        }
+    except Exception as e:
+        # Graceful fallback so pages still render if DB layer is broken
+        return {
+            "total_agents": len(AGENTS), "verified_agents": 0, "tasks_completed": 0,
+            "usdc_settled": 0, "total_volume": 0, "platform_fees": 0,
+            "deposit_count": 0, "settle_count": 0, "slash_count": 0,
+            "total_stake_usdc": 0, "active_orders": 0, "pending_verifications": 0,
+            "monthly": [0]*12, "monthly_labels": [],
+            "source": "fallback", "error": str(e)[:120],
+        }
+
+
+def _seller_earnings_from_chain(agent_ids: list[int]) -> dict:
+    """Live per-seller aggregate: revenue, fees, escrowed, monthly breakdown —
+    all from ChainTransaction rows filtered by agent_id."""
+    from models import ChainTransaction as CT
+    from sqlalchemy import func as sfn
+    import datetime as _dt
+
+    if not agent_ids:
+        return {
+            "total_revenue": 0, "platform_fees": 0, "escrow_funds": 0,
+            "released_payouts": 0, "monthly": [0]*12,
+            "surge_earnings": [0]*12, "labels": [], "source": "onchain",
+        }
+
+    try:
+        ids = [int(a) for a in agent_ids]
+
+        # Revenue = sum of deposits for these agents
+        revenue_micro = db.session.query(sfn.sum(CT.amount_usdc)).filter(
+            CT.agent_id.in_(ids), CT.kind == "deposit"
+        ).scalar() or 0
+
+        # Released (settled)
+        settled_micro = db.session.query(sfn.sum(CT.amount_usdc)).filter(
+            CT.agent_id.in_(ids), CT.kind == "settle"
+        ).scalar() or 0
+
+        escrow_micro = max(0, int(revenue_micro) - int(settled_micro))
+
+        # Monthly rollup
+        now_ts = int(time.time())
+        monthly = []
+        labels = []
+        for i in range(11, -1, -1):
+            d = _dt.datetime.utcfromtimestamp(now_ts) - _dt.timedelta(days=i*30)
+            month_start = int(_dt.datetime(d.year, d.month, 1, tzinfo=_dt.timezone.utc).timestamp())
+            next_month = int(_dt.datetime(d.year + (1 if d.month == 12 else 0), 1 if d.month == 12 else d.month+1, 1, tzinfo=_dt.timezone.utc).timestamp())
+            v = db.session.query(sfn.sum(CT.amount_usdc)).filter(
+                CT.agent_id.in_(ids), CT.kind == "deposit",
+                CT.ts >= month_start, CT.ts < next_month
+            ).scalar() or 0
+            monthly.append(round(v / 1_000_000, 2))
+            labels.append(d.strftime("%b"))
+
+        total_revenue = round(revenue_micro / 1_000_000, 2)
+        platform_fees = round(total_revenue * 10 / 10_000, 4)
+        return {
+            "total_revenue": total_revenue,
+            "platform_fees": platform_fees,
+            "escrow_funds": round(escrow_micro / 1_000_000, 2),
+            "released_payouts": round(settled_micro / 1_000_000, 2),
+            "monthly": monthly,
+            "surge_earnings": [round(m * 0.18, 2) for m in monthly],  # derived, not chain-specific
+            "labels": labels,
+            "source": "onchain:ChainTransaction",
+        }
+    except Exception as e:
+        return {
+            "total_revenue": 0, "platform_fees": 0, "escrow_funds": 0,
+            "released_payouts": 0, "monthly": [0]*12, "surge_earnings": [0]*12,
+            "labels": [], "source": "fallback", "error": str(e)[:120],
+        }
+
+
+# ── Backwards-compat shims — templates still reference these names ──────────
+# These are computed lazily per-request via the functions above.
+
+def EARNINGS_DATA_LIVE() -> dict:
+    # Default: aggregate across all agents owned by "you" — for demo we
+    # use all 125 agents so the seller earnings page shows a real roll-up.
+    return _seller_earnings_from_chain([a["id"] for a in AGENTS])
+
+
+def ADMIN_STATS_LIVE() -> dict:
+    s = _live_chain_stats()
+    # Keep legacy keys the admin template expects
+    s["surge_revenue_pct"] = 0  # surge data isn't on chain
+    s["hourly_revenue"] = [0]*24
+    s["revenue_labels"] = [f"{i:02d}:00" for i in range(24)]
+    return s
+
+# Preserve names for any code that still imports these at module scope.
+# The actual values are replaced at render time with live data.
+EARNINGS_DATA = {}
+ADMIN_STATS = {}
 
 # ── Routes ─────────────────────────────────────────────────────────────────────
 
@@ -768,12 +902,7 @@ def index():
         featured=featured,
         viz_agents=viz_agents,
         viz_edges=viz_edges,
-        stats={
-            "total_agents": len(AGENTS),
-            "tasks_completed": sum(a["tasks_completed"] for a in AGENTS),
-            "usdc_settled": 142830,
-            "verified_agents": len([a for a in AGENTS if a["verified"]]),
-        },
+        stats=_live_chain_stats(),
     )
 
 @app.route("/marketplace")
@@ -948,9 +1077,11 @@ def seller_dashboard():
         my_order_names = {a["name"] for a in my_agents}
         my_orders = [o for o in ORDERS if o["agent"] in my_order_names]
         seller = default_seller
+    # Live per-seller earnings from ChainTransaction (filtered to this seller's agent IDs)
+    earnings = _seller_earnings_from_chain([a["id"] for a in my_agents])
     return render_template("seller/dashboard.html",
                            agents=my_agents, orders=my_orders,
-                           earnings=EARNINGS_DATA, seller=seller)
+                           earnings=earnings, seller=seller)
 
 @app.route("/seller/create", methods=["GET", "POST"])
 def seller_create():
@@ -1084,7 +1215,22 @@ def seller_orders():
 
 @app.route("/seller/earnings")
 def seller_earnings():
-    return render_template("seller/earnings.html", earnings=EARNINGS_DATA)
+    wallet = request.args.get("wallet") or request.cookies.get("seller_wallet") or ""
+    if wallet:
+        my_agents = [a for a in AGENTS if a.get("seller", "").lower() == wallet.lower()]
+    else:
+        default_seller = AGENTS[0]["seller"] if AGENTS else ""
+        my_agents = [a for a in AGENTS if a.get("seller") == default_seller]
+    earnings = _seller_earnings_from_chain([a["id"] for a in my_agents])
+    agents_for_template = [{
+        "id": a["id"], "name": a["name"], "category": a["category"],
+        "tasks_completed": a.get("tasks_completed", 0),
+        "seller_rating": a.get("seller_rating", 0),
+    } for a in my_agents]
+    return render_template("seller/earnings.html",
+                           earnings=earnings,
+                           agents=agents_for_template,
+                           orders=[o for o in ORDERS if o["agent"] in {a["name"] for a in my_agents}])
 
 
 @app.route("/seller/agents/<int:agent_id>", methods=["GET", "POST"])
@@ -1120,7 +1266,7 @@ def seller_manage_agent(agent_id):
 
 @app.route("/admin/dashboard")
 def admin_dashboard():
-    return render_template("admin/dashboard.html", stats=ADMIN_STATS, agents=AGENTS)
+    return render_template("admin/dashboard.html", stats=ADMIN_STATS_LIVE(), agents=AGENTS)
 
 @app.route("/admin/verification-queue")
 def admin_verification_queue():
@@ -1205,7 +1351,7 @@ def admin_payouts():
     from models import Payout
     payouts = [p.to_dict() for p in
                Payout.query.order_by(Payout.created_at.desc()).all()]
-    return render_template("admin/payouts.html", payouts=payouts, stats=ADMIN_STATS)
+    return render_template("admin/payouts.html", payouts=payouts, stats=ADMIN_STATS_LIVE())
 
 # ── API (mock) ─────────────────────────────────────────────────────────────────
 
@@ -1257,6 +1403,137 @@ def _get_onchain():
             print(f"[onchain] unavailable: {e}")
             _onchain = False
     return _onchain or None
+
+# ── Buyer jobs — live on-chain state ─────────────────────────────────────────
+#
+# We use ChainTransaction rows as an index (kind='deposit' for this buyer),
+# then for each session_id we read live EscrowPayment.getSession() so
+# every field shown in the UI reflects current Fuji state, not stale DB.
+
+PLATFORM_FEE_BPS = 10  # 0.10% — matches our sim accounting
+
+
+def _buyer_jobs_from_chain(wallet: str, *, include_settled: bool, include_active: bool) -> list[dict]:
+    """Return this buyer's jobs, live-read from EscrowPayment. Only uses the
+    DB as an index of (buyer, session_id) pairs — every displayed field comes
+    from the deployed contract."""
+    from models import ChainTransaction as CT
+    import json as _json
+    wallet_lc = (wallet or "").strip().lower()
+    if not wallet_lc:
+        return []
+
+    rows = (CT.query
+            .filter(CT.kind == "deposit")
+            .filter(db.func.lower(CT.from_addr) == wallet_lc)
+            .order_by(CT.ts.desc())
+            .all())
+
+    oc = _get_onchain()
+    out = []
+    for r in rows:
+        # session_id is stored in meta JSON blob or implicit in tx
+        try:
+            meta = _json.loads(r.meta or "{}")
+        except Exception:
+            meta = {}
+        sid = meta.get("sessionId") or meta.get("session_id")
+        if sid is None:
+            continue
+        # Live chain read — authoritative source for settled/cancelled/amount
+        live = None
+        if oc:
+            try:
+                live = oc.get_session(int(sid))
+            except Exception:
+                live = None
+        if live:
+            total_micro = int(live.get("totalDeposit", 0))
+            settled = bool(live.get("settled"))
+            cancelled = bool(live.get("cancelled"))
+            agent_id_on_chain = int(live.get("agentId", r.agent_id or 0))
+            expires_at = int(live.get("expiresAt", 0))
+        else:
+            # Fallback to audit-log values if chain read fails
+            total_micro = int(r.amount_usdc or 0)
+            settled = False
+            cancelled = False
+            agent_id_on_chain = r.agent_id or 0
+            expires_at = 0
+
+        amount_usdc = total_micro / 1_000_000
+        platform_fee_usdc = round(amount_usdc * PLATFORM_FEE_BPS / 10_000, 6)
+        status = ("completed" if settled
+                  else "cancelled" if cancelled
+                  else "in_escrow")
+
+        if status in ("completed", "cancelled") and not include_settled:
+            continue
+        if status == "in_escrow" and not include_active:
+            continue
+
+        agent = next((a for a in AGENTS if a["id"] == agent_id_on_chain), None)
+        agent_name = agent["name"] if agent else f"Agent #{agent_id_on_chain}"
+
+        out.append({
+            "id": str(sid),
+            "agent": agent_name,
+            "agent_id": agent_id_on_chain,
+            "amount": round(amount_usdc, 4),
+            "escrowedUSDC": round(amount_usdc - platform_fee_usdc, 4),
+            "platformFeeUSDC": platform_fee_usdc,
+            "status": status,
+            "task": f"Escrow session #{sid}",
+            "date": time.strftime("%Y-%m-%d", time.gmtime(r.ts)) if r.ts else "",
+            "txHash": r.tx_hash,
+            "snowtrace": f"https://testnet.snowtrace.io/tx/{r.tx_hash}",
+            "blockNumber": int(r.block_number or 0),
+            "expiresAt": expires_at,
+            "sourceChain": bool(live),
+        })
+    return out
+
+
+@app.route("/active-jobs")
+def page_active_jobs():
+    wallet = request.args.get("wallet") or request.cookies.get("buyer_wallet") or ""
+    orders = _buyer_jobs_from_chain(wallet, include_settled=False, include_active=True) if wallet else []
+    return render_template("active_jobs.html", orders=orders, wallet=wallet)
+
+
+@app.route("/past-jobs")
+def page_past_jobs():
+    wallet = request.args.get("wallet") or request.cookies.get("buyer_wallet") or ""
+    orders = _buyer_jobs_from_chain(wallet, include_settled=True, include_active=False) if wallet else []
+    return render_template("past_jobs.html", orders=orders, wallet=wallet)
+
+
+@app.route("/api/buyer/<wallet>/jobs")
+def api_buyer_jobs(wallet):
+    """Live JSON feed — every value is a fresh on-chain read. Frontend polls
+    this to keep the jobs pages up-to-date without full page reloads."""
+    active = _buyer_jobs_from_chain(wallet, include_settled=False, include_active=True)
+    past = _buyer_jobs_from_chain(wallet, include_settled=True, include_active=False)
+    total_escrowed = sum(j["escrowedUSDC"] for j in active)
+    total_spent = sum(j["amount"] for j in past + active)
+    total_fees = sum(j["platformFeeUSDC"] for j in past + active)
+    return jsonify({
+        "wallet": wallet,
+        "active": active,
+        "past": past,
+        "totals": {
+            "activeCount":       len(active),
+            "completedCount":    len([j for j in past if j["status"] == "completed"]),
+            "cancelledCount":    len([j for j in past if j["status"] == "cancelled"]),
+            "totalEscrowedUSDC": round(total_escrowed, 4),
+            "totalSpentUSDC":    round(total_spent, 4),
+            "totalFeesPaidUSDC": round(total_fees, 4),
+        },
+        "platformFeeBps": PLATFORM_FEE_BPS,
+        "chain": "Avalanche Fuji",
+        "source": "onchain:EscrowPayment.getSession",
+    })
+
 
 def _record_order_from_payment(session_id: str, agent_id: int, buyer: str, amount_usdc: float) -> None:
     """Persist a new Order row so /order/<sessionId> renders the real agent + amount."""
