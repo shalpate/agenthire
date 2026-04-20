@@ -237,17 +237,32 @@ function __renderPickerOptions() {
 
 async function __connectProvider(w) {
   const prov = w.p;
-  let accounts;
+  // 1) Try eth_accounts first — if user has already authorized this site,
+  //    we can skip the popup entirely. Useful when Rabby is already unlocked.
+  let accounts = [];
   try {
-    accounts = await prov.request({ method: 'eth_requestAccounts' });
-  } catch (err) {
-    const msg = (err && err.message) || String(err);
-    if (/no account|at least one account/i.test(msg)) {
-      __showEmptyWalletHelp(w.name);
-    } else {
-      alert('Connect failed in ' + w.name + ': ' + msg);
+    const existing = await prov.request({ method: 'eth_accounts' });
+    if (Array.isArray(existing) && existing.length && existing[0]) {
+      accounts = existing;
     }
-    return;
+  } catch (_) {}
+  // 2) If not already authorized, ask for permission explicitly.
+  if (!accounts.length) {
+    try {
+      accounts = await prov.request({ method: 'eth_requestAccounts' });
+    } catch (err) {
+      const msg = (err && err.message) || String(err);
+      if (/reject|denied|user rejected/i.test(msg)) {
+        alert(w.name + ' rejected the connection. Approve it next time, or pick Demo wallet to continue.');
+      } else if (/no account|at least one account/i.test(msg)) {
+        __showEmptyWalletHelp(w.name);
+      } else if (/unlock|locked/i.test(msg)) {
+        alert('Unlock ' + w.name + ' first (enter your password in the extension), then click Connect again.');
+      } else {
+        alert('Connect failed in ' + w.name + ': ' + msg);
+      }
+      return;
+    }
   }
   if (!accounts || !accounts[0]) { __showEmptyWalletHelp(w.name); return; }
   // Attempt Fuji switch (non-fatal)
