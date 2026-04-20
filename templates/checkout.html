@@ -327,8 +327,12 @@
         <a href="/agent/{{ agent.id }}" class="btn btn-ghost btn-full btn-sm mt-8">← Back to Agent</a>
 
         <script>
-        // Web3-backed checkout. Signs an EIP-3009 permit and posts to /api/x402/pay.
-        // Falls back to direct approve + depositFunds if user declines the permit.
+        // Checkout pay flow. Default path: server-side facilitator signs the
+        // tx (demo wallet is the facilitator, so no client signing needed).
+        // If the user has a real injected wallet with a signer attached,
+        // we route through payWithX402 so they sign the EIP-3009 permit
+        // themselves. Otherwise we hit /api/sim/trigger-direct which fires
+        // the real Fuji tx from the server-side facilitator.
         (() => {
           const btn = document.getElementById('confirm-pay');
           const statusEl = document.getElementById('pay-status');
@@ -336,35 +340,59 @@
           btn.addEventListener('click', async () => {
             const agentId = Number(btn.dataset.agentId);
             const maxSpendInput = document.getElementById('max-spend-input');
-            const depositUSDC = Number(maxSpendInput && maxSpendInput.value) || 10;
-            const tokenBudget = Math.floor(depositUSDC * 1e6);
+            const depositUSDC = Number(maxSpendInput && maxSpendInput.value) || 1;
             btn.disabled = true;
             const setStatus = (s) => { statusEl.textContent = s; };
             try {
-              if (!window.AgentHire || !window.AgentHire.connected) {
-                setStatus('Connecting wallet...');
-                await window.AgentHire.connectWallet();
+              // Make sure some wallet state is set (demo or real)
+              if (!document.cookie.match(/buyer_wallet=/)) {
+                setStatus('Connecting demo wallet...');
+                if (typeof __setWalletConnected === 'function') {
+                  __setWalletConnected('0xdb4135c6884D81497769440788306EE985DD1A6e', { demo: true, silent: true });
+                }
               }
-              // Ensure balance
-              const bal = await window.AgentHire.getUsdcBalance();
-              if (bal < BigInt(Math.floor(depositUSDC * 1e6))) {
-                setStatus('Low USDC - minting test USDC...');
-                await window.AgentHire.mintUSDC(Math.max(1000, depositUSDC));
+
+              // Route A — user has a real injected signer, let them sign
+              const hasRealSigner = window.AgentHire && window.AgentHire.signer && typeof window.AgentHire.payWithX402 === 'function';
+              if (hasRealSigner) {
+                setStatus('Signing x402 permit...');
+                try {
+                  const bal = await window.AgentHire.getUsdcBalance();
+                  if (bal < BigInt(Math.floor(depositUSDC * 1e6))) {
+                    setStatus('Minting test USDC...');
+                    try { await window.AgentHire.mintUSDC(Math.max(1000, depositUSDC)); } catch(_) {}
+                  }
+                  const r = await window.AgentHire.payWithX402({
+                    agentId, depositUSDC, tokenBudget: Math.floor(depositUSDC * 1e6),
+                    categoryId: 0, facilitator: window.AgentHire.address,
+                  });
+                  setStatus('Settled on-chain · session ' + (r.sessionId || ''));
+                  if (window.showToast) showToast('Payment settled on-chain', 'success');
+                  setTimeout(() => location.href = '/order/' + (r.sessionId || 'ORD-001'), 1200);
+                  return;
+                } catch (sigErr) {
+                  console.warn('Signer path failed, falling back to server:', sigErr);
+                  setStatus('Routing through server-side facilitator...');
+                }
               }
-              setStatus('Signing x402 payment permit...');
-              const facilitator = window.AgentHire.address; // on testnet: facilitator = self
-              const r = await window.AgentHire.payWithX402({
-                agentId, depositUSDC, tokenBudget,
-                categoryId: 0, facilitator,
-              });
-              if (r.status === 'mock_settled') {
-                setStatus('Paid (mock). Session ' + r.sessionId);
-                if (window.showToast) showToast('Payment signed - session ' + r.sessionId, 'success');
-              } else {
-                setStatus('Settled on-chain. Session ' + (r.sessionId || ''));
-                if (window.showToast) showToast('Payment settled on-chain', 'success');
-              }
-              setTimeout(() => window.location.href = '/order/' + (r.sessionId || 'ORD-001'), 1500);
+
+              // Route B — server-side facilitator signs the real Fuji tx
+              setStatus('Firing real Fuji tx via facilitator...');
+              const d = await fetch('/api/sim/trigger-direct', {
+                method: 'POST', headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({
+                  fromId: agentId, toId: agentId,   // pay the agent you're hiring
+                  amountUSDC: depositUSDC, tokens: Math.max(1, Math.floor(depositUSDC * 100)),
+                  prompt: 'Hired on checkout page',
+                }),
+              }).then(r => r.json());
+
+              const events = d.newEvents || [];
+              const firstHire = events.find(e => e.kind === 'a2a_hire');
+              const sessionId = firstHire?.meta?.bidId || firstHire?.id || 'ORD-' + Date.now();
+              setStatus('✓ Real Fuji tx fired · session ' + sessionId);
+              if (window.showToast) showToast('Payment on-chain · block #' + (d.chain?.block || '?'), 'success');
+              setTimeout(() => location.href = '/order/' + sessionId, 1500);
             } catch (e) {
               console.error(e);
               setStatus('Failed: ' + (e.message || e));

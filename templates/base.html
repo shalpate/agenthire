@@ -84,68 +84,9 @@
         <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
       </svg>
     </button>
-    <div id="wallet-wrap" style="position:relative;">
-      <button class="wallet-btn" id="wallet-btn" data-connected="false" type="button" onclick="__walletClick(event)">
-        <span>Connect Wallet</span>
-      </button>
-      <!-- Pre-connect picker -->
-      <div id="wallet-picker" style="display:none; position:absolute; right:0; top:calc(100% + 8px); z-index:200; width:320px; background:var(--card); border:1px solid var(--border); border-radius:12px; padding:10px; box-shadow:0 10px 40px rgba(0,0,0,.35); font-family:var(--font-body);">
-        <div style="font-size:.56rem; font-family:var(--font-mono); color:var(--text-3); text-transform:uppercase; letter-spacing:.08em; padding:6px 8px 8px;">Connect a wallet</div>
-        <div id="wp-options"><!-- populated by JS based on detected providers --></div>
-        <button class="wp-opt" data-provider="demo" type="button">
-          <span class="wp-icon" style="background:#f59e0b;">D</span>
-          <span class="wp-name">Demo wallet</span>
-          <span class="wp-sub">Pre-funded · no setup · for testing</span>
-        </button>
-        <div style="font-size:.55rem; font-family:var(--font-mono); color:var(--text-3); padding:8px 8px 4px; border-top:1px solid var(--border); margin-top:4px;">All sessions settle on Avalanche Fuji (43113)</div>
-      </div>
-      <!-- Post-connect menu -->
-      <div id="wallet-menu" style="display:none; position:absolute; right:0; top:calc(100% + 8px); z-index:200; width:300px; background:var(--card); border:1px solid var(--border); border-radius:12px; padding:12px; box-shadow:0 10px 40px rgba(0,0,0,.35); font-family:var(--font-mono); font-size:.75rem;">
-        <div style="display:flex; align-items:center; gap:10px; padding:6px 4px 10px; border-bottom:1px solid var(--border);">
-          <div id="wm-avatar" style="width:32px; height:32px; border-radius:50%; background:linear-gradient(135deg, #5fe3e3, #E84142);"></div>
-          <div style="flex:1; min-width:0;">
-            <div id="wm-addr" style="font-weight:700; color:var(--text); overflow:hidden; text-overflow:ellipsis;">—</div>
-            <div id="wm-kind" style="font-size:.6rem; color:var(--text-3); text-transform:uppercase; letter-spacing:.06em; margin-top:2px;">—</div>
-          </div>
-        </div>
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; padding:10px 0;">
-          <div style="padding:8px 10px; background:var(--bg); border:1px solid var(--border); border-radius:6px;">
-            <div style="font-size:.52rem; color:var(--text-3); text-transform:uppercase; letter-spacing:.08em;">AVAX</div>
-            <div id="wm-avax" style="font-weight:700; color:var(--text); margin-top:2px;">—</div>
-          </div>
-          <div style="padding:8px 10px; background:var(--bg); border:1px solid var(--border); border-radius:6px;">
-            <div style="font-size:.52rem; color:var(--text-3); text-transform:uppercase; letter-spacing:.08em;">USDC</div>
-            <div id="wm-usdc" style="font-weight:700; color:var(--green); margin-top:2px;">—</div>
-          </div>
-        </div>
-        <div style="display:flex; flex-direction:column; gap:4px;">
-          <button class="wm-row" type="button" onclick="__walletCopy()">
-            <span>Copy address</span><span id="wm-copy-state">⎘</span>
-          </button>
-          <a class="wm-row" id="wm-explorer" href="#" target="_blank" rel="noopener">
-            <span>View on Snowtrace</span><span>↗</span>
-          </a>
-          <a class="wm-row" href="/active-jobs"><span>My active jobs</span><span>→</span></a>
-          <a class="wm-row" href="/past-jobs"><span>My past jobs</span><span>→</span></a>
-          <button class="wm-row" type="button" onclick="__switchWallet()" style="border-top:1px solid var(--border); margin-top:6px; padding-top:10px;">
-            <span>Switch wallet (MetaMask / Rabby)</span><span>⇄</span>
-          </button>
-          <button class="wm-row" type="button" onclick="__walletDisconnect()" style="color:var(--red);">
-            <span>Disconnect</span><span>✕</span>
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <style>
-      .wp-opt { display:grid; grid-template-columns:28px 1fr; grid-template-rows:auto auto; gap:3px 10px; width:100%; padding:10px; background:transparent; border:1px solid transparent; border-radius:8px; cursor:pointer; text-align:left; color:var(--text); font-family:var(--font-body); transition:background .12s, border-color .12s; margin-bottom:4px; }
-      .wp-opt:hover { background:var(--card-2); border-color:var(--border); }
-      .wp-opt .wp-icon { grid-row:1 / span 2; width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:var(--font-mono); font-size:.75rem; font-weight:700; color:#fff; }
-      .wp-opt .wp-name { font-size:.8rem; font-weight:600; line-height:1.2; }
-      .wp-opt .wp-sub  { font-size:.62rem; color:var(--text-3); font-family:var(--font-mono); }
-      .wm-row { display:flex; align-items:center; justify-content:space-between; padding:8px 10px; background:transparent; border:none; border-radius:5px; cursor:pointer; color:var(--text); text-decoration:none; font-family:var(--font-mono); font-size:.72rem; transition:background .12s; }
-      .wm-row:hover { background:var(--card-2); }
-    </style>
+    <button class="wallet-btn" id="wallet-btn" data-connected="false" type="button" onclick="__walletClick(event)" title="Click to connect (demo wallet · pre-funded on Fuji)">
+      <span>Connect Wallet</span>
+    </button>
   </div>
 </nav>
 
@@ -159,19 +100,15 @@ const __CHAIN_ID_HEX = '0xa869'; // Avalanche Fuji (43113)
 
 function __walletClick(e) {
   if (e && e.preventDefault) e.preventDefault();
-  const menu = document.getElementById('wallet-menu');
-  const connected = document.getElementById('wallet-btn').getAttribute('data-connected') === 'true';
+  const btn = document.getElementById('wallet-btn');
+  const connected = btn.getAttribute('data-connected') === 'true';
   if (connected) {
-    // Already connected — open the account menu (balances, disconnect, etc.)
-    const picker = document.getElementById('wallet-picker');
-    if (picker) picker.style.display = 'none';
-    menu.style.display = (menu.style.display === 'block') ? 'none' : 'block';
-    if (menu.style.display === 'block') __walletRefreshBalances();
+    // Already connected — clicking opens Snowtrace for this wallet in a new tab.
+    const addr = btn.dataset.addr;
+    if (addr) window.open('https://testnet.snowtrace.io/address/' + addr, '_blank');
     return;
   }
-  // Not connected — one click connects the demo wallet immediately.
-  // No picker, no modal. Users who want to connect MetaMask/Rabby
-  // instead can open the account menu (after connect) → 'Switch wallet'.
+  // Not connected — one click connects the demo wallet. No popup, no picker.
   __setWalletConnected(__DEMO_WALLET, { demo: true });
 }
 
