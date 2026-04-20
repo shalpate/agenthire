@@ -228,49 +228,66 @@
           </div>
         </div>
 
+        {# Compute sub-agent cost range dynamically from the A2A workflow
+           definition. No hardcoded strings. The range is the sum of each
+           sub_agent's est_cost_low / est_cost_high, surge-multiplied if the
+           base agent is currently in surge. #}
+        {% set base_unit = agent.current_price * (agent.surge_multiplier or 1.0) %}
+        {% set sub_low   = (a2a.sub_agents or []) | sum(attribute='est_cost_low',  start=0.0) %}
+        {% set sub_high  = (a2a.sub_agents or []) | sum(attribute='est_cost_high', start=0.0) %}
+        {# "Per task" estimate: base × typical-tokens (50) + sub-agent range #}
+        {% set typical_tokens = 50 %}
+        {% set total_low  = (base_unit * typical_tokens) + sub_low %}
+        {% set total_high = (base_unit * typical_tokens) + sub_high %}
+        {% set hard_cap   = (total_high * 1.25) | round(2) %}
         <!-- Cost breakdown -->
         <div class="cost-breakdown mb-16">
           <div class="cost-row">
             <span class="cost-label">Base agent</span>
             <div>
-              <div class="cost-value">${{ "%.5f"|format(agent.current_price) }}</div>
+              <div class="cost-value">${{ "%.5f"|format(base_unit) }}</div>
               <div style="font-family:var(--font-mono); font-size:.5625rem; color:var(--text-3); text-align:right;">per {{ 'token' if agent.billing == 'per_token' else 'min' }}</div>
             </div>
           </div>
-          {% if a2a.composable %}
+          {% if a2a.composable and a2a.sub_agents %}
           <div class="cost-row">
             <div>
               <div class="cost-label">Sub-agent usage (est.)</div>
-              <div class="cost-variable-note">Depends on task complexity</div>
+              <div class="cost-variable-note">{{ a2a.sub_agents|length }} sub-agent{{ 's' if a2a.sub_agents|length != 1 }} · depends on task complexity</div>
             </div>
-            <span class="cost-value range">{{ a2a.subagent_range_label }}</span>
+            <span class="cost-value range">${{ "%.4f"|format(sub_low) }} – ${{ "%.4f"|format(sub_high) }}</span>
           </div>
           {% endif %}
           {% if agent.surge_active %}
           <div class="cost-row" style="background:var(--amber-dim);">
-            <span class="cost-label" style="color:var(--amber);">Surge x{{ agent.surge_multiplier }}</span>
-            <span class="cost-value" style="color:var(--amber);">Active</span>
+            <span class="cost-label" style="color:var(--amber);">Surge ×{{ "%.2f"|format(agent.surge_multiplier) }}</span>
+            <span class="cost-value" style="color:var(--amber);">Active · applied to base</span>
           </div>
           {% endif %}
           <div class="cost-row total">
             <div>
               <div class="cost-label font-bold" style="color:var(--text);">
-                {% if a2a.composable %}Estimated Total{% else %}Total{% endif %}
+                {% if a2a.composable %}Estimated Total ({{ typical_tokens }} tok){% else %}Total ({{ typical_tokens }} tok){% endif %}
               </div>
-              {% if a2a.composable %}<div class="cost-variable-note">Final cost depends on sub-agent usage</div>{% endif %}
+              {% if a2a.composable and a2a.sub_agents %}<div class="cost-variable-note">Final cost depends on sub-agent usage</div>{% endif %}
             </div>
             <span class="cost-value" style="color:var(--text); font-size:1rem;">
-              {% if a2a.composable %}{{ a2a.total_range_label }}{% else %}${{ "%.4f"|format(agent.current_price * 1000 * 1.001) }}{% endif %}
+              {% if a2a.composable and a2a.sub_agents %}
+                ${{ "%.4f"|format(total_low) }} – ${{ "%.4f"|format(total_high) }}
+              {% else %}
+                ${{ "%.4f"|format(base_unit * typical_tokens) }}
+              {% endif %}
             </span>
           </div>
         </div>
 
         {% if a2a.composable %}
-        <!-- Max spend display -->
+        <!-- Hard Spend Cap — derived: 25% above upper estimate -->
         <div style="display:flex; align-items:center; justify-content:space-between; padding:12px 14px; background:var(--card-3); border:1px solid var(--border-2); border-radius:var(--radius-sm); margin-bottom:16px;">
           <div>
             <div style="font-family:var(--font-mono); font-size:.5625rem; text-transform:uppercase; letter-spacing:.09em; color:var(--text-3);">Hard Spend Cap</div>
-            <div style="font-family:var(--font-mono); font-size:1.25rem; font-weight:700; color:var(--text); margin-top:2px;" id="max-spend-display">$1.00 USDC</div>
+            <div style="font-family:var(--font-mono); font-size:1.25rem; font-weight:700; color:var(--text); margin-top:2px;" id="max-spend-display">${{ "%.2f"|format(hard_cap) }} USDC</div>
+            <div style="font-family:var(--font-mono); font-size:.5rem; color:var(--text-3); margin-top:3px;">= upper estimate × 1.25 buffer</div>
           </div>
           <span class="badge badge-approved">Enforced</span>
         </div>
