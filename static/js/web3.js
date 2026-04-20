@@ -127,6 +127,16 @@
   // ── READS ────────────────────────────────────────────────────────────────
   async function getUsdcBalance() {
     if (!window.AgentHire.connected) return 0n;
+    // If we're in demo-wallet mode (connected via inline handler, no ethers
+    // contract bound), instantiate a read-only contract against the public RPC
+    // so balance reads still work without a browser wallet extension.
+    if (!window.AgentHire.contracts || !window.AgentHire.contracts.MockUSDC) {
+      try {
+        const provider = new ethers.JsonRpcProvider(CHAIN.rpcUrl);
+        const c = new ethers.Contract(ADDR.MockUSDC, ABI.MockUSDC, provider);
+        return await c.balanceOf(window.AgentHire.address);
+      } catch (e) { return 0n; }
+    }
     return window.AgentHire.contracts.MockUSDC.balanceOf(window.AgentHire.address);
   }
 
