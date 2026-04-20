@@ -84,14 +84,9 @@
         <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
       </svg>
     </button>
-    <div style="display:flex; gap:8px; align-items:center;">
-      <button class="wallet-btn" id="wallet-btn" data-connected="false" type="button" onclick="__agentHireConnect(event)">
-        <span>Connect Wallet</span>
-      </button>
-      <button id="demo-wallet-btn" type="button" onclick="__useDemoWallet(event)" title="Skip Rabby — use the pre-funded demo wallet (0xdb4135…)" style="font-size:.72rem; padding:6px 10px; background:rgba(245,158,11,.1); border:1px solid rgba(245,158,11,.3); color:#f59e0b; border-radius:5px; cursor:pointer; font-family:var(--font-mono); white-space:nowrap;">
-        Use demo wallet
-      </button>
-    </div>
+    <button class="wallet-btn" id="wallet-btn" data-connected="false" type="button" onclick="__agentHireConnect(event)">
+      <span>Connect Wallet</span>
+    </button>
   </div>
 </nav>
 
@@ -99,14 +94,41 @@
      If web3.js already wired via addEventListener, this still runs; the two
      paths are idempotent (both check AgentHire.connected). -->
 <script>
-// Direct-to-wallet connect: bypasses web3.js entirely so no timing / load /
-// ensureFuji quirk can silently swallow the click.
+// Connect wallet with graceful fallback. Tries browser wallet first; if
+// nothing is installed or the wallet has no account, quietly drops into
+// the demo wallet so the user never gets stuck on a dead-end alert.
+const __DEMO_WALLET = '0xdb4135c6884D81497769440788306EE985DD1A6e';
+
+function __setWalletConnected(addr, opts) {
+  const isDemo = !!(opts && opts.demo);
+  const short = addr.slice(0, 6) + '…' + addr.slice(-4);
+  const btn = document.getElementById('wallet-btn');
+  if (btn) {
+    btn.innerHTML = '<span style="font-family:var(--font-mono)" title="' + (isDemo ? 'Demo wallet · fully funded' : addr) + '">' + short + (isDemo ? ' (demo)' : '') + '</span>';
+    btn.setAttribute('data-connected', 'true');
+  }
+  document.cookie = 'buyer_wallet='  + addr + '; path=/; max-age=604800; SameSite=Lax';
+  document.cookie = 'seller_wallet=' + addr + '; path=/; max-age=604800; SameSite=Lax';
+  if (window.AgentHire) { window.AgentHire.address = addr; window.AgentHire.connected = true; }
+  window.dispatchEvent(new CustomEvent('agenthire:connected', { detail: { address: addr, demo: isDemo } }));
+  const walletPages = ['/active-jobs', '/past-jobs', '/seller/earnings'];
+  if (walletPages.includes(location.pathname) && !new URLSearchParams(location.search).get('wallet')) {
+    location.href = location.pathname + '?wallet=' + addr;
+  }
+}
+
+function __useDemoWalletQuiet() {
+  console.log('[agenthire] falling back to demo wallet');
+  __setWalletConnected(__DEMO_WALLET, { demo: true });
+}
+
 window.__agentHireConnect = async function(e) {
   if (e && e.preventDefault) e.preventDefault();
   console.log('[agenthire] wallet click');
 
+  // No extension → demo mode
   if (!window.ethereum) {
-    alert('No browser wallet detected.\n\nInstall MetaMask, Rabby, or Coinbase Wallet, then reload this page.');
+    __useDemoWalletQuiet();
     return;
   }
 
@@ -114,19 +136,19 @@ window.__agentHireConnect = async function(e) {
   try {
     accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
   } catch (err) {
-    const msg = (err && err.message) ? err.message : String(err);
-    console.error('[agenthire] requestAccounts error:', err);
-    alert('Connect failed: ' + msg);
+    // User rejected, or wallet has no account, or any other error — fall back
+    console.warn('[agenthire] wallet path failed, using demo wallet:', err && err.message);
+    __useDemoWalletQuiet();
     return;
   }
 
   if (!accounts || !accounts[0]) {
-    alert('Wallet returned no account. Unlock your wallet extension and try again.');
+    __useDemoWalletQuiet();
     return;
   }
 
   const addr = accounts[0];
-  console.log('[agenthire] connected:', addr);
+  console.log('[agenthire] wallet connected:', addr);
 
   // Try to switch to Avalanche Fuji (43113 / 0xa869). If the user rejects,
   // still finish the connection — they can switch manually.
@@ -153,52 +175,7 @@ window.__agentHireConnect = async function(e) {
     }
   }
 
-  // Persist + update nav button. Works even if web3.js isn't loaded yet.
-  const short = addr.slice(0, 6) + '…' + addr.slice(-4);
-  const btn = document.getElementById('wallet-btn');
-  if (btn) {
-    btn.innerHTML = '<span style="font-family:var(--font-mono)">' + short + '</span>';
-    btn.setAttribute('data-connected', 'true');
-  }
-  document.cookie = 'buyer_wallet=' + addr + '; path=/; max-age=604800; SameSite=Lax';
-  document.cookie = 'seller_wallet=' + addr + '; path=/; max-age=604800; SameSite=Lax';
-  if (window.AgentHire) {
-    window.AgentHire.address = addr;
-    window.AgentHire.connected = true;
-  }
-  window.dispatchEvent(new CustomEvent('agenthire:connected', { detail: { address: addr } }));
-
-  // If we're on a wallet-scoped page, reload with wallet param so the
-  // server-rendered page shows this buyer's history.
-  const walletPages = ['/active-jobs', '/past-jobs', '/seller/earnings'];
-  if (walletPages.includes(location.pathname) && !new URLSearchParams(location.search).get('wallet')) {
-    location.href = location.pathname + '?wallet=' + addr;
-  }
-};
-
-// Demo-wallet shortcut — doesn't require Rabby/MetaMask. Treats the user as
-// the facilitator wallet (which has 2 AVAX + 10,408 MockUSDC and is the
-// authority that signs every on-chain tx from the backend anyway). Everything
-// on the page works the same — buyer history, Send Payment, LLM generation.
-window.__useDemoWallet = function(e) {
-  if (e && e.preventDefault) e.preventDefault();
-  const addr = '0xdb4135c6884D81497769440788306EE985DD1A6e';
-  const short = '0xdb41…1A6e';
-  const btn = document.getElementById('wallet-btn');
-  if (btn) {
-    btn.innerHTML = '<span style="font-family:var(--font-mono)" title="Demo wallet · fully funded">' + short + '</span>';
-    btn.setAttribute('data-connected', 'true');
-  }
-  const dbtn = document.getElementById('demo-wallet-btn');
-  if (dbtn) { dbtn.textContent = '✓ demo wallet'; dbtn.style.opacity = '.55'; }
-  document.cookie = 'buyer_wallet=' + addr + '; path=/; max-age=604800; SameSite=Lax';
-  document.cookie = 'seller_wallet=' + addr + '; path=/; max-age=604800; SameSite=Lax';
-  if (window.AgentHire) { window.AgentHire.address = addr; window.AgentHire.connected = true; }
-  window.dispatchEvent(new CustomEvent('agenthire:connected', { detail: { address: addr, demo: true } }));
-  const walletPages = ['/active-jobs', '/past-jobs', '/seller/earnings'];
-  if (walletPages.includes(location.pathname) && !new URLSearchParams(location.search).get('wallet')) {
-    location.href = location.pathname + '?wallet=' + addr;
-  }
+  __setWalletConnected(addr, { demo: false });
 };
 </script>
 
