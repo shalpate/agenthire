@@ -89,13 +89,9 @@
         <span>Connect Wallet</span>
       </button>
       <!-- Pre-connect picker -->
-      <div id="wallet-picker" style="display:none; position:absolute; right:0; top:calc(100% + 8px); z-index:200; width:280px; background:var(--card); border:1px solid var(--border); border-radius:12px; padding:10px; box-shadow:0 10px 40px rgba(0,0,0,.35); font-family:var(--font-body);">
+      <div id="wallet-picker" style="display:none; position:absolute; right:0; top:calc(100% + 8px); z-index:200; width:320px; background:var(--card); border:1px solid var(--border); border-radius:12px; padding:10px; box-shadow:0 10px 40px rgba(0,0,0,.35); font-family:var(--font-body);">
         <div style="font-size:.56rem; font-family:var(--font-mono); color:var(--text-3); text-transform:uppercase; letter-spacing:.08em; padding:6px 8px 8px;">Connect a wallet</div>
-        <button class="wp-opt" data-provider="injected" type="button">
-          <span class="wp-icon" style="background:#f6851b;">M</span>
-          <span class="wp-name">MetaMask / Rabby / Coinbase</span>
-          <span class="wp-sub">EIP-1193 browser extension</span>
-        </button>
+        <div id="wp-options"><!-- populated by JS based on detected providers --></div>
         <button class="wp-opt" data-provider="demo" type="button">
           <span class="wp-icon" style="background:#f59e0b;">D</span>
           <span class="wp-name">Demo wallet</span>
@@ -181,14 +177,117 @@ document.addEventListener('click', (e) => {
   const m = document.getElementById('wallet-menu');   if (m) m.style.display = 'none';
 });
 
+// Detect individual wallet providers. MetaMask, Rabby, and Coinbase each
+// expose their own flag on window.ethereum; multiple extensions may share
+// window.ethereum.providers.
+function __detectWallets() {
+  const out = [];
+  const eth = window.ethereum;
+  if (eth) {
+    const providers = Array.isArray(eth.providers) ? eth.providers : [eth];
+    for (const p of providers) {
+      if (p.isRabby)            out.push({ id: 'rabby',    name: 'Rabby',           icon: 'R', bg: '#7084FF', p });
+      else if (p.isMetaMask && !p.isBraveWallet) out.push({ id: 'metamask', name: 'MetaMask',        icon: 'M', bg: '#f6851b', p });
+      else if (p.isCoinbaseWallet) out.push({ id: 'coinbase', name: 'Coinbase Wallet', icon: 'C', bg: '#0052ff', p });
+      else if (p.isBraveWallet) out.push({ id: 'brave',    name: 'Brave Wallet',    icon: 'B', bg: '#fb542b', p });
+    }
+    if (!out.length) out.push({ id: 'injected', name: 'Injected wallet', icon: 'W', bg: '#888', p: eth });
+  }
+  return out;
+}
+
+function __renderPickerOptions() {
+  const wrap = document.getElementById('wp-options');
+  if (!wrap) return;
+  const detected = __detectWallets();
+  wrap.innerHTML = '';
+  if (detected.length) {
+    detected.forEach(w => {
+      wrap.insertAdjacentHTML('beforeend', `
+        <button class="wp-opt" data-wallet="${w.id}" type="button">
+          <span class="wp-icon" style="background:${w.bg};">${w.icon}</span>
+          <span class="wp-name">${w.name} <span style="color:var(--green); font-size:.55rem; margin-left:4px;">● detected</span></span>
+          <span class="wp-sub">Click to connect on Fuji</span>
+        </button>`);
+    });
+  } else {
+    // No wallet detected — show install suggestions
+    const installs = [
+      ['rabby',    'Rabby',           'R', '#7084FF', 'https://rabby.io/'],
+      ['metamask', 'MetaMask',        'M', '#f6851b', 'https://metamask.io/download/'],
+      ['coinbase', 'Coinbase Wallet', 'C', '#0052ff', 'https://www.coinbase.com/wallet/downloads'],
+    ];
+    installs.forEach(([id,n,i,b,u]) => {
+      wrap.insertAdjacentHTML('beforeend', `
+        <a class="wp-opt" href="${u}" target="_blank" rel="noopener" style="text-decoration:none;">
+          <span class="wp-icon" style="background:${b};">${i}</span>
+          <span class="wp-name">${n} <span style="color:var(--text-3); font-size:.55rem; margin-left:4px;">not detected</span></span>
+          <span class="wp-sub">Click to install extension ↗</span>
+        </a>`);
+    });
+  }
+  wrap.querySelectorAll('button.wp-opt').forEach(b => {
+    b.addEventListener('click', async () => {
+      document.getElementById('wallet-picker').style.display = 'none';
+      const w = detected.find(x => x.id === b.dataset.wallet);
+      if (w) await __connectProvider(w);
+    });
+  });
+}
+
+async function __connectProvider(w) {
+  const prov = w.p;
+  let accounts;
+  try {
+    accounts = await prov.request({ method: 'eth_requestAccounts' });
+  } catch (err) {
+    const msg = (err && err.message) || String(err);
+    if (/no account|at least one account/i.test(msg)) {
+      __showEmptyWalletHelp(w.name);
+    } else {
+      alert('Connect failed in ' + w.name + ': ' + msg);
+    }
+    return;
+  }
+  if (!accounts || !accounts[0]) { __showEmptyWalletHelp(w.name); return; }
+  // Attempt Fuji switch (non-fatal)
+  try { await prov.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: __CHAIN_ID_HEX }] }); }
+  catch (err) {
+    if (err && err.code === 4902) {
+      try { await prov.request({ method: 'wallet_addEthereumChain', params: [{
+        chainId: __CHAIN_ID_HEX, chainName: 'Avalanche Fuji C-Chain',
+        nativeCurrency: { name: 'AVAX', symbol: 'AVAX', decimals: 18 },
+        rpcUrls: ['https://avalanche-fuji-c-chain-rpc.publicnode.com'],
+        blockExplorerUrls: ['https://testnet.snowtrace.io'],
+      }]}); } catch (_) {}
+    }
+  }
+  __setWalletConnected(accounts[0], { demo: false, provider: w.id });
+}
+
+function __showEmptyWalletHelp(walletName) {
+  const lines = [
+    walletName + ' is installed but has no accounts imported.',
+    '',
+    'Fix — takes 30 seconds:',
+    '  1. Click the ' + walletName + ' icon in your browser toolbar',
+    '  2. Create a new account OR import this demo key:',
+    '     0xff319427edeb7b9410081e8cb2c61ee4c1081fb1bd422353704fec7eb020f23e',
+    '  3. Add the Avalanche Fuji network if prompted',
+    '  4. Click Connect Wallet here again',
+    '',
+    'Or pick "Demo wallet" from the dropdown to skip setup entirely.',
+  ].join('\n');
+  alert(lines);
+}
+
 // Wire picker options once DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
-  document.querySelectorAll('.wp-opt').forEach(b => {
-    b.addEventListener('click', async () => {
-      const p = b.dataset.provider;
+  __renderPickerOptions();
+  document.querySelectorAll('.wp-opt[data-provider="demo"]').forEach(b => {
+    b.addEventListener('click', () => {
       document.getElementById('wallet-picker').style.display = 'none';
-      if (p === 'demo') { __setWalletConnected(__DEMO_WALLET, { demo: true }); return; }
-      if (p === 'injected') { await __connectInjected(); return; }
+      __setWalletConnected(__DEMO_WALLET, { demo: true });
     });
   });
   // Restore connection from cookie so nav shows address across page loads
