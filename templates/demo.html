@@ -858,6 +858,47 @@ Click ② to sign a permit + retry → server returns 200 OK with receipt.</pre>
              liveTx.txHash, liveTx.snowtrace, true);
     }
 
+    // ── If prompt was provided, ALSO have the receiver actually do the work
+    //    via Akash-hosted Qwen. This is the moment where the USDC payment
+    //    becomes a real service delivery: buyer paid → agent responds.
+    if (promptText && hires.length > 0) {
+      const receiverId = hires[0].meta?.subAgentId || settles[0]?.agentId;
+      if (receiverId) {
+        const replyWrap = document.getElementById('llm-reply-wrap') || (() => {
+          const w = document.createElement('div');
+          w.id = 'llm-reply-wrap';
+          w.style.cssText = 'margin-top:18px; padding:16px 18px; background:var(--card); border:1px solid var(--border); border-radius:10px; font-family:var(--font-mono); font-size:.8rem;';
+          document.querySelector('.stage').insertAdjacentElement('afterend', w);
+          return w;
+        })();
+        replyWrap.innerHTML = `
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+            <span style="font-size:.5rem; font-weight:700; color:var(--accent); letter-spacing:.1em; text-transform:uppercase;">Akash vLLM · receiver responding</span>
+            <span id="llm-reply-meta" style="font-size:.55rem; color:var(--text-3);">pending</span>
+          </div>
+          <pre id="llm-reply-out" style="background:var(--bg); border:1px solid var(--border); border-radius:6px; padding:10px; font-family:var(--font-mono); font-size:.72rem; white-space:pre-wrap; word-break:break-word; max-height:260px; overflow:auto; margin:0; color:var(--text-2);">Generating on decentralized compute…</pre>
+        `;
+        try {
+          const r = await fetch('/api/agents/' + receiverId + '/generate', {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ prompt: promptText, maxTokens: 300 }),
+          });
+          const g = await r.json();
+          if (r.ok) {
+            document.getElementById('llm-reply-out').textContent = g.response || '';
+            document.getElementById('llm-reply-meta').textContent =
+              `${g.totalTokens} tok · ${(g.latencyMs/1000).toFixed(1)}s · ${g.model}`;
+          } else {
+            document.getElementById('llm-reply-out').textContent = 'error: ' + (g.error || r.status);
+            document.getElementById('llm-reply-meta').textContent = 'error';
+          }
+        } catch (e) {
+          document.getElementById('llm-reply-out').textContent = 'error: ' + e.message;
+          document.getElementById('llm-reply-meta').textContent = 'network error';
+        }
+      }
+    }
+
     btn.disabled = false; btn.textContent = 'Send Payment';
   }
 
