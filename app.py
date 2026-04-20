@@ -952,13 +952,13 @@ def how_it_works():
 
 @app.route("/active-jobs")
 def active_jobs():
-    wallet = request.args.get("wallet") or request.cookies.get("buyer_wallet") or ""
+    wallet = request.args.get("wallet")  or ""
     orders = _buyer_jobs_from_chain(wallet, include_settled=False, include_active=True) if wallet else []
     return render_template("active_jobs.html", orders=orders, wallet=wallet)
 
 @app.route("/past-jobs")
 def past_jobs():
-    wallet = request.args.get("wallet") or request.cookies.get("buyer_wallet") or ""
+    wallet = request.args.get("wallet")  or ""
     orders = _buyer_jobs_from_chain(wallet, include_settled=True, include_active=False) if wallet else []
     return render_template("past_jobs.html", orders=orders, wallet=wallet)
 
@@ -1230,7 +1230,7 @@ def seller_orders():
 
 @app.route("/seller/earnings")
 def seller_earnings():
-    wallet = request.args.get("wallet") or request.cookies.get("seller_wallet") or ""
+    wallet = request.args.get("wallet")  or ""
     if wallet:
         my_agents = [a for a in AGENTS if a.get("seller", "").lower() == wallet.lower()]
     else:
