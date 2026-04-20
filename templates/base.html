@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}?v=20260418b">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}?v=20260420e">
   {% block head %}{% endblock %}
 </head>
 <body>
@@ -53,10 +53,10 @@
       <li><a href="/seller/orders"       class="{{ 'active' if request.path == '/seller/orders' }}">Orders</a></li>
       <li><a href="/seller/verification" class="{{ 'active' if request.path == '/seller/verification' }}">Verification</a></li>
       <li><a href="/how-it-works?role=seller" class="{{ 'active' if request.path == '/how-it-works' }}">How It Works</a></li>
-    {% elif request.path.startswith('/agent-mode') %}
-      <li><a href="/agent-mode"          class="active">Overview</a></li>
-      <li><a href="/marketplace">Registry</a></li>
-      <li><a href="/how-it-works">Protocol</a></li>
+    {% elif request.path.startswith('/agent-mode') or request.path == '/sim' %}
+      <li><a href="/sim"         class="{{ 'active' if request.path == '/sim' }}">Overview</a></li>
+      <li><a href="/marketplace" class="{{ 'active' if request.path == '/marketplace' }}">Marketplace</a></li>
+      <li><a href="/how-it-works?role=agent" class="{{ 'active' if request.path == '/how-it-works' }}">How It Works</a></li>
     {% else %}
       <li><a href="/marketplace"  class="{{ 'active' if request.path == '/marketplace' }}">Marketplace</a></li>
       <li><a href="/active-jobs"  class="{{ 'active' if request.path == '/active-jobs' }}">Active Jobs</a></li>
@@ -66,10 +66,12 @@
   </ul>
 
   <div class="nav-right">
+    {% set _on_agent = request.path.startswith('/agent-mode') or request.path == '/sim' %}
+    {% set _on_seller = request.path.startswith('/seller') %}
     <div class="role-switcher">
-      <button class="role-btn {{ 'active' if not request.path.startswith('/seller') and not request.path.startswith('/agent-mode') }}" data-role="buyer">Buyer</button>
-      <button class="role-btn {{ 'active' if request.path.startswith('/seller') }}" data-role="seller">Seller</button>
-      <button class="role-btn {{ 'active' if request.path.startswith('/agent-mode') }}" data-role="agent">Agent</button>
+      <button class="role-btn {{ 'active' if not _on_agent and not _on_seller }}" data-role="buyer">Buyer</button>
+      <button class="role-btn {{ 'active' if _on_seller }}" data-role="seller">Seller</button>
+      <button class="role-btn {{ 'active' if _on_agent }}" data-role="agent">Agent</button>
     </div>
     <button class="theme-toggle" id="theme-toggle" aria-label="Toggle light/dark mode">
       <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -203,7 +205,7 @@
     <div class="entry-gate-btns">
       <button class="entry-gate-btn" id="gate-buyer-btn">I am a Buyer</button>
       <button class="entry-gate-btn" id="gate-seller-btn">I am a Seller</button>
-      <button class="entry-gate-btn" id="gate-agent-btn">Agent Mode</button>
+      <button class="entry-gate-btn entry-gate-btn-agent" id="gate-agent-btn">Agent Mode</button>
     </div>
   </div>
 </div>

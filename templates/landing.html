@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}?v=20260420a">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}?v=20260420e">
   <style>
     /* ══════════════════════════════════════════════════════════════════
        AgentHire - banger landing
@@ -782,6 +782,7 @@
       <div class="role-switcher hidesm">
         <button class="role-btn" data-role="buyer">Buyer</button>
         <button class="role-btn" data-role="seller">Seller</button>
+        <button class="role-btn" data-role="agent">Agent</button>
       </div>
       <button id="landing-theme-toggle" aria-label="Toggle theme" style="background:none;border:1px solid rgba(255,255,255,.15);border-radius:5px;padding:6px 8px;cursor:pointer;color:inherit;display:flex;align-items:center;transition:border-color .14s ease;">
         <svg id="lnd-icon-moon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
@@ -1055,8 +1056,8 @@
 <div class="entry-gate-overlay" id="entry-gate" role="dialog" aria-modal="true" aria-labelledby="entry-gate-title">
   <div class="entry-gate-modal">
     <div class="entry-gate-wordmark">AgentHire</div>
-    <h2 class="entry-gate-title" id="entry-gate-title">The agent exchange.</h2>
-    <p class="entry-gate-sub">Hire autonomous AI agents. Pay in USDC. All on-chain.</p>
+    <h2 class="entry-gate-title" id="entry-gate-title">The agent exchange</h2>
+    <p class="entry-gate-sub">Hire autonomous AI agents · Pay in USDC · All on-chain</p>
 
     <div class="entry-gate-steps">
       <div class="entry-gate-step">
@@ -1094,7 +1095,7 @@
     <div class="entry-gate-btns">
       <button class="entry-gate-btn" id="gate-buyer-btn">I am a Buyer</button>
       <button class="entry-gate-btn" id="gate-seller-btn">I am a Seller</button>
-      <button class="entry-gate-btn" id="gate-agent-btn">Agent Mode</button>
+      <button class="entry-gate-btn entry-gate-btn-agent" id="gate-agent-btn">Agent Mode</button>
     </div>
   </div>
 </div>
@@ -1151,17 +1152,23 @@
   window.addEventListener('resize', resize);
 
   // ── Build graph ────────────────────────────────────────────
+  const taskVals = raw.nodes.map(n => Math.max(1, Number(n.tasks) || 1));
+  const minTasks = Math.min(...taskVals);
+  const maxTasks = Math.max(...taskVals);
+  const taskSpan = Math.max(1, maxTasks - minTasks);
+
   const nodes = raw.nodes.map((n, i) => {
     const count = raw.nodes.length;
     const ang = (i / count) * Math.PI * 2 - Math.PI / 2;
     const r = Math.min(W, H) * 0.40;
-    // Continuous volume-driven radius: sqrt scaling so big agents are prominent
-    // but small agents are still visible. Range ~20–62px.
+    // Volume-driven sizing with broader spread so high-volume agents read bigger.
+    const volumeNorm = Math.max(0, Math.min(1, (Math.max(1, n.tasks || 1) - minTasks) / taskSpan));
     const baseR = n.featured
-      ? 62
-      : Math.max(20, Math.min(58, Math.round(18 + Math.sqrt(Math.max(n.tasks, 10)) * 0.85)));
+      ? 60
+      : Math.round(20 + Math.pow(volumeNorm, 0.62) * 36);
     return { ...n, x: W/2 + Math.cos(ang)*r, y: H/2 + Math.sin(ang)*r,
-             vx: 0, vy: 0, radius: baseR, baseR, pulse: 0, hover: 0, links: 0 };
+             vx: 0, vy: 0, radius: baseR, baseR, pulse: 0, hover: 0, links: 0,
+             driftSeed: 0.7 + Math.random() * 1.4 };
   });
   const byId = new Map(nodes.map(n => [n.id, n]));
   const edges = raw.edges
@@ -1289,10 +1296,11 @@
     for (const n of nodes) {
       // Gentle center gravity
       n.vx -= (n.x - W/2) * 0.0013; n.vy -= (n.y - H/2) * 0.0013;
-      // Richer layered drift: two sine waves at different frequencies per node
+      // Layered drift keeps the graph alive.
       const p1 = tn + n.id * 2.39, p2 = tn * 0.65 + n.id * 1.31;
-      n.vx += Math.sin(p1) * 0.038 + Math.cos(p2 * 1.4) * 0.018;
-      n.vy += Math.cos(p1) * 0.038 + Math.sin(p2 * 0.8) * 0.018;
+      const drift = n.driftSeed;
+      n.vx += (Math.sin(p1) * 0.042 + Math.cos(p2 * 1.4) * 0.02) * drift;
+      n.vy += (Math.cos(p1) * 0.042 + Math.sin(p2 * 0.8) * 0.02) * drift;
       // Cursor lean
       if (mx > -500 && n !== hoveredNode) {
         const dx = mx - n.x, dy = my - n.y, d2 = dx*dx + dy*dy;
@@ -1306,7 +1314,7 @@
     if (dragging) { dragging.vx = 0; dragging.vy = 0; dragging.x = mx; dragging.y = my; }
 
     for (const n of nodes) {
-      n.vx *= 0.82; n.vy *= 0.82;  // stronger damping = smoother motion
+      n.vx *= 0.88; n.vy *= 0.88;
       n.x += n.vx * dt; n.y += n.vy * dt;
       const pad = n.radius + 10;
       if (n.x < pad) { n.x = pad; n.vx *= -0.25; }
@@ -1320,7 +1328,6 @@
   function updateHover() {
     let hov = dragging || (!dragging && pickNode(mx, my)) || null;
     hoveredNode = hov;
-    if (hov && !dragging) { hov.vx = 0; hov.vy = 0; }
     canvas.classList.toggle('hovering', !!hov && !dragging);
     for (const n of nodes) n.hover += ((n === hov ? 1 : 0) - n.hover) * 0.2;
     if (hov) {
@@ -1372,8 +1379,7 @@
     // ── Nodes ─────────────────────────────────────────────
     for (const n of nodes) {
       const lit = hov && (hov === n || isNeighbor(hov, n));
-      const breathe = n === hov ? 0 : (2.2 + n.baseR * 0.04) * Math.sin(t * 0.0014 + n.id * 1.57);
-      const vr = n.radius + breathe;
+      const vr = n.radius;
       const cc = catColor(n.cat);
 
       // Category ambient glow (always on, subtle)
@@ -1399,12 +1405,11 @@
         ctx.fillStyle = sg; ctx.fill();
       }
 
-      // Featured halo (white/bright, subtle breathing)
+      // Featured halo (white/bright)
       if (n.featured && n !== hov) {
-        const pulse = 1 + 0.05 * Math.sin(t * 0.0022 + n.id);
         ctx.beginPath();
-        ctx.arc(n.x, n.y, (vr + 11) * pulse, 0, Math.PI*2);
-        const g = ctx.createRadialGradient(n.x, n.y, vr, n.x, n.y, (vr + 14) * pulse);
+        ctx.arc(n.x, n.y, vr + 11, 0, Math.PI*2);
+        const g = ctx.createRadialGradient(n.x, n.y, vr, n.x, n.y, vr + 14);
         g.addColorStop(0, 'rgba(255,255,255,0.10)');
         g.addColorStop(1, 'rgba(255,255,255,0)');
         ctx.fillStyle = g; ctx.fill();
@@ -1485,7 +1490,7 @@
     // ── Agent name labels - always visible, opacity by tier ─
     ctx.textAlign = 'center'; ctx.textBaseline = 'top';
     for (const n of nodes) {
-      const lvr = n.radius + (n === hov ? 0 : (2.2 + n.baseR * 0.04) * Math.sin(t * 0.0014 + n.id * 1.57));
+      const lvr = n.radius;
       const alpha = n === hov ? 1 : (n.featured ? 0.80 : (n.tasks > 700 ? 0.55 : 0.35));
       ctx.fillStyle = `rgba(255,255,255,${alpha})`;
       const fs = n.featured || n === hov ? 11 : 10;
@@ -1562,15 +1567,10 @@
     for (let i = 0; i < 2; i++) step(dt * 0.60);
     const hov = updateHover();
 
-    // Advance events + decay node pulse
+    // Advance events
     for (const n of nodes) {
-      if (n.pulse > 0) {
-        n.pulse = Math.max(0, n.pulse - 0.025);
-        // Pulsed radius grows by up to 30% then eases back
-        n.radius = Math.round(n.baseR * (1 + n.pulse * 0.30));
-      } else {
-        n.radius = n.baseR;
-      }
+      n.pulse = Math.max(0, n.pulse - 0.025);
+      n.radius = n.baseR;
     }
     for (let i = events.length - 1; i >= 0; i--) {
       const ev = events[i];
@@ -1694,15 +1694,14 @@
   document.getElementById('hero-enter-mkt')?.addEventListener('click', openGate);
   document.getElementById('gate-buyer-btn')?.addEventListener('click', () => chooseRole('buyer', '/marketplace'));
   document.getElementById('gate-seller-btn')?.addEventListener('click', () => chooseRole('seller', '/seller/earnings'));
-  document.getElementById('gate-agent-btn')?.addEventListener('click', () => chooseRole('agent', '/agent-mode'));
+  document.getElementById('gate-agent-btn')?.addEventListener('click', () => chooseRole('agent', '/sim'));
 
   // Role switcher in landing nav
   document.querySelectorAll('.role-btn').forEach(btn => {
-    const saved = localStorage.getItem('agenthire_role');
-    if (saved === btn.dataset.role) btn.classList.add('active');
     btn.addEventListener('click', () => {
-      const dest = btn.dataset.role === 'seller' ? '/seller/earnings' : '/marketplace';
-      localStorage.setItem('agenthire_role', btn.dataset.role);
+      const role = btn.dataset.role;
+      const dest = role === 'seller' ? '/seller/earnings' : role === 'agent' ? '/sim' : '/marketplace';
+      localStorage.setItem('agenthire_role', role);
       window.location.href = dest;
     });
   });

@@ -901,6 +901,16 @@ def order_detail(order_id):
 def how_it_works():
     return render_template("how_it_works.html")
 
+@app.route("/active-jobs")
+def active_jobs():
+    orders = [o for o in ORDERS if o["status"] in ("in_progress", "in_escrow")]
+    return render_template("active_jobs.html", orders=orders)
+
+@app.route("/past-jobs")
+def past_jobs():
+    orders = [o for o in ORDERS if o["status"] == "completed"]
+    return render_template("past_jobs.html", orders=orders)
+
 @app.route("/list-your-agent")
 def list_your_agent():
     return redirect(url_for("seller_create"))
@@ -909,6 +919,10 @@ def list_your_agent():
 
 @app.route("/agent-mode")
 def agent_mode():
+    return redirect(url_for("sim_dashboard"))
+
+@app.route("/agent-mode/overview")
+def agent_mode_overview():
     import random, time
     # Live task queue shown in the feed
     task_feed = [
@@ -2184,7 +2198,7 @@ def server_error(e):
 
 @app.route("/sim")
 def sim_dashboard():
-    return render_template("sim.html")
+    return render_template("demo.html", page_title="Agent Mode")
 
 
 @app.route("/api/sim/status")
@@ -2428,6 +2442,14 @@ def api_sim_trigger_direct():
         if not r.get("ok"):
             return jsonify(r), 400
         new_events = [ev.to_dict() for ev in eng.events if ev.id > before_id]
+        if not new_events:
+            app.logger.warning("trigger-direct: ok=True but new_events empty before_id=%s", before_id)
+            return jsonify({
+                "error": "Payment ran but no simulation events were captured; retry or restart the sim engine.",
+                "ok": False,
+                "newEvents": [],
+                "count": 0,
+            }), 503
         from models import OnchainProfile
         from_prof = OnchainProfile.query.get(from_id)
         to_prof = OnchainProfile.query.get(to_id)
@@ -2967,6 +2989,17 @@ def api_sim_trigger_a2a():
             app.logger.warning("trigger-a2a error: %s", e)
             return jsonify({"error": str(e)}), 500
     new_events = [ev.to_dict() for ev in eng.events if ev.id > before_id]
+    if not new_events:
+        return jsonify({
+            "error": (
+                "Simulator produced no events for this cascade. "
+                "Seed agents with on-chain profiles and ensure A2A_WORKFLOWS "
+                "flagships exist, then try again."
+            ),
+            "triggered": False,
+            "newEvents": [],
+            "count": 0,
+        }), 503
     # Resolve wallets for the calldata overlay
     from models import OnchainProfile
     settle = next((e for e in new_events if e["kind"] == "settle"), None)
@@ -3109,7 +3142,7 @@ def api_sim_a2a_candidates():
 
 @app.route("/demo")
 def demo_page():
-    return render_template("demo.html")
+    return render_template("demo.html", page_title="Demo")
 
 
 @app.route("/api/sim/events")
@@ -3192,5 +3225,11 @@ _maybe_autoenable_live_writes()
 
 
 if __name__ == "__main__":
-    # Port 5000 collides with macOS AirPlay Receiver; 8080 is reliable.
-    app.run(debug=True, port=int(os.environ.get("PORT", 8080)))
+    import sys
+
+    # Default: 5000 on Windows/Linux (matches `flask run` and common bookmarks).
+    # On macOS, AirPlay Receiver often binds 5000 — use 8080 unless PORT is set.
+    default_port = 8080 if sys.platform == "darwin" else 5000
+    port = int(os.environ.get("PORT", default_port))
+    print(f"\n  AgentHire -> http://127.0.0.1:{port}/\n", flush=True)
+    app.run(debug=True, host="127.0.0.1", port=port)

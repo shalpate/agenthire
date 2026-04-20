@@ -130,7 +130,7 @@ document.addEventListener('click', (e) => {
 const rolePaths = {
   buyer:  '/marketplace',
   seller: '/seller/dashboard',
-  agent:  '/agent-mode',
+  agent:  '/sim',
   admin:  '/admin/dashboard',
 };
 document.querySelectorAll('.role-btn').forEach(btn => {
@@ -849,6 +849,6 @@ function makeDoughnutChart(id, labels, data, colors) {
     document.getElementById('gate-seller-btn')
       ?.addEventListener('click', () => choose('seller', '/seller/dashboard'));
     document.getElementById('gate-agent-btn')
-      ?.addEventListener('click', () => choose('agent', '/agent-mode'));
+      ?.addEventListener('click', () => choose('agent', '/sim'));
   });
 })();

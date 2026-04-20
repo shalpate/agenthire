@@ -1,62 +1,75 @@
 {% extends "base.html" %}
-{% block title %}Demo{% endblock %}
+{% block title %}{{ page_title | default('Demo') }}{% endblock %}
 
 {% block head %}
 <style>
-  :root {
-    --accent: #5fe3e3;
-    --accent-soft: rgba(95,227,227,.1);
-    --surface: var(--surface-1);
-    --line: var(--border-1);
+  /* Scoped to /sim so we do not override global :root (was forcing teal + invalid --border-1). */
+  .a2a-shell {
+    --line: var(--border);
+    --surface: var(--card);
+    background-color: var(--card-2);
+    background-image:
+      radial-gradient(900px 520px at 10% 4%, rgba(232, 65, 66, 0.10), transparent 62%),
+      radial-gradient(760px 420px at 92% 0%, rgba(59, 130, 246, 0.08), transparent 64%),
+      radial-gradient(680px 420px at 52% 100%, rgba(245, 158, 11, 0.06), transparent 66%);
+    background-attachment: fixed;
+    min-height: calc(100vh - 56px);
+    width: 100%;
+    box-sizing: border-box;
+  }
+  [data-theme="dark"] .a2a-shell {
+    background-color: #0c0d10;
+  }
+  [data-theme="light"] .a2a-shell {
+    background-color: #f4f4f6;
+    background-image:
+      radial-gradient(920px 560px at 8% 2%, rgba(232, 65, 66, 0.07), transparent 64%),
+      radial-gradient(760px 460px at 96% 0%, rgba(59, 130, 246, 0.06), transparent 66%),
+      radial-gradient(720px 420px at 50% 100%, rgba(245, 158, 11, 0.05), transparent 68%);
   }
 
-  /* Reset the page's existing surrounding chrome to breathe */
-  body { background: #0a0d0e; }
-
-  .D { max-width: 960px; margin: 0 auto; padding: 48px 28px 120px; }
+  .D { max-width: 960px; margin: 0 auto; padding: 40px 28px 120px; }
 
   /* Chain strip — understated, one line, always visible */
   .chain-strip {
     display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
     padding: 14px 18px; margin-bottom: 40px;
-    background: rgba(255,255,255,.02); border: 1px solid var(--line);
+    background: var(--card-3);
+    border: 1px solid var(--line);
     border-radius: 12px;
     font-family: var(--font-mono); font-size: .72rem;
   }
-  .chain-strip .k { color: var(--text-3); text-transform: uppercase; letter-spacing: .08em; font-size: .6rem; margin-right: 4px; }
+  [data-theme="dark"] .chain-strip {
+    background: rgba(255, 255, 255, 0.04);
+  }
+  .chain-strip .k { color: var(--text-2); text-transform: uppercase; letter-spacing: .08em; font-size: .6rem; margin-right: 4px; }
   .chain-strip .v { color: var(--text); font-weight: 600; }
-  .chain-strip a.v { color: var(--accent); text-decoration: none; }
+  .chain-strip a.v { color: var(--red); text-decoration: none; }
   .chain-strip a.v:hover { text-decoration: underline; }
+  .chain-strip #cs-mode.cs-read-only { color: var(--amber); }
+  .chain-strip #cs-mode.cs-live { color: var(--green); }
   .chain-strip .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 3px rgba(57,211,83,.15); animation: dot 2s infinite; }
   @keyframes dot { 50% { opacity: .4; } }
   .chain-strip .pulse-block { animation: pulse-block .8s ease-out; }
   @keyframes pulse-block {
-    0% { color: var(--accent); text-shadow: 0 0 8px var(--accent); }
-    100% { color: var(--accent); }
+    0% { color: var(--red); text-shadow: 0 0 8px rgba(232, 65, 66, 0.45); }
+    100% { color: var(--red); }
   }
-  .contracts { position: relative; margin-left: auto; cursor: pointer; }
-  .contracts:hover .ctr-menu { display: block; }
-  .ctr-menu {
-    display: none; position: absolute; right: 0; top: calc(100% + 6px);
-    background: #141719; border: 1px solid var(--line); border-radius: 8px;
-    padding: 4px; z-index: 20; min-width: 260px;
-    box-shadow: 0 10px 40px rgba(0,0,0,.5);
-  }
-  .ctr-menu a { display: block; padding: 8px 10px; border-radius: 6px; color: var(--text); text-decoration: none; font-size: .7rem; }
-  .ctr-menu a:hover { background: rgba(255,255,255,.04); }
-  .ctr-menu a b { color: var(--accent); }
-  .ctr-menu a span { color: var(--text-3); font-size: .65rem; }
-
   /* Hero */
   .hero {
     text-align: left; margin-bottom: 40px;
+    border-bottom: none;
+    position: relative;
   }
+  .a2a-shell .hero::before,
+  .a2a-shell .hero::after { display: none; }
   .hero h1 {
     font-size: 2.4rem; font-weight: 700; line-height: 1.1;
     margin: 0 0 10px; letter-spacing: -0.02em;
+    color: var(--text);
   }
   .hero p {
-    font-size: 1rem; color: var(--text-3); max-width: 580px;
+    font-size: 1rem; color: var(--text-2); max-width: 580px;
     line-height: 1.55; margin: 0;
   }
 
@@ -69,46 +82,124 @@
   .form-row:last-of-type { margin-bottom: 0; }
   .f-group { display: flex; flex-direction: column; gap: 6px; }
   .f-group label {
-    font-size: .62rem; color: var(--text-3); font-family: var(--font-mono);
+    font-size: .62rem; color: var(--text-2); font-family: var(--font-mono);
     text-transform: uppercase; letter-spacing: .08em;
   }
-  .f-group input, .f-group select {
-    padding: 12px 14px; background: rgba(255,255,255,.02);
-    border: 1px solid var(--line); border-radius: 8px;
-    color: var(--text); font-family: var(--font-mono); font-size: .88rem;
-    width: 100%; transition: border-color .15s;
+  .f-group input {
+    padding: 12px 14px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: .88rem;
+    width: 100%;
+    transition: border-color 0.15s, box-shadow 0.15s;
   }
-  .f-group input:focus, .f-group select:focus { outline: none; border-color: var(--accent); }
+  /* Selects use global theme so light/dark matches the rest of AgentHire */
+  .a2a-shell .f-group select,
+  .a2a-shell .a2a-select {
+    padding: 12px 14px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 0.88rem;
+    font-weight: 600;
+    width: 100%;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  [data-theme="dark"] .a2a-shell .f-group select,
+  [data-theme="dark"] .a2a-shell .a2a-select { color-scheme: dark; }
+  [data-theme="light"] .a2a-shell .f-group select,
+  [data-theme="light"] .a2a-shell .a2a-select { color-scheme: light; }
+  .a2a-shell .f-group select:focus,
+  .a2a-shell .a2a-select:focus {
+    outline: none;
+    border-color: var(--red);
+    box-shadow: 0 0 0 2px var(--red-dim);
+  }
+  .a2a-shell select option {
+    background: var(--card);
+    color: var(--text);
+    font-weight: 500;
+  }
+  .a2a-shell select optgroup {
+    background: linear-gradient(180deg, var(--red), var(--red-dark));
+    color: #fff;
+    font-weight: 800;
+    font-size: 0.72rem;
+    font-family: var(--font-mono);
+  }
+  .f-group input:focus {
+    outline: none;
+    border-color: var(--red);
+    box-shadow: 0 0 0 2px var(--red-dim);
+  }
 
   .verify-line {
-    margin-top: 6px; padding: 6px 10px; border-radius: 6px;
-    background: rgba(95,227,227,.04); border: 1px solid rgba(95,227,227,.2);
+    margin-top: 10px; padding: 12px 14px; border-radius: 8px;
+    background: var(--card-3);
+    border: 1px solid var(--line);
     font-family: var(--font-mono); font-size: .64rem; display: none;
-    gap: 12px; flex-wrap: wrap; align-items: center;
+    gap: 10px 14px; flex-wrap: wrap; align-items: center;
   }
   .verify-line.show { display: flex; }
   .vl-badge {
-    padding: 2px 6px; background: var(--accent-soft); border: 1px solid var(--accent);
-    color: var(--accent); border-radius: 3px; font-size: .56rem; font-weight: 800;
-    text-transform: uppercase; letter-spacing: .06em;
+    padding: 2px 6px;
+    background: var(--red-dim);
+    border: 1px solid var(--red-border);
+    color: var(--red);
+    border-radius: 3px;
+    font-size: .56rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .06em;
   }
-  .vl-k { color: var(--text-3); }
+  .vl-k { color: var(--text-2); }
   .vl-v { color: var(--text); font-weight: 600; margin-left: 3px; }
 
   .form-action {
     display: flex; align-items: center; gap: 14px; margin-top: 20px;
     padding-top: 20px; border-top: 1px solid var(--line);
   }
-  .cascade-toggle { display: flex; align-items: center; gap: 8px; font-size: .8rem; color: var(--text-2); cursor: pointer; }
-  .cascade-toggle input { accent-color: var(--accent); width: 14px; height: 14px; }
-  .cascade-toggle .hint { color: var(--text-3); font-size: .7rem; }
-
-  .btn-send {
-    margin-left: auto; padding: 12px 24px; font-size: .9rem; font-weight: 700;
-    background: var(--accent); color: #001818; border: none; border-radius: 8px;
-    cursor: pointer; transition: all .15s;
+  .form-action-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-height: 52px;
+    justify-content: center;
   }
-  .btn-send:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(95,227,227,.3); }
+  .form-action-title {
+    font-family: var(--font-mono);
+    font-size: .64rem;
+    color: var(--text-2);
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+  .form-action-sub {
+    font-size: .8rem;
+    color: var(--text);
+    line-height: 1.35;
+  }
+  .btn-send {
+    margin-left: auto;
+    padding: 12px 24px;
+    font-size: .9rem;
+    font-weight: 700;
+    background: var(--red);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: background 0.15s, transform 0.15s, box-shadow 0.15s;
+  }
+  .btn-send:hover:not(:disabled) {
+    background: var(--red-dark);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(232, 65, 66, 0.35);
+  }
   .btn-send:disabled { opacity: .5; cursor: not-allowed; }
 
   /* Stage */
@@ -122,8 +213,12 @@
     transition: border-color .25s, transform .25s, box-shadow .25s;
   }
   .chip.sender { border-color: rgba(57,211,83,.35); box-shadow: 0 0 0 1px rgba(57,211,83,.15); }
-  .chip.receiver { border-color: var(--accent); box-shadow: 0 0 0 1px rgba(95,227,227,.15); transform: translateY(-2px); }
-  .chip.empty { background: transparent; border-style: dashed; justify-content: center; align-items: center; color: var(--text-3); font-family: var(--font-mono); font-size: .74rem; text-align: center; }
+  .chip.receiver {
+    border-color: var(--red-border);
+    box-shadow: 0 0 0 1px var(--red-dim);
+    transform: translateY(-2px);
+  }
+  .chip.empty { background: transparent; border-style: dashed; justify-content: center; align-items: center; color: var(--text-2); font-family: var(--font-mono); font-size: .74rem; text-align: center; }
 
   .chip-head { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
   .avatar {
@@ -137,24 +232,24 @@
     margin-left: auto; font-family: var(--font-mono); font-size: .58rem;
     padding: 2px 7px; border-radius: 999px; font-weight: 700;
   }
-  .t-1 { background: rgba(255,255,255,.06); color: var(--text-2); }
+  .t-1 { background: var(--card-3); color: var(--text-2); }
   .t-2 { background: rgba(127,179,255,.15); color: #7fb3ff; }
   .t-3 { background: linear-gradient(135deg, rgba(193,154,255,.15), rgba(193,154,255,.25)); color: #c19aff; }
 
   .chip-row { display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: .68rem; align-items: baseline; }
   .chip-row .k { color: var(--text-3); }
-  .chip-row a { color: var(--accent); text-decoration: none; font-size: .64rem; }
+  .chip-row a { color: var(--red); text-decoration: none; font-size: .64rem; }
   .chip-row a:hover { text-decoration: underline; }
   .delta { color: var(--green); font-weight: 700; margin-left: 4px; animation: pop .7s ease-out; }
   @keyframes pop { 0% { opacity: 0; transform: scale(.6); } 100% { opacity: 1; transform: scale(1); } }
 
   .arrow-col { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; }
   .arrow { font-size: 1.6rem; color: var(--text-3); transition: all .25s; }
-  .arrow.active { color: var(--accent); transform: scaleX(1.3); }
-  .flight { font-family: var(--font-mono); font-weight: 800; font-size: 1rem; color: var(--accent); opacity: 0; transition: opacity .3s; }
+  .arrow.active { color: var(--red); transform: scaleX(1.3); }
+  .flight { font-family: var(--font-mono); font-weight: 800; font-size: 1rem; color: var(--red); opacity: 0; transition: opacity .3s; }
   .flight.show { opacity: 1; }
   .via { font-family: var(--font-mono); font-size: .58rem; color: var(--text-3); text-align: center; }
-  .via a { color: var(--accent); text-decoration: none; }
+  .via a { color: var(--red); text-decoration: none; }
 
   /* History — the one persistent output surface */
   .history {
@@ -162,59 +257,115 @@
     overflow: hidden; margin-bottom: 20px;
   }
   .h-head { padding: 14px 18px; display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px solid var(--line); }
-  .h-title { font-family: var(--font-mono); font-size: .7rem; text-transform: uppercase; letter-spacing: .08em; color: var(--text-3); }
-  .h-count { font-family: var(--font-mono); font-size: .7rem; color: var(--accent); }
-  .h-clear { font-family: var(--font-mono); font-size: .66rem; color: var(--text-3); background: none; border: none; cursor: pointer; margin-left: 12px; }
+  .h-title { font-family: var(--font-mono); font-size: .7rem; text-transform: uppercase; letter-spacing: .08em; color: var(--text-2); }
+  .h-count { font-family: var(--font-mono); font-size: .7rem; color: var(--red); font-weight: 700; }
+  .h-clear { font-family: var(--font-mono); font-size: .66rem; color: var(--text-2); background: none; border: none; cursor: pointer; margin-left: 12px; }
   .h-clear:hover { color: #ff8787; }
   .h-cols, .h-row { display: grid; grid-template-columns: 70px 1.4fr 100px 110px 90px; gap: 10px; align-items: center; padding: 10px 18px; }
-  .h-cols { border-bottom: 1px solid var(--line); font-family: var(--font-mono); font-size: .55rem; color: var(--text-3); text-transform: uppercase; letter-spacing: .08em; }
+  .h-cols { border-bottom: 1px solid var(--line); font-family: var(--font-mono); font-size: .55rem; color: var(--text-2); text-transform: uppercase; letter-spacing: .08em; }
   .h-row { border-bottom: 1px solid var(--line); font-family: var(--font-mono); font-size: .72rem; animation: fadein .8s ease-out; }
   @keyframes fadein {
-    0% { background: var(--accent-soft); opacity: 0; }
+    0% { background: var(--red-dim); opacity: 0; }
     100% { background: transparent; opacity: 1; }
   }
   .h-row:last-child { border-bottom: none; }
-  .h-row .ts { color: var(--text-3); }
+  .h-row .ts { color: var(--text-2); }
   .h-row .kind {
     padding: 2px 6px; border-radius: 3px; font-size: .56rem; font-weight: 700;
-    text-transform: uppercase; text-align: center; background: rgba(255,255,255,.04); color: var(--text-2);
+    text-transform: uppercase; text-align: center;
+    background: var(--card-3);
+    color: var(--text-2);
   }
   .h-row .kind.settle { background: rgba(57,211,83,.12); color: var(--green); }
-  .h-row .kind.a2a_hire, .h-row .kind.a2a_settle { background: var(--accent-soft); color: var(--accent); }
+  .h-row .kind.a2a_hire, .h-row .kind.a2a_settle { background: var(--red-dim); color: var(--red); }
   .h-row .kind.registerAgent { background: rgba(57,211,83,.16); color: var(--green); font-weight: 800; }
   .h-row .msg { color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .h-row .tx { color: var(--accent); text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .h-row .tx { color: var(--red); text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .h-row .tx:hover { text-decoration: underline; }
   .h-row .tx.live::after { content: " ✓"; color: var(--green); }
   .h-row .amt { color: var(--green); font-weight: 700; text-align: right; }
-  .h-empty { padding: 40px 18px; color: var(--text-3); font-family: var(--font-mono); font-size: .75rem; text-align: center; }
+  .h-empty { padding: 40px 18px; color: var(--text-2); font-family: var(--font-mono); font-size: .75rem; text-align: center; }
 
   /* Collapsed details */
   details.more { margin-top: 24px; }
   details.more > summary {
     cursor: pointer; padding: 10px 14px; list-style: none;
-    background: rgba(255,255,255,.02); border: 1px solid var(--line); border-radius: 8px;
-    font-family: var(--font-mono); font-size: .7rem; color: var(--text-3);
+    background: var(--card-3);
+    border: 1px solid var(--line); border-radius: 8px;
+    font-family: var(--font-mono); font-size: .7rem;
+    color: var(--text-2);
     text-transform: uppercase; letter-spacing: .08em;
     display: flex; justify-content: space-between; align-items: center;
   }
-  details.more > summary:hover { color: var(--text); }
-  details.more[open] > summary { border-bottom-left-radius: 0; border-bottom-right-radius: 0; color: var(--text); }
+  [data-theme="dark"] details.more > summary {
+    background: rgba(255, 255, 255, 0.04);
+  }
+  details.more > summary > span:first-of-type { color: var(--text); font-weight: 600; }
+  details.more > summary > span:last-of-type { color: var(--text-2); text-transform: none; letter-spacing: 0; font-weight: 500; }
+  details.more > summary:hover { filter: brightness(1.03); }
+  details.more[open] > summary { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
   details.more .body { padding: 14px 16px; background: var(--surface); border: 1px solid var(--line); border-top: none; border-radius: 0 0 8px 8px; font-family: var(--font-mono); font-size: .7rem; }
 
   .more-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
   .more-actions button {
-    padding: 8px 14px; background: rgba(255,255,255,.03); border: 1px solid var(--line); border-radius: 6px;
+    padding: 8px 14px;
+    background: var(--card-3);
+    border: 1px solid var(--line); border-radius: 6px;
     color: var(--text-2); font-family: var(--font-mono); font-size: .7rem; cursor: pointer;
   }
-  .more-actions button:hover { border-color: var(--accent); color: var(--accent); }
+  .more-actions button:hover { border-color: var(--red); color: var(--red); }
 
-  .err { position: fixed; bottom: 20px; right: 20px; padding: 10px 14px; background: #3a0d0d; border: 1px solid #ff8787; border-radius: 6px; color: #ff8787; font-family: var(--font-mono); font-size: .74rem; display: none; max-width: 360px; z-index: 100; }
+  .btn-send-secondary {
+    background: var(--red-dim) !important;
+    color: var(--red) !important;
+    border: 1px solid var(--red-border) !important;
+    box-shadow: none !important;
+  }
+  .btn-send-secondary:hover:not(:disabled) {
+    background: var(--red-border) !important;
+    color: var(--red-dark) !important;
+  }
+
+  .a2a-pre {
+    background: var(--card-3) !important;
+    border: 1px solid var(--line) !important;
+    color: var(--text) !important;
+  }
+  [data-theme="dark"] .a2a-pre {
+    background: #0f1214 !important;
+    color: var(--text-2) !important;
+  }
+
+  .h-sim-badge {
+    font-size: .54rem;
+    background: var(--card-3);
+    color: var(--text-2);
+    padding: 1px 5px;
+    border-radius: 3px;
+    margin-right: 5px;
+    font-weight: 700;
+  }
+
+  .err {
+    position: fixed; bottom: 20px; right: 20px; padding: 10px 14px;
+    background: var(--red-darkest);
+    border: 1px solid var(--red-border);
+    border-radius: 6px;
+    color: #fecaca;
+    font-family: var(--font-mono); font-size: .74rem; display: none; max-width: 360px; z-index: 100;
+  }
+  [data-theme="light"] .err {
+    background: #fff1f2;
+    color: var(--red-dark);
+    border-color: var(--red-border);
+  }
 
   @media (max-width: 720px) {
     .D { padding: 24px 18px 80px; }
     .hero h1 { font-size: 1.6rem; }
     .form-row, .stage { grid-template-columns: 1fr; }
+    .form-action { flex-direction: column; align-items: stretch; gap: 12px; }
+    .btn-send { margin-left: 0; width: 100%; }
     .h-cols, .h-row { grid-template-columns: 60px 1.2fr 90px 80px; }
     .h-cols > :nth-child(3), .h-row > :nth-child(3) { display: none; }
   }
@@ -222,17 +373,14 @@
 {% endblock %}
 
 {% block content %}
+<div class="a2a-shell">
 <div class="D">
   <div class="chain-strip">
     <span class="dot"></span>
     <span><span class="k">Chain</span><span class="v">Avalanche Fuji · 43113</span></span>
     <span><span class="k">Block</span><a class="v" id="cs-block" href="#" target="_blank">—</a></span>
-    <span><span class="k">Mode</span><span class="v" id="cs-mode">—</span></span>
+    <span><span class="k">Mode</span><span class="v" id="cs-mode" aria-live="polite">—</span></span>
     <span><span class="k">Facilitator</span><a class="v" id="cs-fac" href="#" target="_blank">—</a></span>
-    <div class="contracts">
-      <span class="v" style="color:var(--accent); cursor:pointer;">Contracts ▾</span>
-      <div class="ctr-menu" id="ctr-menu"></div>
-    </div>
   </div>
 
   <div class="hero">
@@ -256,19 +404,18 @@
     <div class="form-row">
       <div class="f-group">
         <label>Amount (USDC)</label>
-        <input type="number" id="amount" min="0.01" step="0.01" value="5.00">
+        <input type="number" id="amount" min="0.01" step="0.01" value="5.06">
       </div>
       <div class="f-group">
         <label>Tokens</label>
-        <input type="number" id="tokens" min="1" step="100" value="1000">
+        <input type="number" id="tokens" min="1" step="1" value="1">
       </div>
     </div>
     <div class="form-action">
-      <label class="cascade-toggle">
-        <input type="checkbox" id="cascade">
-        <span>Cascade</span>
-        <span class="hint">when sender is a flagship (★), pay its whole sub-agent workflow</span>
-      </label>
+      <div class="form-action-meta">
+        <div class="form-action-title">Transfer mode</div>
+        <div class="form-action-sub">Direct sender -> receiver settlement on Fuji</div>
+      </div>
       <button class="btn-send" id="btn-send">Send Payment</button>
     </div>
   </div>
@@ -302,11 +449,11 @@
   <details class="more">
     <summary>
       <span>x402 · HTTP 402 live handshake</span>
-      <span style="color:var(--text-3); text-transform:none; letter-spacing:0;">click to see the protocol in action</span>
+      <span>click to see the x402 flow in action</span>
     </summary>
     <div class="body">
       <div style="margin-bottom: 14px; color:var(--text-2); line-height: 1.55;">
-        The x402 protocol: an API endpoint returns <b style="color:var(--accent);">HTTP 402 Payment Required</b> with a challenge.
+        The x402 protocol: an API endpoint returns <b style="color:var(--red);">HTTP 402 Payment Required</b> with a challenge.
         The caller signs an EIP-3009 permit, retries with <code>X-Payment</code> header,
         the facilitator executes the 3-tx flow, the endpoint returns 200 with receipt.
         <br><b>This demo uses the real deployed MockUSDC + EscrowPayment contracts on Fuji.</b>
@@ -314,15 +461,15 @@
       <div style="display:grid; grid-template-columns: 1fr auto 1fr; gap:12px; align-items:flex-start; margin-bottom:12px;">
         <div>
           <label style="font-size:.62rem; color:var(--text-3); font-family:var(--font-mono); text-transform:uppercase; letter-spacing:.08em;">Target agent</label>
-          <select id="x402-agent" style="width:100%; padding:8px 10px; background:rgba(255,255,255,.02); border:1px solid var(--line); border-radius:7px; color:var(--text); font-family:var(--font-mono); font-size:.82rem; margin-top:4px;"></select>
+          <select id="x402-agent" class="a2a-select" style="width:100%; margin-top:4px; padding:10px 12px; font-size:.82rem;"></select>
         </div>
         <div style="display:flex; flex-direction:column; gap:6px; padding-top:20px;">
           <button id="x402-step1" class="btn-send" style="padding:8px 14px; font-size:.75rem;">① GET (expect 402)</button>
-          <button id="x402-step2" class="btn-send" style="padding:8px 14px; font-size:.75rem; background:rgba(95,227,227,.15); color:var(--accent); border:1px solid var(--accent);">② Sign + Retry</button>
+          <button id="x402-step2" class="btn-send btn-send-secondary" style="padding:8px 14px; font-size:.75rem;">② Sign + Retry</button>
         </div>
         <div></div>
       </div>
-      <pre id="x402-output" style="background:#0a0d0e; border:1px solid var(--line); border-radius:6px; padding:12px; font-size:.68rem; color:var(--text-2); overflow:auto; max-height:300px; margin:0; white-space:pre-wrap; word-break:break-word;">Click ① to make an unpaid request → server returns 402 Payment Required.
+      <pre id="x402-output" class="a2a-pre" style="border-radius:6px; padding:12px; font-size:.68rem; overflow:auto; max-height:300px; margin:0; white-space:pre-wrap; word-break:break-word;">Click ① to make an unpaid request → server returns 402 Payment Required.
 Click ② to sign a permit + retry → server returns 200 OK with receipt.</pre>
     </div>
   </details>
@@ -330,7 +477,7 @@ Click ② to sign a permit + retry → server returns 200 OK with receipt.</pre>
   <details class="more">
     <summary>
       <span>ERC-8004 · trustless agent reputation</span>
-      <span style="color:var(--text-3); text-transform:none; letter-spacing:0;">standard IERC8004 + per-category scores</span>
+      <span>standard IERC8004 + per-category scores</span>
     </summary>
     <div class="body">
       <div style="margin-bottom: 14px; color:var(--text-2); line-height: 1.55;">
@@ -342,35 +489,35 @@ Click ② to sign a permit + retry → server returns 200 OK with receipt.</pre>
       </div>
       <div style="margin-bottom:8px;">
         <label style="font-size:.62rem; color:var(--text-3); font-family:var(--font-mono); text-transform:uppercase; letter-spacing:.08em;">Probe an agent</label>
-        <select id="erc8004-agent" style="width:100%; padding:8px 10px; background:rgba(255,255,255,.02); border:1px solid var(--line); border-radius:7px; color:var(--text); font-family:var(--font-mono); font-size:.82rem; margin-top:4px;"></select>
+        <select id="erc8004-agent" class="a2a-select" style="width:100%; margin-top:4px; padding:10px 12px; font-size:.82rem;"></select>
       </div>
-      <pre id="erc8004-output" style="background:#0a0d0e; border:1px solid var(--line); border-radius:6px; padding:12px; font-size:.68rem; color:var(--text-2); overflow:auto; max-height:300px; margin:0; white-space:pre-wrap;">Pick an agent to see its full IERC8004 profile.</pre>
+      <pre id="erc8004-output" class="a2a-pre" style="border-radius:6px; padding:12px; font-size:.68rem; overflow:auto; max-height:300px; margin:0; white-space:pre-wrap;">Pick an agent to see its full IERC8004 profile.</pre>
     </div>
   </details>
 
   <details class="more">
     <summary>
       <span>Extras · market feed · advanced actions</span>
-      <span id="ex-summary" style="color:var(--text-3); text-transform:none; letter-spacing:0;">bids · winners · slash · post bid</span>
+      <span id="ex-summary">bids · winners · slash · post bid</span>
     </summary>
     <div class="body">
       <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 16px;">
         <div>
-          <div style="color:var(--text-3); margin-bottom: 6px;">Open bids</div>
+          <div style="color:var(--text-2); margin-bottom: 6px;">Open bids</div>
           <div id="bids-body"></div>
         </div>
         <div>
-          <div style="color:var(--text-3); margin-bottom: 6px;">Recent winners</div>
+          <div style="color:var(--text-2); margin-bottom: 6px;">Recent winners</div>
           <div id="wins-body"></div>
         </div>
       </div>
       <div style="border-top: 1px solid var(--line); padding-top: 14px;">
-        <div style="color:var(--text-3); margin-bottom: 8px;">Advanced actions</div>
+        <div style="color:var(--text-2); margin-bottom: 8px;">Advanced actions</div>
         <div class="more-actions">
           <button id="btn-post-bid">+ Post a Bid</button>
           <button id="btn-slash">⚠ Slash Agent</button>
           <button id="btn-force-surge">⚡ Force Surge</button>
-          <label class="cascade-toggle" style="margin-left: auto; padding: 4px 12px;">
+          <label style="display:flex; align-items:center; gap:8px; margin-left: auto; padding: 4px 12px; font-size:.8rem; color:var(--text-2); cursor:pointer;">
             <input type="checkbox" id="live-writes">
             <span>Real on-chain writes</span>
           </label>
@@ -380,6 +527,7 @@ Click ② to sign a permit + retry → server returns 200 OK with receipt.</pre>
   </details>
 
   <div class="err" id="err"></div>
+</div>
 </div>
 
 <script>
@@ -415,8 +563,12 @@ Click ② to sign a permit + retry → server returns 200 OK with receipt.</pre>
 
   async function fetchJson(url, opts) {
     const r = await fetch(url, opts);
-    if (!r.ok) throw new Error(`${url}: HTTP ${r.status}`);
-    return r.json();
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      const msg = data.error || data.message || `${url}: HTTP ${r.status}`;
+      throw new Error(msg);
+    }
+    return data;
   }
 
   // Chain strip polling
@@ -431,8 +583,11 @@ Click ② to sign a permit + retry → server returns 200 OK with receipt.</pre>
       }
       blockEl.textContent = '#' + (s.block?.toLocaleString() || '—');
       blockEl.href = 'https://testnet.snowtrace.io/block/' + s.block;
-      $('cs-mode').textContent = s.mode === 'live-write' ? 'LIVE WRITE' : 'READ-ONLY';
-      $('cs-mode').style.color = s.mode === 'live-write' ? 'var(--green)' : 'var(--amber)';
+      const modeEl = $('cs-mode');
+      modeEl.textContent = s.mode === 'live-write' ? 'LIVE WRITE' : 'READ-ONLY';
+      modeEl.classList.remove('cs-read-only', 'cs-live');
+      modeEl.classList.add(s.mode === 'live-write' ? 'cs-live' : 'cs-read-only');
+      modeEl.style.color = '';
       $('cs-fac').textContent = shorten(s.facilitator);
       $('cs-fac').href = 'https://testnet.snowtrace.io/address/' + s.facilitator;
       $('cs-fac').title = `${s.facilitator}\n${s.facilitatorAVAX} AVAX`;
@@ -451,7 +606,7 @@ Click ② to sign a permit + retry → server returns 200 OK with receipt.</pre>
       const stake = d.stake || {};
       const stakedUsdc = stake.stakedUSDCDisplay ?? (Number(stake.stakedUSDC || 0) / 1e6);
       const onchain = d.source === 'on-chain';
-      const badge = onchain ? `Fuji ✓ #${d.block?.toLocaleString()}` : 'sim';
+      const badge = onchain ? `FUJI / #${d.block?.toLocaleString()}` : 'SIM';
       const bstyle = onchain ? '' : 'background:rgba(255,170,0,.1); border-color:rgba(255,170,0,.3); color:var(--amber);';
       el.innerHTML = `
         <span class="vl-badge" style="${bstyle}">${badge}</span>
@@ -481,11 +636,11 @@ Click ② to sign a permit + retry → server returns 200 OK with receipt.</pre>
       || (realTx ? `https://testnet.snowtrace.io/tx/${hash}` : (ctr?.explorer || `https://testnet.snowtrace.io/address/${ctr?.address || ''}`));
     const label = realTx ? hash.slice(0,10)+'…'
                          : (ctr ? ctr.contract : 'sim');
-    const badge = realTx ? '' : `<span style="font-size:.54rem; background:rgba(255,255,255,.05); color:var(--text-3); padding:1px 5px; border-radius:3px; margin-right:5px; font-weight:700;">sim</span>`;
+    const badge = realTx ? '' : '<span class="h-sim-badge">sim</span>';
     row.innerHTML = `
       <span class="ts">${fmtTs(ev.ts || Date.now()/1000)}</span>
       <span class="msg" title="${(ev.message || '').replace(/"/g,'&quot;')}"><span class="kind ${ev.kind}">${ev.kind.replace('_',' ')}</span> ${ev.message}</span>
-      <span style="color:var(--text-3);">#${block.toLocaleString()}</span>
+      <span style="color:var(--text-2);">#${block.toLocaleString()}</span>
       <a href="${url}" target="_blank" class="tx ${live ? 'live' : ''}">${badge}${label}</a>
       <span class="amt">${(ev.amountUSDC || 0).toFixed(2)}</span>
     `;
@@ -505,12 +660,12 @@ Click ② to sign a permit + retry → server returns 200 OK with receipt.</pre>
       const ctr = contractMap[e.kind];
       const isReal = !!e.realTx;
       const label = isReal ? e.txHash.slice(0,10)+'…' : (ctr ? ctr.contract : 'sim');
-      const badge = isReal ? '' : `<span style="font-size:.54rem; background:rgba(255,255,255,.05); color:var(--text-3); padding:1px 5px; border-radius:3px; margin-right:5px; font-weight:700;">sim</span>`;
+      const badge = isReal ? '' : '<span class="h-sim-badge">sim</span>';
       const url = isReal ? e.snow : (ctr?.explorer || e.snow);
       row.innerHTML = `
         <span class="ts">${fmtTs(e.ts)}</span>
         <span class="msg" title="${(e.message || '').replace(/"/g,'&quot;')}"><span class="kind ${e.kind}">${e.kind.replace('_',' ')}</span> ${e.message}</span>
-        <span style="color:var(--text-3);">#${e.block.toLocaleString()}</span>
+        <span style="color:var(--text-2);">#${e.block.toLocaleString()}</span>
         <a href="${url}" target="_blank" class="tx ${e.live ? 'live' : ''}">${badge}${label}</a>
         <span class="amt">${(e.amountUSDC || 0).toFixed(2)}</span>
       `;
@@ -557,39 +712,40 @@ Click ② to sign a permit + retry → server returns 200 OK with receipt.</pre>
     const btn = $('btn-send'); btn.disabled = true; btn.textContent = 'Sending…';
     const fromId = $('from').value, toId = $('to').value;
     const amount = parseFloat($('amount').value);
-    const tokens = parseInt($('tokens').value) || 1000;
-    const cascade = $('cascade').checked;
+    const tokens = parseInt($('tokens').value, 10) || 1;
 
     if (!fromId) return (showErr('Pick a sender.'), btn.disabled=false, btn.textContent='Send Payment');
-    if (!cascade && !toId) return (showErr('Pick a receiver.'), btn.disabled=false, btn.textContent='Send Payment');
-    if (!cascade && fromId === toId) return (showErr('Sender and receiver must differ.'), btn.disabled=false, btn.textContent='Send Payment');
-    if (cascade && !FLAGSHIPS.has(parseInt(fromId))) return (showErr('Cascade needs a flagship sender (★) — ' + FLAGSHIP_NAMES.join(', ')), btn.disabled=false, btn.textContent='Send Payment');
+    if (!toId) return (showErr('Pick a receiver.'), btn.disabled=false, btn.textContent='Send Payment');
+    if (fromId === toId) return (showErr('Sender and receiver must differ.'), btn.disabled=false, btn.textContent='Send Payment');
 
     resetStage();
     let data;
     try {
-      if (cascade) {
-        data = await fetchJson('/api/sim/trigger-a2a', {
-          method: 'POST', headers: {'Content-Type':'application/json'},
-          body: JSON.stringify({ primaryId: Number(fromId), tokenBudget: tokens, pricePerToken: amount / tokens }),
-        });
-      } else {
-        data = await fetchJson('/api/sim/trigger-direct', {
-          method: 'POST', headers: {'Content-Type':'application/json'},
-          body: JSON.stringify({ fromId: Number(fromId), toId: Number(toId), amountUSDC: amount, tokens }),
-        });
-      }
+      data = await fetchJson('/api/sim/trigger-direct', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ fromId: Number(fromId), toId: Number(toId), amountUSDC: amount, tokens }),
+      });
     } catch (e) { showErr(e.message); btn.disabled = false; btn.textContent = 'Send Payment'; return; }
 
     const events = data.newEvents || [];
+    if (!events.length) {
+      showErr(data.error || 'No simulation events were returned.');
+      btn.disabled = false; btn.textContent = 'Send Payment';
+      return;
+    }
     const settleEv = events.find(e => e.kind === 'settle');
+    const hireFirst = events.find(e => e.kind === 'a2a_hire');
+    const settleFirst = events.find(e => e.kind === 'a2a_settle');
+    const primaryId = settleEv?.agentId ?? hireFirst?.agentId ?? settleFirst?.meta?.primaryId ?? null;
     const hires = events.filter(e => e.kind === 'a2a_hire');
     const settles = events.filter(e => e.kind === 'a2a_settle');
-    if (!settleEv) { btn.disabled = false; btn.textContent = 'Send Payment'; return; }
+    if (!settleEv && !hireFirst && !settleFirst) {
+      showErr('Unexpected response: no payment-related events in this batch.');
+    }
 
-    // paint sender
-    const sa = await fetchAgent(settleEv.agentId);
-    const sp = await fetchProfile(settleEv.agentId);
+    // paint sender (settle preferred; direct + cascade both log settle today)
+    const sa = primaryId ? await fetchAgent(primaryId) : null;
+    const sp = primaryId ? await fetchProfile(primaryId) : null;
     if (sa && sp) await paintChip('c-from', sa, sp, 'sender');
 
     // fly
@@ -634,17 +790,17 @@ Click ② to sign a permit + retry → server returns 200 OK with receipt.</pre>
       const bids = await fetchJson('/api/sim/open-bids');
       $('bids-body').innerHTML = bids.bids.slice(0,5).map(b =>
         `<div style="padding:4px 0; border-bottom:1px solid var(--line);">
-          <span style="color:${b.bidId.startsWith('USER-') ? 'var(--accent)' : 'var(--text)'};">${b.bidId}</span>
-          <span style="color:var(--text-3);"> · ${b.tokenBudget}tok T${b.minTier}+</span>
+          <span style="color:${b.bidId.startsWith('USER-') ? 'var(--red)' : 'var(--text)'};">${b.bidId}</span>
+          <span style="color:var(--text-2);"> · ${b.tokenBudget}tok T${b.minTier}+</span>
           <span style="color:var(--green); float:right;">$${b.depositUSDC.toFixed(2)}</span>
         </div>`
-      ).join('') || '<div style="color:var(--text-3); padding:8px 0;">Engine will generate bids…</div>';
+      ).join('') || '<div style="color:var(--text-2); padding:8px 0;">Engine will generate bids…</div>';
     } catch {}
     try {
       const wins = await fetchJson('/api/sim/recent-winners');
       $('wins-body').innerHTML = wins.winners.slice(0,5).map(w =>
         `<div style="padding:4px 0; border-bottom:1px solid var(--line); color:var(--text-2);">${w.message.slice(0, 70)}</div>`
-      ).join('') || '<div style="color:var(--text-3); padding:8px 0;">No winners yet…</div>';
+      ).join('') || '<div style="color:var(--text-2); padding:8px 0;">No winners yet…</div>';
     } catch {}
   }
 
@@ -759,6 +915,19 @@ Click ② to sign a permit + retry → server returns 200 OK with receipt.</pre>
       if (receipt && receipt.snowtrace) {
         out.textContent += `\n\n✓ Real tx on Fuji: ${receipt.snowtrace}`;
       }
+      if (r.ok && body.ok) {
+        const xAmt = Number((x402Challenge && x402Challenge.price && x402Challenge.price.amountUSDC) || 0);
+        const xRec = body.x402Receipt || {};
+        const hashes = xRec.txHashes || [];
+        const snow = xRec.snowtrace || (hashes[0] ? `https://testnet.snowtrace.io/tx/${hashes[0]}` : null);
+        addRow({
+          id: 'X402-' + Date.now(),
+          ts: Math.floor(Date.now() / 1000),
+          kind: 'deposit',
+          message: `x402 paid gate · execute agent ${aid}` + (body.agentName ? ` (${body.agentName})` : ''),
+          amountUSDC: xAmt,
+        }, hashes[0] || null, snow, !!(hashes[0] || snow));
+      }
     } catch (e) { out.textContent += '✗ retry failed: ' + e.message; }
   }
 
@@ -806,17 +975,6 @@ Click ② to sign a permit + retry → server returns 200 OK with receipt.</pre>
 
   // Init
   (async () => {
-    try {
-      const stack = await fetchJson('/api/stack');
-      const menu = $('ctr-menu');
-      for (const [name, info] of Object.entries(stack.contracts)) {
-        const a = document.createElement('a');
-        a.href = info.snowtrace; a.target = '_blank';
-        a.innerHTML = `<b>${name}</b><br><span>${info.address}</span>`;
-        menu.appendChild(a);
-      }
-    } catch {}
-
     try {
       const cm = await fetchJson('/api/sim/event-contract-map');
       contractMap = cm.map || {};
