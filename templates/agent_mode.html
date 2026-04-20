@@ -94,39 +94,115 @@
     <!-- Right: Protocol Telemetry -->
     <div style="display:flex; flex-direction:column; gap:12px;">
 
-      <!-- ERC-8004 Status -->
+      <!-- ERC-8004 Status — each row links to its deployed contract on Snowtrace -->
       <div style="padding:18px 20px; background:var(--card); border:1px solid var(--border); border-radius:var(--radius);">
-        <div style="font-family:var(--font-mono); font-size:.5rem; font-weight:700; color:var(--blue); letter-spacing:.12em; text-transform:uppercase; margin-bottom:10px;">ERC-8004 Protocol</div>
-        {% for label, val, ok in [
-          ('Registry Contract', 'AgentRegistry.sol', true),
-          ('Escrow Contract',   'EscrowManager.sol', true),
-          ('Bonding Contract',  'BondingSlashing.sol', true),
-          ('ICM Bridge',        'Avalanche C-Chain', true),
-          ('Gatekeeper',        'Online', true),
-        ] %}
-        <div style="display:flex; justify-content:space-between; align-items:center; padding:7px 0; border-bottom:1px solid {{ 'var(--border)' if not loop.last else 'transparent' }};">
-          <span style="font-size:.75rem; color:var(--text-3);">{{ label }}</span>
-          <div style="display:flex; align-items:center; gap:5px;">
-            <span style="width:5px; height:5px; border-radius:50%; background:var(--green); display:inline-block;"></span>
-            <span style="font-family:var(--font-mono); font-size:.6875rem; color:var(--text-2);">{{ val }}</span>
-          </div>
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+          <span style="font-family:var(--font-mono); font-size:.5rem; font-weight:700; color:var(--blue); letter-spacing:.12em; text-transform:uppercase;">ERC-8004 Protocol</span>
+          <span id="erc8004-status-badge" style="font-family:var(--font-mono); font-size:.45rem; color:var(--green); text-transform:uppercase; padding:2px 6px; border:1px solid var(--green); border-radius:3px; background:rgba(34,197,94,.07);">Checking…</span>
         </div>
-        {% endfor %}
+        <div id="erc8004-panel" style="display:flex; flex-direction:column;"></div>
       </div>
 
-      <!-- Surge Multipliers -->
+      <!-- Surge Multipliers — from OnchainProfile.surge_active agents -->
       <div style="padding:18px 20px; background:var(--card); border:1px solid rgba(245,158,11,.2); border-radius:var(--radius);">
         <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
           <span style="font-family:var(--font-mono); font-size:.5rem; font-weight:700; color:var(--amber); letter-spacing:.12em; text-transform:uppercase;">Surge Multipliers</span>
-          <span style="font-family:var(--font-mono); font-size:.45rem; color:var(--amber); text-transform:uppercase; padding:2px 6px; border:1px solid rgba(245,158,11,.3); border-radius:3px; background:rgba(245,158,11,.07);">Live</span>
+          <span id="surge-live-badge" style="font-family:var(--font-mono); font-size:.45rem; color:var(--amber); text-transform:uppercase; padding:2px 6px; border:1px solid rgba(245,158,11,.3); border-radius:3px; background:rgba(245,158,11,.07);">Live</span>
         </div>
-        {% for agent, mult in [('AlphaTrader AI','2.1×'),('SecureAudit AI','1.8×'),('DataSift Analytics','1.6×'),('CodeReview Pro','1.3×')] %}
-        <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid {{ 'var(--border)' if not loop.last else 'transparent' }};">
-          <span style="font-size:.75rem; color:var(--text-2);">{{ agent }}</span>
-          <span style="font-family:var(--font-mono); font-size:.75rem; font-weight:700; color:var(--amber);">{{ mult }}</span>
+        <div id="surge-panel" style="display:flex; flex-direction:column;">
+          <div style="font-size:.7rem; color:var(--text-3); padding:6px 0;">Loading…</div>
         </div>
-        {% endfor %}
       </div>
+
+      <script>
+      // ── ERC-8004 Protocol panel — probes /api/stack for real contract addrs
+      //    and /api/llm/status to confirm the Akash LLM ingress is live.
+      (async function () {
+        const $ = id => document.getElementById(id);
+        const panel = $('erc8004-panel');
+        const badge = $('erc8004-status-badge');
+
+        try {
+          const [stack, llm] = await Promise.all([
+            fetch('/api/stack').then(r => r.json()),
+            fetch('/api/llm/status').then(r => r.json()).catch(() => ({ok:false})),
+          ]);
+          const ct = stack.contracts || {};
+          const rows = [
+            ['AgentRegistry',      ct.AgentRegistry],
+            ['Reputation',         ct.ReputationContract],
+            ['StakingSlashing',    ct.StakingSlashing],
+            ['EscrowPayment',      ct.EscrowPayment],
+            ['AuctionMarket',      ct.AuctionMarket],
+            ['MockUSDC',           ct.MockUSDC],
+          ].filter(([, v]) => v);
+          let html = '';
+          rows.forEach((row, i) => {
+            const [label, info] = row;
+            const addr = info.address || '';
+            const short = addr ? addr.slice(0,6) + '…' + addr.slice(-4) : '—';
+            const last = i === rows.length - 1;
+            html += `
+              <div style="display:flex; justify-content:space-between; align-items:center; padding:7px 0; ${last?'':'border-bottom:1px solid var(--border);'}">
+                <span style="font-size:.75rem; color:var(--text-3);">${label}</span>
+                <a href="${info.snowtrace}" target="_blank" style="display:flex; align-items:center; gap:5px; text-decoration:none;">
+                  <span style="width:5px; height:5px; border-radius:50%; background:var(--green); display:inline-block;"></span>
+                  <span style="font-family:var(--font-mono); font-size:.6875rem; color:var(--accent);">${short}</span>
+                </a>
+              </div>`;
+          });
+          // Add LLM status row
+          const llmOk = !!llm.ok;
+          html += `
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:7px 0;">
+              <span style="font-size:.75rem; color:var(--text-3);">Akash vLLM</span>
+              <span style="display:flex; align-items:center; gap:5px;">
+                <span style="width:5px; height:5px; border-radius:50%; background:${llmOk?'var(--green)':'var(--red)'}; display:inline-block;"></span>
+                <span style="font-family:var(--font-mono); font-size:.6875rem; color:var(--text-2);">${llmOk ? (llm.model || 'online') : 'offline'}</span>
+              </span>
+            </div>`;
+          panel.innerHTML = html;
+          badge.textContent = rows.length + ' live';
+          badge.style.color = 'var(--green)';
+          badge.style.borderColor = 'var(--green)';
+        } catch (e) {
+          panel.innerHTML = '<div style="font-size:.7rem; color:var(--text-3); padding:6px 0;">Contract stack unavailable</div>';
+          badge.textContent = 'Offline';
+          badge.style.color = 'var(--red)';
+          badge.style.borderColor = 'var(--red)';
+        }
+      })();
+
+      // ── Surge Multipliers panel — fetches surging agents from sim state
+      async function refreshSurges() {
+        const panel = document.getElementById('surge-panel');
+        try {
+          const d = await fetch('/api/sim/all-agents').then(r => r.json());
+          const surging = (d.agents || [])
+            .filter(a => a.surge_active && a.surge_multiplier && a.surge_multiplier > 1.0)
+            .sort((a,b) => (b.surge_multiplier||0) - (a.surge_multiplier||0))
+            .slice(0, 6);
+          if (!surging.length) {
+            panel.innerHTML = '<div style="font-size:.7rem; color:var(--text-3); padding:6px 0;">No agents currently surging — demand is balanced.</div>';
+            return;
+          }
+          let html = '';
+          surging.forEach((a, i) => {
+            const last = i === surging.length - 1;
+            html += `
+              <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; ${last?'':'border-bottom:1px solid var(--border);'}">
+                <a href="/agent/${a.id}" style="font-size:.75rem; color:var(--text-2); text-decoration:none;">${a.name}</a>
+                <span style="font-family:var(--font-mono); font-size:.75rem; font-weight:700; color:var(--amber);">${Number(a.surge_multiplier||1).toFixed(2)}×</span>
+              </div>`;
+          });
+          panel.innerHTML = html;
+        } catch (e) {
+          panel.innerHTML = '<div style="font-size:.7rem; color:var(--text-3); padding:6px 0;">Surge feed unavailable.</div>';
+        }
+      }
+      refreshSurges();
+      setInterval(refreshSurges, 15000);
+      </script>
 
       <!-- Quick Actions -->
       <div style="padding:18px 20px; background:var(--card); border:1px solid var(--border); border-radius:var(--radius);">

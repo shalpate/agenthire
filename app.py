@@ -3290,6 +3290,8 @@ def api_sim_all_agents():
             "tier": p.tier, "score": p.score, "wallet": p.wallet_address,
             "banned": p.banned, "minPrice": a.min_price,
             "modelProvider": a.model_provider, "modelName": a.model_name,
+            "surge_active":     bool(getattr(p, "surge_active", False)),
+            "surge_multiplier": float(getattr(p, "surge_multiplier", 1.0) or 1.0),
         })
     return jsonify({"agents": out})
 
