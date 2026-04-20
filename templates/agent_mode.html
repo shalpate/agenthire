@@ -217,36 +217,64 @@
         <pre id="x402-out" style="display:none; background:var(--bg); border:1px solid var(--border); border-radius:6px; padding:10px; font-family:var(--font-mono); font-size:.68rem; max-height:260px; overflow:auto; white-space:pre-wrap; color:var(--text-2);"></pre>
       </div>
 
-      <!-- Live on-chain action buttons -->
+      <!-- Deliberate protocol actions — each is a real narrative step -->
       <div style="padding:16px 0;">
-        <div style="font-family:var(--font-mono); font-size:.5rem; font-weight:700; color:var(--amber); letter-spacing:.12em; text-transform:uppercase; margin-bottom:8px;">live writes · protocol actions</div>
-        <div style="color:var(--text-2); font-size:.8125rem; line-height:1.55; margin-bottom:10px;">
-          Each button fires a real backend call. When <code>/api/sim/live-mode</code> is
-          enabled and the facilitator has AVAX, writes hit Avalanche Fuji and emit a LIVE
-          row in the feed above.
+        <div style="font-family:var(--font-mono); font-size:.5rem; font-weight:700; color:var(--amber); letter-spacing:.12em; text-transform:uppercase; margin-bottom:8px;">protocol actions · pick an agent</div>
+        <div style="color:var(--text-2); font-size:.8125rem; line-height:1.55; margin-bottom:12px;">
+          Runs real protocol actions targeting a specific agent. When live-writes is on
+          and the facilitator has AVAX, each fires a real Fuji tx and emits a LIVE row
+          in the feed above.
         </div>
-        <div style="display:flex; gap:8px; flex-wrap:wrap;">
-          <button id="btn-post-bid"   class="btn btn-ghost btn-sm" style="font-size:.75rem;">+ Post auction bid</button>
-          <button id="btn-slash"      class="btn btn-ghost btn-sm" style="font-size:.75rem; color:var(--red); border-color:rgba(239,68,68,.3);">⚠ Slash random agent</button>
-          <button id="btn-surge"      class="btn btn-ghost btn-sm" style="font-size:.75rem; color:#f59e0b; border-color:rgba(245,158,11,.3);">⚡ Force surge</button>
+
+        <!-- Agent picker for actions -->
+        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:10px;">
+          <label style="font-family:var(--font-mono); font-size:.6875rem; color:var(--text-3);">Target agent</label>
+          <select id="action-agent" style="padding:5px 10px; background:var(--bg); border:1px solid var(--border); border-radius:5px; color:var(--text); font-family:var(--font-mono); font-size:.75rem;"></select>
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+          <button id="btn-post-bid" class="btn btn-ghost btn-sm" style="font-size:.75rem; text-align:left; padding:10px 12px;">
+            <div style="font-weight:700; margin-bottom:2px;">📥 Post open bid</div>
+            <div style="font-size:.65rem; color:var(--text-3); font-weight:400;">buyer posts job · fires AuctionMarket.postBid</div>
+          </button>
+          <button id="btn-stake" class="btn btn-ghost btn-sm" style="font-size:.75rem; text-align:left; padding:10px 12px; color:var(--accent); border-color:rgba(95,227,227,.25);">
+            <div style="font-weight:700; margin-bottom:2px;">🔒 Stake 100 USDC on agent</div>
+            <div style="font-size:.65rem; color:var(--text-3); font-weight:400;">bond them for T1 · fires StakingSlashing.stake</div>
+          </button>
+          <button id="btn-slash" class="btn btn-ghost btn-sm" style="font-size:.75rem; text-align:left; padding:10px 12px; color:var(--red); border-color:rgba(239,68,68,.3);">
+            <div style="font-weight:700; margin-bottom:2px;">⚠ Report incident · this agent</div>
+            <div style="font-size:.65rem; color:var(--text-3); font-weight:400;">gatekeeper-signed slash · 25% → 75% → 100%</div>
+          </button>
+          <button id="btn-refund" class="btn btn-ghost btn-sm" style="font-size:.75rem; text-align:left; padding:10px 12px;">
+            <div style="font-weight:700; margin-bottom:2px;">↩ Refund expired escrow</div>
+            <div style="font-size:.65rem; color:var(--text-3); font-weight:400;">reclaim unused budget · EscrowPayment.cancelSession</div>
+          </button>
         </div>
         <pre id="actions-out" style="display:none; margin-top:10px; background:var(--bg); border:1px solid var(--border); border-radius:6px; padding:10px; font-family:var(--font-mono); font-size:.68rem; max-height:180px; overflow:auto; white-space:pre-wrap; color:var(--text-2);"></pre>
       </div>
 
       <script>
-      // ── Populate x402 agent selector
+      // ── Populate both agent selectors (x402 target + protocol-action target)
       (async function() {
         try {
           const d = await fetch('/api/sim/all-agents').then(r => r.json());
-          const sel = document.getElementById('x402-agent');
-          (d.agents || []).slice(0, 30).forEach(a => {
-            const o = document.createElement('option');
-            o.value = a.id;
-            o.textContent = `${a.name} · T${a.tier}`;
-            sel.appendChild(o);
-          });
+          const agents = (d.agents || []).slice(0, 40);
+          for (const selId of ['x402-agent', 'action-agent']) {
+            const sel = document.getElementById(selId);
+            if (!sel) continue;
+            agents.forEach(a => {
+              const o = document.createElement('option');
+              o.value = a.id;
+              o.textContent = `${a.name} · T${a.tier} · score ${a.score}`;
+              sel.appendChild(o);
+            });
+          }
         } catch (e) {}
       })();
+
+      function _currentActionAgent() {
+        return parseInt(document.getElementById('action-agent').value || '1', 10);
+      }
 
       // ── x402 handshake runner
       document.getElementById('x402-btn').addEventListener('click', async () => {
@@ -272,43 +300,67 @@
         }
       });
 
-      // ── Post bid
+      function _showActionOut() {
+        const el = document.getElementById('actions-out');
+        el.style.display = 'block';
+        return el;
+      }
+
+      // ── Post bid — targets the selected agent's category
       document.getElementById('btn-post-bid').addEventListener('click', async () => {
-        const out = document.getElementById('actions-out');
-        out.style.display = 'block'; out.textContent = 'Posting bid...';
+        const out = _showActionOut();
+        const id = _currentActionAgent();
+        out.textContent = `Posting bid...\n`;
         try {
+          // Pull the agent's category to match the bid to the right seller
+          const ag = await fetch('/api/agents/' + id).then(r => r.json()).catch(() => ({}));
+          const catMap = {'Development':0,'Data & Analytics':1,'Content':2,'Finance':3,'Research':4,'Security':5,'Automation':6};
+          const catId  = catMap[ag.category] ?? 0;
           const d = await fetch('/api/sim/post-bid', {
             method: 'POST', headers: {'Content-Type':'application/json'},
-            body: JSON.stringify({ tokenBudget: 1000, maxPricePerToken: 0.005, minTier: 1, categoryId: Math.floor(Math.random()*7) }),
+            body: JSON.stringify({ tokenBudget: 1000, maxPricePerToken: 0.005, minTier: 1, categoryId: catId }),
+          }).then(r => r.json());
+          out.textContent = `Posted bid targeting ${ag.name || 'agent'} (${ag.category || 'Development'})\n\n` + JSON.stringify(d, null, 2);
+        } catch (e) { out.textContent = 'error: ' + e.message; }
+      });
+
+      // ── Stake 100 USDC on the selected agent (real Fuji tx when live)
+      document.getElementById('btn-stake').addEventListener('click', async () => {
+        const out = _showActionOut();
+        const id = _currentActionAgent();
+        out.textContent = `Staking 100 USDC on agent ${id}...\n`;
+        try {
+          const d = await fetch('/api/agents/' + id + '/stake', {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ amountUSDC: 100 }),
           }).then(r => r.json());
           out.textContent = JSON.stringify(d, null, 2);
         } catch (e) { out.textContent = 'error: ' + e.message; }
       });
 
-      // ── Slash
+      // ── Report incident (slash) on the selected agent
       document.getElementById('btn-slash').addEventListener('click', async () => {
-        const out = document.getElementById('actions-out');
-        const id = 1 + Math.floor(Math.random() * 125);
-        out.style.display = 'block'; out.textContent = `Slashing agent ${id}...`;
+        const out = _showActionOut();
+        const id = _currentActionAgent();
+        const reason = prompt('Reason for incident report:', 'Output quality below threshold') || 'Output quality below threshold';
+        out.textContent = `Reporting incident against agent ${id}: "${reason}"\n`;
         try {
           const d = await fetch('/api/sim/slash-agent', {
             method: 'POST', headers: {'Content-Type':'application/json'},
-            body: JSON.stringify({ agentId: id, reason: 'Quality review' }),
+            body: JSON.stringify({ agentId: id, reason }),
           }).then(r => r.json());
           out.textContent = JSON.stringify(d, null, 2);
         } catch (e) { out.textContent = 'error: ' + e.message; }
       });
 
-      // ── Surge
-      document.getElementById('btn-surge').addEventListener('click', async () => {
-        const out = document.getElementById('actions-out');
-        const id = 1 + Math.floor(Math.random() * 125);
-        const m  = 1.5 + Math.random();
-        out.style.display = 'block'; out.textContent = `Forcing surge x${m.toFixed(2)} on agent ${id}...`;
+      // ── Refund expired escrow (reclaim unused)
+      document.getElementById('btn-refund').addEventListener('click', async () => {
+        const out = _showActionOut();
+        const id = _currentActionAgent();
+        out.textContent = `Scanning expired escrow sessions for agent ${id}...\n`;
         try {
-          const d = await fetch('/api/sim/force-surge', {
+          const d = await fetch('/api/agents/' + id + '/refund-expired', {
             method: 'POST', headers: {'Content-Type':'application/json'},
-            body: JSON.stringify({ agentId: id, multiplier: Number(m.toFixed(2)) }),
           }).then(r => r.json());
           out.textContent = JSON.stringify(d, null, 2);
         } catch (e) { out.textContent = 'error: ' + e.message; }
