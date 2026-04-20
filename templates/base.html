@@ -283,11 +283,17 @@ document.addEventListener('DOMContentLoaded', () => {
       __setWalletConnected(__DEMO_WALLET, { demo: true });
     });
   });
-  // No auto-restore. Every page load starts with 'Connect Wallet' until
-  // the user clicks it. The buyer_wallet cookie still persists for the
-  // server-side routes that use it (active-jobs etc. when visited via the
-  // connected flow), but we don't make the nav look 'hard-coded' by
-  // auto-filling on fresh page loads.
+  // Restore nav-bar connected state ONLY if user explicitly connected
+  // this session. 'agenthire_wallet_active' is set by __setWalletConnected
+  // and cleared by __walletDisconnect — unlike buyer_wallet (which also
+  // seeds server-side defaults), this flag is purely a UI hint.
+  if (document.cookie.match(/agenthire_wallet_active=1/)) {
+    const m = document.cookie.match(/(?:^|;\s*)buyer_wallet=(0x[a-fA-F0-9]{40})/);
+    if (m) {
+      const isDemo = m[1].toLowerCase() === __DEMO_WALLET.toLowerCase();
+      __setWalletConnected(m[1], { demo: isDemo, silent: true });
+    }
+  }
 });
 
 async function __connectInjected() {
@@ -371,6 +377,7 @@ function __switchWallet() {
 function __walletDisconnect() {
   document.cookie = 'buyer_wallet=; path=/; max-age=0';
   document.cookie = 'seller_wallet=; path=/; max-age=0';
+  document.cookie = 'agenthire_wallet_active=; path=/; max-age=0';
   const btn = document.getElementById('wallet-btn');
   if (btn) {
     btn.innerHTML = '<span>Connect Wallet</span>';
@@ -397,6 +404,8 @@ function __setWalletConnected(addr, opts) {
   }
   document.cookie = 'buyer_wallet='  + addr + '; path=/; max-age=604800; SameSite=Lax';
   document.cookie = 'seller_wallet=' + addr + '; path=/; max-age=604800; SameSite=Lax';
+  // UI-only flag: 'this user explicitly connected' — persists across tabs.
+  document.cookie = 'agenthire_wallet_active=1; path=/; max-age=604800; SameSite=Lax';
   if (window.AgentHire) { window.AgentHire.address = addr; window.AgentHire.connected = true; }
   // Populate menu
   const ma = document.getElementById('wm-addr');

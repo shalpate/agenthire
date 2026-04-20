@@ -792,29 +792,39 @@
         <span>Connect Wallet</span>
       </button>
       <script>
-      // Inline fallback for the landing page (standalone, doesn't extend base)
+      // Landing is standalone (doesn't extend base). Same one-click demo
+      // wallet flow as everywhere else. If a real injected wallet with an
+      // account is available, we could use it, but for the submission flow
+      // demo wallet is the default and always works.
+      const __DEMO_WALLET = '0xdb4135c6884D81497769440788306EE985DD1A6e';
+      function __applyConnected(addr, isDemo) {
+        const short = addr.slice(0, 6) + '…' + addr.slice(-4);
+        const btn = document.getElementById('wallet-btn');
+        if (btn) {
+          btn.innerHTML = '<span style="font-family:var(--font-mono)">' + (isDemo?'◆ ':'') + short + '</span>';
+          btn.setAttribute('data-connected', 'true');
+        }
+        document.cookie = 'buyer_wallet='  + addr + '; path=/; max-age=604800; SameSite=Lax';
+        document.cookie = 'seller_wallet=' + addr + '; path=/; max-age=604800; SameSite=Lax';
+        document.cookie = 'agenthire_wallet_active=1; path=/; max-age=604800; SameSite=Lax';
+      }
       window.__agentHireConnect = window.__agentHireConnect || (async function (e) {
         if (e && e.preventDefault) e.preventDefault();
-        if (!window.ethereum) {
-          alert('No browser wallet detected.\n\nInstall MetaMask, Rabby, or Coinbase Wallet (any EIP-1193 wallet extension), then reload.');
+        const btn = document.getElementById('wallet-btn');
+        if (btn && btn.getAttribute('data-connected') === 'true') {
+          const addr = (document.cookie.match(/buyer_wallet=(0x[a-fA-F0-9]{40})/) || [])[1];
+          if (addr) window.open('https://testnet.snowtrace.io/address/' + addr, '_blank');
           return;
         }
-        try {
-          const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-          if (accounts && accounts[0]) {
-            const addr = accounts[0];
-            const short = addr.slice(0, 6) + '…' + addr.slice(-4);
-            const btn = document.getElementById('wallet-btn');
-            if (btn) {
-              btn.innerHTML = '<span style="font-family:var(--font-mono)">' + short + '</span>';
-              btn.setAttribute('data-connected', 'true');
-            }
-            document.cookie = 'buyer_wallet=' + addr + '; path=/; max-age=604800; SameSite=Lax';
-            document.cookie = 'seller_wallet=' + addr + '; path=/; max-age=604800; SameSite=Lax';
-          }
-        } catch (err) {
-          alert('Connect failed: ' + (err && err.message ? err.message : err));
+        __applyConnected(__DEMO_WALLET, true);
+      });
+      // Restore connected state on landing
+      document.addEventListener('DOMContentLoaded', () => {
+        if (document.cookie.match(/agenthire_wallet_active=1/)) {
+          const addr = (document.cookie.match(/buyer_wallet=(0x[a-fA-F0-9]{40})/) || [])[1];
+          if (addr) __applyConnected(addr, addr.toLowerCase() === __DEMO_WALLET.toLowerCase());
         }
+      });
       });
       </script>
       <button class="nav-cta" id="landing-enter-mkt">Enter Marketplace</button>
