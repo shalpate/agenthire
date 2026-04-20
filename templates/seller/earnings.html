@@ -72,16 +72,21 @@
     <!-- Revenue chart -->
     <div class="chart-wrap">
       <div style="display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:16px; flex-wrap:wrap; gap:12px;">
+        {% set this_mo = earnings.monthly[-1] if earnings.monthly else 0 %}
+        {% set last_mo = earnings.monthly[-2] if earnings.monthly and earnings.monthly|length > 1 else 0 %}
+        {% set mo_delta = ((this_mo - last_mo) / last_mo * 100) if last_mo > 0 else 0 %}
+        {% set surge_rev = earnings.surge_earnings[-1] if earnings.surge_earnings else 0 %}
+        {% set surge_pct = (surge_rev / earnings.total_revenue * 100) if earnings.total_revenue > 0 else 0 %}
         <div class="chart-kpi-row" style="margin-bottom:0;">
           <div class="chart-kpi-item">
             <span class="chart-kpi-lbl">Revenue</span>
             <span class="chart-kpi-val">${{ "{:,.0f}".format(earnings.total_revenue) }}</span>
-            <span class="chart-kpi-chg up">↑ 18%</span>
+            <span class="chart-kpi-chg {% if mo_delta >= 0 %}up{% else %}down{% endif %}">{% if mo_delta >= 0 %}↑{% else %}↓{% endif %} {{ "{:.1f}".format(mo_delta|abs) }}%</span>
           </div>
           <div class="chart-kpi-item">
-            <span class="chart-kpi-lbl">Surge</span>
-            <span class="chart-kpi-val" style="color:#f59e0b;">$1,620</span>
-            <span class="chart-kpi-chg up">19.2%</span>
+            <span class="chart-kpi-lbl">Escrowed</span>
+            <span class="chart-kpi-val" style="color:#f59e0b;">${{ "{:,.2f}".format(earnings.escrow_funds) }}</span>
+            <span class="chart-kpi-chg up">{{ "{:.1f}".format(surge_pct) }}% of rev</span>
           </div>
           <div class="chart-kpi-item">
             <span class="chart-kpi-lbl">Released</span>
@@ -241,25 +246,44 @@
           <span style="font-size:.9375rem; font-weight:600;">Surge Analytics</span>
         </div>
       </div>
+      {% set surge_this_mo = earnings.surge_earnings[-1] if earnings.surge_earnings else 0 %}
+      {% set surge_pct_total = (surge_this_mo / earnings.total_revenue * 100) if earnings.total_revenue > 0 else 0 %}
       <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:0; border:1px solid var(--border); border-radius:var(--radius-sm); overflow:hidden; margin-bottom:18px;">
         <div style="padding:12px 14px; border-right:1px solid var(--border);">
-          <div style="font-family:var(--font-mono); font-size:.45rem; text-transform:uppercase; letter-spacing:.1em; color:var(--text-3); margin-bottom:5px;">Surge Rev</div>
-          <div style="font-size:1.0625rem; font-weight:700; color:#f59e0b; font-family:var(--font-mono);">$1,620</div>
-          <div style="font-size:.6rem; color:var(--green); margin-top:3px;">19.2% of total</div>
+          <div style="font-family:var(--font-mono); font-size:.45rem; text-transform:uppercase; letter-spacing:.1em; color:var(--text-3); margin-bottom:5px;">Surge Rev (mo)</div>
+          <div style="font-size:1.0625rem; font-weight:700; color:#f59e0b; font-family:var(--font-mono);">${{ "{:,.0f}".format(surge_this_mo) }}</div>
+          <div style="font-size:.6rem; color:var(--green); margin-top:3px;">{{ "{:.1f}".format(surge_pct_total) }}% of total</div>
         </div>
         <div style="padding:12px 14px; border-right:1px solid var(--border);">
           <div style="font-family:var(--font-mono); font-size:.45rem; text-transform:uppercase; letter-spacing:.1em; color:var(--text-3); margin-bottom:5px;">Peak Multi</div>
-          <div style="font-size:1.0625rem; font-weight:700; color:#f59e0b; font-family:var(--font-mono);">2.1×</div>
-          <div style="font-size:.6rem; color:var(--text-3); margin-top:3px;">AlphaTrader AI</div>
+          <div id="peak-multi-val" style="font-size:1.0625rem; font-weight:700; color:#f59e0b; font-family:var(--font-mono);">—</div>
+          <div id="peak-multi-agent" style="font-size:.6rem; color:var(--text-3); margin-top:3px;">—</div>
         </div>
         <div style="padding:12px 14px;">
-          <div style="font-family:var(--font-mono); font-size:.45rem; text-transform:uppercase; letter-spacing:.1em; color:var(--text-3); margin-bottom:5px;">Avg Multi</div>
-          <div style="font-size:1.0625rem; font-weight:700; font-family:var(--font-mono);">1.4×</div>
-          <div style="font-size:.6rem; color:var(--text-3); margin-top:3px;">This month</div>
+          <div style="font-family:var(--font-mono); font-size:.45rem; text-transform:uppercase; letter-spacing:.1em; color:var(--text-3); margin-bottom:5px;">Agents Surging</div>
+          <div id="surge-count-val" style="font-size:1.0625rem; font-weight:700; font-family:var(--font-mono);">—</div>
+          <div style="font-size:.6rem; color:var(--text-3); margin-top:3px;">right now</div>
         </div>
       </div>
-      <div style="font-family:var(--font-mono); font-size:.45rem; text-transform:uppercase; letter-spacing:.1em; color:var(--text-3); margin-bottom:10px;">Peak Windows</div>
-      {% for window in [('9:00 – 11:00 AM UTC', '1.6×–2.1×', 'High'), ('2:00 – 4:00 PM UTC', '1.2×–1.5×', 'Med'), ('8:00 – 10:00 PM UTC', '1.4×–1.8×', 'High')] %}
+      <script>
+      (async function() {
+        try {
+          const d = await fetch('/api/sim/all-agents').then(r => r.json());
+          const surging = (d.agents || []).filter(a => a.surge_active && a.surge_multiplier > 1.0)
+            .sort((a,b) => b.surge_multiplier - a.surge_multiplier);
+          if (surging.length) {
+            document.getElementById('peak-multi-val').textContent   = surging[0].surge_multiplier.toFixed(2) + '×';
+            document.getElementById('peak-multi-agent').textContent = surging[0].name;
+          } else {
+            document.getElementById('peak-multi-val').textContent   = '1.00×';
+            document.getElementById('peak-multi-agent').textContent = 'no agents surging';
+          }
+          document.getElementById('surge-count-val').textContent = surging.length;
+        } catch (e) {}
+      })();
+      </script>
+      <div style="font-family:var(--font-mono); font-size:.45rem; text-transform:uppercase; letter-spacing:.1em; color:var(--text-3); margin-bottom:10px;">Peak Windows (UTC)</div>
+      {% for window in [('9:00 – 11:00 AM', 'morning session', 'High'), ('2:00 – 4:00 PM', 'midday peak', 'Med'), ('8:00 – 10:00 PM', 'evening wave', 'High')] %}
       <div style="display:flex; align-items:center; justify-content:space-between; padding:7px 0; border-bottom:1px solid {{ 'var(--border)' if not loop.last else 'transparent' }};">
         <span style="font-size:.8125rem; color:var(--text-2);">{{ window[0] }}</span>
         <div style="display:flex; align-items:center; gap:8px;">
@@ -279,18 +303,20 @@
       <div style="height:148px; margin-bottom:16px;">
         <canvas id="usage-chart"></canvas>
       </div>
+      {% set tasks_total = agents|sum(attribute='tasks_completed') %}
+      {% set avg_value = (earnings.total_revenue / tasks_total) if tasks_total > 0 else 0 %}
       <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:0; border:1px solid var(--border); border-radius:var(--radius-sm); overflow:hidden;">
         <div style="padding:10px 14px; border-right:1px solid var(--border);">
-          <div style="font-family:var(--font-mono); font-size:.45rem; text-transform:uppercase; letter-spacing:.1em; color:var(--text-3); margin-bottom:4px;">Tasks (Apr)</div>
-          <div style="font-size:1rem; font-weight:700; font-family:var(--font-mono);">2,841</div>
+          <div style="font-family:var(--font-mono); font-size:.45rem; text-transform:uppercase; letter-spacing:.1em; color:var(--text-3); margin-bottom:4px;">Tasks Total</div>
+          <div style="font-size:1rem; font-weight:700; font-family:var(--font-mono);">{{ "{:,}".format(tasks_total) }}</div>
         </div>
         <div style="padding:10px 14px; border-right:1px solid var(--border);">
           <div style="font-family:var(--font-mono); font-size:.45rem; text-transform:uppercase; letter-spacing:.1em; color:var(--text-3); margin-bottom:4px;">Avg Value</div>
-          <div style="font-size:1rem; font-weight:700; font-family:var(--font-mono); color:var(--blue);">$2.96</div>
+          <div style="font-size:1rem; font-weight:700; font-family:var(--font-mono); color:var(--blue);">${{ "{:,.2f}".format(avg_value) }}</div>
         </div>
         <div style="padding:10px 14px;">
-          <div style="font-family:var(--font-mono); font-size:.45rem; text-transform:uppercase; letter-spacing:.1em; color:var(--text-3); margin-bottom:4px;">Completion</div>
-          <div style="font-size:1rem; font-weight:700; font-family:var(--font-mono); color:var(--green);">98.3%</div>
+          <div style="font-family:var(--font-mono); font-size:.45rem; text-transform:uppercase; letter-spacing:.1em; color:var(--text-3); margin-bottom:4px;">Source</div>
+          <div style="font-size:.75rem; font-weight:700; font-family:var(--font-mono); color:var(--green);">● Fuji</div>
         </div>
       </div>
     </div>
@@ -310,23 +336,36 @@
           </tr>
         </thead>
         <tbody>
-          {% for tx in [
-            ('Apr 15, 2026', 'CodeReview Pro', 'Task Payment', 12.40, 0.012, 12.388, 'released'),
-            ('Apr 15, 2026', 'AlphaTrader AI', 'Task Payment (Surge)', 27.00, 0.027, 26.973, 'escrow'),
-            ('Apr 14, 2026', 'TranslateFlow', 'Task Payment', 3.20, 0.003, 3.197, 'released'),
-            ('Apr 14, 2026', 'CodeReview Pro', 'Task Payment (Surge)', 18.60, 0.019, 18.581, 'released'),
-            ('Apr 13, 2026', 'DataSift Analytics', 'Task Payment', 18.00, 0.018, 17.982, 'released'),
-          ] %}
+          {% if tx_history %}
+          {% for tx in tx_history %}
           <tr>
-            <td class="text-muted">{{ tx[0] }}</td>
-            <td class="font-bold">{{ tx[1] }}</td>
-            <td>{{ tx[2] }}{% if 'Surge' in tx[2] %}<span class="badge badge-surge" style="margin-left:6px; font-size:.5rem;">SURGE</span>{% endif %}</td>
-            <td class="font-bold">${{ "%.2f"|format(tx[3]) }}</td>
-            <td class="text-muted">${{ "%.3f"|format(tx[4]) }}</td>
-            <td style="font-weight:600; color:var(--green);">${{ "%.3f"|format(tx[5]) }}</td>
-            <td>{% if tx[6] == 'released' %}<span class="badge badge-approved" style="font-size:.55rem;">Released</span>{% else %}<span class="badge badge-escrow" style="font-size:.55rem;">In Escrow</span>{% endif %}</td>
+            <td class="text-muted">{{ tx.date }}</td>
+            <td class="font-bold">{{ tx.agent }}</td>
+            <td>
+              {{ tx.type }}
+              {% if tx.real %}
+                <a href="{{ tx.snowtrace }}" target="_blank" style="margin-left:6px; font-size:.5rem; padding:1px 5px; border:1px solid var(--green); background:rgba(34,197,94,.08); color:var(--green); border-radius:3px; text-decoration:none; font-family:var(--font-mono); font-weight:700;">● LIVE</a>
+              {% else %}
+                <span style="margin-left:6px; font-size:.5rem; padding:1px 5px; border:1px solid var(--border); color:var(--text-3); border-radius:3px; font-family:var(--font-mono); font-weight:700;">SIM</span>
+              {% endif %}
+            </td>
+            <td class="font-bold">${{ "%.2f"|format(tx.amount) }}</td>
+            <td class="text-muted">${{ "%.3f"|format(tx.fee) }}</td>
+            <td style="font-weight:600; color:var(--green);">${{ "%.3f"|format(tx.net) }}</td>
+            <td>
+              {% if tx.status == 'released' %}<span class="badge badge-approved" style="font-size:.55rem;">Released</span>
+              {% elif tx.status == 'escrow' %}<span class="badge badge-escrow" style="font-size:.55rem;">In Escrow</span>
+              {% elif tx.status == 'slash' %}<span class="badge" style="background:rgba(239,68,68,.08); color:#ef4444; border:1px solid rgba(239,68,68,.3); font-size:.55rem;">Slashed</span>
+              {% else %}<span class="badge" style="font-size:.55rem;">{{ tx.status|title }}</span>
+              {% endif %}
+            </td>
           </tr>
           {% endfor %}
+          {% else %}
+          <tr><td colspan="7" style="text-align:center; padding:28px; color:var(--text-3); font-family:var(--font-mono); font-size:.75rem;">
+            No on-chain activity for this seller yet. Transactions appear here as agents complete tasks.
+          </td></tr>
+          {% endif %}
         </tbody>
       </table>
     </div>

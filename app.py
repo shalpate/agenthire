@@ -1221,8 +1221,41 @@ def seller_earnings():
         my_agents = [a for a in AGENTS if a.get("seller") == default_seller]
     earnings = _seller_earnings_from_chain([a["id"] for a in my_agents])
     orders = [o for o in ORDERS if o["agent"] in {a["name"] for a in my_agents}]
+
+    # Real transaction history for this seller's agents, from ChainTransaction.
+    # Replaces the 5 hardcoded rows; grows with every on-chain event.
+    from models import ChainTransaction as CT
+    import json as _json
+    my_agent_ids = [a["id"] for a in my_agents]
+    tx_history = []
+    if my_agent_ids:
+        ct_rows = (CT.query.filter(CT.agent_id.in_(my_agent_ids))
+                   .filter(CT.kind.in_(["deposit", "settle", "slash", "stake"]))
+                   .order_by(CT.id.desc()).limit(25).all())
+        id_to_name = {a["id"]: a["name"] for a in my_agents}
+        for r in ct_rows:
+            try: m = _json.loads(r.meta or "{}")
+            except Exception: m = {}
+            amount = (r.amount_usdc or 0) / 1_000_000
+            fee = round(amount * PLATFORM_FEE_BPS / 10_000, 4) if r.kind == "deposit" else 0.0
+            kind_label = {"deposit": "Deposit", "settle": "Task Payment",
+                          "slash": "Slash", "stake": "Stake"}.get(r.kind, r.kind)
+            tx_history.append({
+                "date":   time.strftime("%b %d, %Y", time.gmtime(r.ts)) if r.ts else "—",
+                "agent":  id_to_name.get(r.agent_id, f"Agent #{r.agent_id}"),
+                "type":   kind_label,
+                "amount": round(amount, 2),
+                "fee":    fee,
+                "net":    round(amount - fee, 3),
+                "status": "released" if r.kind == "settle" else ("escrow" if r.kind == "deposit" else r.kind),
+                "real":   bool(m.get("real")),
+                "txHash": r.tx_hash,
+                "snowtrace": f"https://testnet.snowtrace.io/tx/{r.tx_hash}" if r.tx_hash else None,
+            })
+
     return render_template("seller/earnings.html", earnings=earnings,
-                           agents=my_agents, orders=orders)
+                           agents=my_agents, orders=orders,
+                           tx_history=tx_history)
 
 
 @app.route("/seller/agents/<int:agent_id>", methods=["GET", "POST"])
