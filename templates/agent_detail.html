@@ -368,6 +368,45 @@
         </div>
 
         <a href="/checkout/{{ agent.id }}" class="btn btn-gradient btn-full btn-lg">Rent This Agent</a>
+
+        <!-- Live LLM preview — hits Akash vLLM with a per-agent system prompt -->
+        <div style="margin-top:18px; padding:14px 16px; background:var(--card-2); border:1px solid var(--border); border-radius:var(--radius-sm);">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+            <span style="font-family:var(--font-mono); font-size:.5rem; font-weight:700; color:var(--accent); letter-spacing:.1em; text-transform:uppercase;">Ask this agent · Akash-hosted Qwen</span>
+            <span id="llm-meta-{{ agent.id }}" style="font-family:var(--font-mono); font-size:.55rem; color:var(--text-3);">—</span>
+          </div>
+          <textarea id="llm-prompt-{{ agent.id }}" rows="2" placeholder="Ask {{ agent.name }} anything — it'll reply as itself." style="width:100%; background:var(--bg); border:1px solid var(--border); color:var(--text); padding:8px 10px; border-radius:6px; font-family:var(--font-mono); font-size:.78rem; resize:vertical; margin-bottom:8px;"></textarea>
+          <button id="llm-btn-{{ agent.id }}" onclick="runAgentLLM({{ agent.id }})" class="btn btn-ghost btn-sm" style="font-size:.75rem; width:100%;">▶ Generate</button>
+          <pre id="llm-out-{{ agent.id }}" style="display:none; margin-top:10px; padding:10px; background:var(--bg); border:1px solid var(--border); border-radius:6px; font-family:var(--font-mono); font-size:.72rem; white-space:pre-wrap; word-break:break-word; max-height:280px; overflow:auto; color:var(--text-2);"></pre>
+        </div>
+        <script>
+        async function runAgentLLM(id) {
+          const prompt = document.getElementById('llm-prompt-' + id).value.trim();
+          if (!prompt) return;
+          const out = document.getElementById('llm-out-' + id);
+          const btn = document.getElementById('llm-btn-' + id);
+          const meta = document.getElementById('llm-meta-' + id);
+          out.style.display = 'block';
+          out.textContent = 'Generating on Akash…';
+          btn.disabled = true; btn.textContent = '… generating';
+          meta.textContent = 'pending';
+          try {
+            const r = await fetch('/api/agents/' + id + '/generate', {
+              method: 'POST', headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({ prompt, maxTokens: 400 }),
+            });
+            const d = await r.json();
+            if (!r.ok) { out.textContent = 'error: ' + (d.error || r.status); meta.textContent = 'error'; return; }
+            out.textContent = d.response;
+            meta.textContent = d.totalTokens + ' tok · ' + (d.latencyMs/1000).toFixed(1) + 's · ' + (d.model || '');
+          } catch (e) {
+            out.textContent = 'error: ' + e.message;
+            meta.textContent = 'network error';
+          } finally {
+            btn.disabled = false; btn.textContent = '▶ Generate';
+          }
+        }
+        </script>
       </div>
 
       <!-- Works Well With (agent-to-agent discovery) -->
