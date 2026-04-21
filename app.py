@@ -1187,7 +1187,46 @@ def agent_mode_overview():
     clean_agents = [a for a in AGENTS if not (
         (a.get("name") or "").startswith(("QuickList-", "Demo-", "FinalCheck", "PostRestart", "BrowserShape", "SmokeBond", "JudgeDemo-", "LIVE-", "ProofTx", "TestBondAgent", "FinalLock", "WizardTest"))
     )][:12]
-    return render_template("agent_mode.html", task_feed=task_feed, stats=stats, agents=clean_agents)
+    # Pull this viewer's own agents (if they have a wallet cookie set) so
+    # the /agent-mode page shows a personalized "your listings" panel,
+    # not just the global registry view.
+    viewer_wallet = (request.cookies.get("buyer_wallet")
+                     or request.cookies.get("seller_wallet") or "").lower()
+    my_listings = []
+    if viewer_wallet:
+        try:
+            from models import ChainTransaction as CT
+            mine = [a for a in AGENTS if (a.get("seller") or "").lower() == viewer_wallet
+                    or (a.get("wallet") or "").lower() == viewer_wallet]
+            my_agent_ids = [a["id"] for a in mine]
+            # Get real earnings + active-hire counts per agent.
+            if my_agent_ids:
+                from collections import defaultdict
+                rev_by_agent = defaultdict(int)
+                hires_by_agent = defaultdict(int)
+                rows = (CT.query.filter(CT.agent_id.in_(my_agent_ids))
+                        .filter(CT.kind.in_(["deposit","a2a_hire","settle","a2a_settle"]))
+                        .filter(CT.meta.like('%"real": true%'))
+                        .all())
+                for r in rows:
+                    if r.kind in ("deposit", "a2a_hire"):
+                        rev_by_agent[r.agent_id] += (r.amount_usdc or 0)
+                        hires_by_agent[r.agent_id] += 1
+                for a in mine:
+                    my_listings.append({
+                        "id":       a["id"],
+                        "name":     a["name"],
+                        "category": a.get("category", "—"),
+                        "revenue":  round(rev_by_agent[a["id"]] / 1_000_000, 2),
+                        "hires":    hires_by_agent[a["id"]],
+                        "verified": bool(a.get("verified")),
+                    })
+                my_listings.sort(key=lambda x: x["revenue"], reverse=True)
+        except Exception as _e:
+            log.warning("my_listings lookup failed: %s", _e)
+    return render_template("agent_mode.html", task_feed=task_feed,
+                           stats=stats, agents=clean_agents,
+                           my_listings=my_listings, viewer_wallet=viewer_wallet)
 
 # ── Seller ─────────────────────────────────────────────────────────────────────
 

@@ -380,6 +380,34 @@
        them to the three concrete actions available from an agent's view.
        Replaces the redundant Agent Registry table (same data as /marketplace). -->
   <div style="background:var(--card-2); border:1px solid var(--border); border-radius:var(--radius); padding:18px 22px;">
+    {% if my_listings %}
+    <!-- Your listings — personalized for the connected wallet -->
+    <div style="margin-bottom:24px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+        <div>
+          <div style="font-family:var(--font-mono); font-size:.56rem; text-transform:uppercase; letter-spacing:.12em; color:var(--accent); margin-bottom:3px;">Your listings · {{ viewer_wallet[:6] }}…{{ viewer_wallet[-4:] }}</div>
+          <div style="font-size:1rem; font-weight:600;">{{ my_listings|length }} agent{{ 's' if my_listings|length != 1 }} you operate</div>
+        </div>
+        <a href="/seller/earnings" class="btn btn-ghost btn-sm">Full earnings dashboard →</a>
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:10px;">
+        {% set mycat_codes = {'Development':'DEV','Data & Analytics':'DAT','Content':'CON','Finance':'FIN','Research':'RES','Security':'SEC','Automation':'AUT'} %}
+        {% for ml in my_listings %}
+        <a href="/agent/{{ ml.id }}" style="display:block; padding:12px 14px; background:var(--card); border:1px solid var(--border); border-radius:8px; text-decoration:none; color:inherit; transition:border-color .12s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+          <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+            <span style="font-family:var(--font-mono); font-size:.5rem; font-weight:700; padding:2px 6px; border:1px solid var(--border); border-radius:3px; color:var(--text-3);">{{ mycat_codes.get(ml.category, 'AGT') }}</span>
+            <span style="font-weight:600; font-size:.82rem; flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ ml.name }}</span>
+          </div>
+          <div style="display:flex; justify-content:space-between; font-family:var(--font-mono); font-size:.68rem;">
+            <span style="color:var(--text-3);">{{ ml.hires }} hire{{ 's' if ml.hires != 1 }}</span>
+            <span style="color:{% if ml.revenue > 0 %}var(--green){% else %}var(--text-3){% endif %}; font-weight:700;">${{ "{:.2f}".format(ml.revenue) }}</span>
+          </div>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
     <div style="font-family:var(--font-mono); font-size:.56rem; text-transform:uppercase; letter-spacing:.12em; color:var(--text-3); margin-bottom:10px;">Agent operator actions</div>
     <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:12px;">
       <a href="/seller/create" style="display:flex; flex-direction:column; gap:6px; padding:14px 16px; background:var(--card); border:1px solid var(--border); border-radius:8px; text-decoration:none; color:inherit; transition:border-color .12s ease;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
