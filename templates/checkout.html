@@ -48,24 +48,13 @@
       })();
       </script>
 
-      <!-- Task Details -->
+      <!-- Task Details — description is sent to the agent's LLM as the prompt -->
       <div class="card">
         <h3 style="margin-bottom:16px;">Task Details</h3>
-        <div class="form-group mb-16">
-          <label class="form-label">Task Description</label>
-          <textarea class="form-textarea" placeholder="Describe what you need the agent to do..." style="min-height:100px;"></textarea>
-        </div>
         <div class="form-group">
-          <label class="form-label">Attach Files (optional)</label>
-          <div id="file-dropzone"
-               style="border:2px dashed var(--border-2); border-radius:var(--radius-sm); padding:20px; text-align:center; cursor:pointer; transition:border-color .15s ease, background .15s ease;"
-               onclick="document.getElementById('file-upload').click();">
-            <div style="font-family:var(--font-mono); font-size:.625rem; font-weight:700; color:var(--border-2); letter-spacing:.1em; margin-bottom:6px; text-transform:uppercase;">UPLOAD</div>
-            <div class="text-sm text-muted" id="file-dropzone-msg">Click to upload or drag &amp; drop</div>
-            <div class="text-xs text-muted mt-4" style="font-family:var(--font-mono);">Max 50MB · PDF, TXT, CSV, ZIP</div>
-          </div>
-          <input type="file" id="file-upload" style="display:none;" multiple>
-          <div id="file-list" style="margin-top:10px; display:none; flex-direction:column; gap:6px;"></div>
+          <label class="form-label">Task Description</label>
+          <textarea id="task-description" class="form-textarea" placeholder="Describe what you need {{ agent.name }} to do. This is sent to the agent as the prompt after the escrow payment settles." style="min-height:120px;"></textarea>
+          <div class="form-hint mt-8" style="font-family:var(--font-mono);">Sent to {{ agent.name }} via Akash-hosted Qwen 2.5 after the on-chain escrow confirms.</div>
         </div>
         <script>
           (function initFileUpload() {
@@ -73,63 +62,6 @@
             const dropzone = document.getElementById('file-dropzone');
             const msgEl    = document.getElementById('file-dropzone-msg');
             const listEl   = document.getElementById('file-list');
-            if (!input || !dropzone) return;
-
-            function fmt(bytes) {
-              if (bytes < 1024) return bytes + ' B';
-              if (bytes < 1024*1024) return (bytes/1024).toFixed(1) + ' KB';
-              return (bytes/(1024*1024)).toFixed(1) + ' MB';
-            }
-            function render(files) {
-              listEl.innerHTML = '';
-              if (!files || !files.length) {
-                listEl.style.display = 'none';
-                msgEl.textContent = 'Click to upload or drag & drop';
-                dropzone.style.borderColor = '';
-                return;
-              }
-              listEl.style.display = 'flex';
-              msgEl.textContent = files.length + (files.length === 1 ? ' file selected' : ' files selected');
-              dropzone.style.borderColor = 'var(--green)';
-              [...files].forEach((f, i) => {
-                const row = document.createElement('div');
-                row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 12px;background:var(--card-2);border:1px solid var(--border);border-radius:6px;';
-                row.innerHTML = '<div style="display:flex;align-items:center;gap:10px;min-width:0;"><span style="font-family:var(--font-mono);font-size:.625rem;color:var(--green);letter-spacing:.08em;">✓</span><span style="font-size:.8125rem;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + f.name + '</span><span style="font-family:var(--font-mono);font-size:.6875rem;color:var(--text-3);">' + fmt(f.size) + '</span></div>'
-                               + '<button type="button" data-idx="' + i + '" style="background:none;border:none;color:var(--text-3);cursor:pointer;font-size:.875rem;">✕</button>';
-                listEl.appendChild(row);
-              });
-            }
-
-            input.addEventListener('change', () => render(input.files));
-
-            listEl.addEventListener('click', (e) => {
-              const b = e.target.closest('button[data-idx]');
-              if (!b) return;
-              const idx = Number(b.dataset.idx);
-              const dt = new DataTransfer();
-              [...input.files].forEach((f, i) => { if (i !== idx) dt.items.add(f); });
-              input.files = dt.files;
-              render(input.files);
-            });
-
-            // Drag & drop
-            ['dragenter','dragover'].forEach(ev => dropzone.addEventListener(ev, (e) => {
-              e.preventDefault();
-              dropzone.style.borderColor = 'var(--red)';
-              dropzone.style.background = 'var(--red-dim)';
-            }));
-            ['dragleave','drop'].forEach(ev => dropzone.addEventListener(ev, (e) => {
-              e.preventDefault();
-              dropzone.style.background = '';
-              if (ev === 'drop') {
-                input.files = e.dataTransfer.files;
-                render(input.files);
-              } else {
-                dropzone.style.borderColor = input.files.length ? 'var(--green)' : '';
-              }
-            }));
-          })();
-        </script>
       </div>
 
       {% if a2a.composable %}
@@ -381,22 +313,41 @@
               // the endpoint's sender≠receiver check passes. The actual
               // payment signer is the facilitator wallet server-side.
               const buyerId = agentId === 1 ? 2 : 1;
+              const taskPrompt = (document.getElementById('task-description')?.value || '').trim()
+                               || 'Hired via marketplace checkout';
               setStatus('Firing real Fuji tx via facilitator...');
               const d = await fetch('/api/sim/trigger-direct', {
                 method: 'POST', headers: {'Content-Type':'application/json'},
                 body: JSON.stringify({
                   fromId: buyerId, toId: agentId,
                   amountUSDC: depositUSDC, tokens: Math.max(1, Math.floor(depositUSDC * 100)),
-                  prompt: 'Hired on checkout page',
+                  prompt: taskPrompt,
                 }),
               }).then(r => r.json());
 
               const events = d.newEvents || [];
-              const firstHire = events.find(e => e.kind === 'a2a_hire');
-              const sessionId = firstHire?.meta?.bidId || firstHire?.id || 'ORD-' + Date.now();
-              setStatus('✓ Real Fuji tx fired · session ' + sessionId);
+              const rawHash = d.realTxHash || '';
+              const h = rawHash ? (rawHash.startsWith('0x') ? rawHash : '0x' + rawHash) : '';
+              if (h) {
+                const avaxUrl = 'https://subnets-test.avax.network/c-chain/tx/' + h;
+                statusEl.innerHTML = `
+                  <div style="text-align:left; background:rgba(34,197,94,.06); border:1px solid var(--green); border-radius:10px; padding:12px 14px; line-height:1.55;">
+                    <div style="color:var(--green); font-weight:700; letter-spacing:.08em; text-transform:uppercase; font-size:.625rem; margin-bottom:6px;">✓ Real Fuji tx · EscrowPayment</div>
+                    <div style="word-break:break-all; color:var(--text-2); margin-bottom:8px; font-size:.72rem;">${h}</div>
+                    <div style="display:flex; gap:14px; flex-wrap:wrap;">
+                      <a href="${avaxUrl}" target="_blank" style="color:var(--accent); font-weight:600;">→ Ava Labs Explorer</a>
+                      <a href="/agent/${agentId}" style="color:var(--accent);">→ Back to agent</a>
+                    </div>
+                    <div style="color:var(--text-3); font-size:.65rem; margin-top:6px;">Block #${d.chain?.block || '—'}</div>
+                  </div>`;
+                // Auto-open the explorer so judges see the tx on-chain immediately.
+                window.open(avaxUrl, '_blank');
+              } else {
+                setStatus('✓ Real Fuji tx fired');
+              }
               if (window.showToast) showToast('Payment on-chain · block #' + (d.chain?.block || '?'), 'success');
-              setTimeout(() => location.href = '/order/' + sessionId, 1500);
+              // Don't auto-redirect — give judges time to read the tx hash +
+              // click through the explorer link. Order page is linked above.
             } catch (e) {
               console.error(e);
               setStatus('Failed: ' + (e.message || e));

@@ -114,16 +114,8 @@
   {# ── Grid ─────────────────────────────────────────────────────────────── #}
   {% if agents %}
   {% set cat_codes = {'Development':'DEV','Data & Analytics':'DAT','Content':'CON','Finance':'FIN','Research':'RES','Security':'SEC','Automation':'AUT'} %}
-  {# Model attribution by category - used for display only #}
-  {% set model_map = {
-    'Development':      'OpenAI · gpt-4.1',
-    'Data & Analytics': 'OpenAI · gpt-4.1',
-    'Content':          'Google · gemini-2.5-pro',
-    'Finance':          'Anthropic · claude-sonnet-4',
-    'Research':         'OpenAI · gpt-4.1',
-    'Security':         'Anthropic · claude-sonnet-4',
-    'Automation':       'Google · gemini-2.5-pro',
-  } %}
+  {# Every agent is served by Akash-hosted Qwen 2.5 — honest attribution #}
+  {% set model_map = {} %}
   {# Open-source agents by ID #}
   {% set oss_ids = [2, 5, 8, 10, 12] %}
   <div class="mkt-grid">
@@ -137,13 +129,13 @@
           <div class="mkt-card-ident-text">
             <div class="mkt-card-name">{{ agent.name }}</div>
             <div class="mkt-card-seller">{{ agent.seller }}</div>
-            <div class="mkt-card-model" title="{{ agent.model_provider or 'Undisclosed' }} · {{ agent.model_name or 'proprietary' }}">
+            <div class="mkt-card-model" title="Inference provider for this agent">
               {% if agent.model_provider == 'Undisclosed' %}
                 <span style="color: var(--amber);">Undisclosed model</span>
               {% elif agent.model_provider %}
                 {{ agent.model_provider }} · {{ agent.model_name }}
               {% else %}
-                {{ model_map.get(agent.category, 'OpenAI · gpt-4.1-mini') }}
+                <span style="color:var(--text-3);">Akash · Qwen 2.5 Coder 7B</span>
               {% endif %}
             </div>
           </div>

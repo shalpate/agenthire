@@ -49,7 +49,10 @@ except ImportError:
 FUJI_RPC = "https://api.avax-test.network/ext/C/rpc"
 _DEFAULT_CHAIN_ID = 43113
 _DEFAULT_CHAIN_NAME = "Avalanche Fuji"
-_DEFAULT_EXPLORER = "https://testnet.snowtrace.io"
+# Ava Labs' own explorer indexes Fuji txs in real time — testnet Snowtrace
+# routinely lags by 30-60 seconds. The path prefix is c-chain so we can append
+# `/tx/{hash}` or `/address/{addr}` exactly like Snowtrace.
+_DEFAULT_EXPLORER = "https://subnets-test.avax.network/c-chain"
 
 _DEFAULT_ADDRESSES = {
     "MockUSDC":           "0x9C49D730Dfb82B7663aBE6069B5bFe867fa34c9f",
@@ -271,9 +274,16 @@ class OnChain:
         }
 
     def register_agent(self, wallet: str, name: str, endpoint_url: str) -> dict:
-        """Register a new agent on-chain. Facilitator pays gas."""
+        """Register a new agent on-chain. Facilitator pays gas.
+        Rejects attempts to register the facilitator's own address — it's
+        already registered and such calls always revert with 'wallet registered'."""
         if not self.facilitator:
             raise RuntimeError("FACILITATOR_PRIVATE_KEY not set")
+        if wallet and wallet.lower() == self.facilitator.address.lower():
+            raise ValueError(
+                "cannot register the facilitator's own wallet — it's already "
+                "registered. Pass a unique wallet address for new listings."
+            )
         reg = self._contracts["AgentRegistry"]
         tx = reg.functions.registerAgent(
             Web3.to_checksum_address(wallet), name, endpoint_url
@@ -290,6 +300,10 @@ class OnChain:
         return {
             "agentId": str(agent_id) if agent_id is not None else None,
             "txHash": h.hex(),
+            # Ava Labs' official explorer — indexes Fuji faster than Snowtrace.
+            # The `snowtrace` key is kept for backward compatibility with
+            # callers that were built before this switchover.
+            "explorer": f"https://subnets-test.avax.network/c-chain/tx/{h.hex()}",
             "snowtrace": f"https://testnet.snowtrace.io/tx/{h.hex()}",
         }
 

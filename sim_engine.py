@@ -39,7 +39,7 @@ from simulation import (
 ADDR_STAKING  = "0xfc942b4d1Eb363F25886b3F5935394BD4932B896"
 ADDR_ESCROW   = "0xD19990C7CB8C386fa865135Ce9706A5A37A3f2f2"
 ADDR_REP      = "0x40ef89Ce1E248Df00AF6Dc37f96BBf92A9Bf603A"
-ADDR_AUCTION  = "0x21f4D1c8eA5D8c97e9A95a5B8BD4a54b78F3C6A4"
+ADDR_AUCTION  = "0xa7AEEca5a76bd5Cd38B15dfcC2c288d3645E53E3"  # matches onchain.ADDRESSES
 
 # Stable category → id mapping so bids can target specific agent types
 CATEGORY_IDS = {
@@ -282,12 +282,13 @@ class SimulationEngine:
                     nonce = oc.w3.eth.get_transaction_count(oc.facilitator.address)
                     gp = oc.w3.eth.gas_price
 
-                    # Step 1: approve EscrowPayment to pull the deposit
+                    # Step 1: approve EscrowPayment to pull the deposit.
+                    # 150k gas leaves headroom over ~46k approve base cost.
                     tx1 = usdc.functions.approve(
                         Web3.to_checksum_address(ADDRESSES["EscrowPayment"]), amount_micro
                     ).build_transaction({
                         "from": oc.facilitator.address, "nonce": nonce,
-                        "chainId": oc.w3.eth.chain_id, "gasPrice": gp, "gas": 100_000,
+                        "chainId": oc.w3.eth.chain_id, "gasPrice": gp, "gas": 150_000,
                     })
                     s1 = oc.facilitator.sign_transaction(tx1)
                     raw1 = s1.raw_transaction if hasattr(s1,'raw_transaction') else s1.rawTransaction
@@ -316,18 +317,44 @@ class SimulationEngine:
                             real_tx_hash = h2.hex() if hasattr(h2,'hex') else str(h2)
                             real_block_number = int(r2.blockNumber)
                         else:
-                            # deposit reverted — use the approve tx as proof-of-activity
-                            real_tx_hash = h1.hex() if hasattr(h1,'hex') else str(h1)
-                            real_block_number = int(oc.w3.eth.wait_for_transaction_receipt(h1, timeout=5).blockNumber)
+                            # depositFunds reverted (status=0, no exception) —
+                            # raise so the except path fires USDC.transfer to
+                            # actually move funds (not just leave approve stuck).
+                            raise RuntimeError(f"depositFunds status=0 in tx {h2.hex() if hasattr(h2,'hex') else h2}")
                     except Exception as _de:
-                        # Fall back to a plain USDC transfer so we still emit a
-                        # real tx (the approve above already landed).
-                        live_error = f"deposit reverted: {str(_de)[:100]}"
-                        real_tx_hash = h1.hex() if hasattr(h1,'hex') else str(h1)
+                        # depositFunds reverted — fall back to a direct USDC
+                        # transfer to the receiver's wallet so funds actually
+                        # move (not just the approve landing).
+                        live_error = f"deposit reverted, transferring USDC directly: {str(_de)[:100]}"
                         try:
-                            real_block_number = int(oc.w3.eth.wait_for_transaction_receipt(h1, timeout=5).blockNumber)
-                        except Exception:
-                            real_block_number = None
+                            # Re-fetch nonce — a failed depositFunds still
+                            # consumes a nonce, so nonce+1 may be stale.
+                            fresh_nonce = oc.w3.eth.get_transaction_count(oc.facilitator.address)
+                            tx3 = usdc.functions.transfer(
+                                Web3.to_checksum_address(to_profile.wallet_address),
+                                amount_micro,
+                            ).build_transaction({
+                                "from": oc.facilitator.address, "nonce": fresh_nonce,
+                                "chainId": oc.w3.eth.chain_id, "gasPrice": gp, "gas": 120_000,
+                            })
+                            s3 = oc.facilitator.sign_transaction(tx3)
+                            raw3 = s3.raw_transaction if hasattr(s3,'raw_transaction') else s3.rawTransaction
+                            h3 = oc.w3.eth.send_raw_transaction(raw3)
+                            r3 = oc.w3.eth.wait_for_transaction_receipt(h3, timeout=60)
+                            if r3.status == 1:
+                                real_tx_hash = h3.hex() if hasattr(h3,'hex') else str(h3)
+                                real_block_number = int(r3.blockNumber)
+                            else:
+                                # transfer also reverted — use approve as proof-of-activity
+                                real_tx_hash = h1.hex() if hasattr(h1,'hex') else str(h1)
+                                real_block_number = int(oc.w3.eth.wait_for_transaction_receipt(h1, timeout=5).blockNumber)
+                        except Exception as _te:
+                            live_error = f"transfer fallback also failed: {str(_te)[:100]}"
+                            real_tx_hash = h1.hex() if hasattr(h1,'hex') else str(h1)
+                            try:
+                                real_block_number = int(oc.w3.eth.wait_for_transaction_receipt(h1, timeout=5).blockNumber)
+                            except Exception:
+                                real_block_number = None
                     if isinstance(real_tx_hash, str) and not real_tx_hash.startswith("0x"):
                         real_tx_hash = "0x" + real_tx_hash
         except Exception as _e:
@@ -395,7 +422,10 @@ class SimulationEngine:
                   "score": to_profile.score, "tier": to_profile.tier, "direct": True},
         )
         return {"ok": True, "fromId": from_agent.id, "toId": to_agent.id,
-                "amountUSDC": float(amount_usdc)}
+                "amountUSDC": float(amount_usdc),
+                "realTxHash":    real_tx_hash,
+                "realBlock":     real_block_number,
+                "liveError":     live_error}
 
     def _fire_demo_a2a_flow(self, primary_id: int | None = None,
                               token_budget: int | None = None,

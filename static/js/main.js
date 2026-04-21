@@ -822,9 +822,12 @@ function makeDoughnutChart(id, labels, data, colors) {
     const overlay = document.getElementById('entry-gate');
     if (!overlay) return;
 
-    // Never show on seller or admin pages (role already implied by the URL)
+    // Entry-gate disabled — was intermittently leaving the page dimmed
+    // after the modal closed. Hackathon-mode: just let users navigate.
+    return;
+    // Never show on seller, admin, or demo pages (role already implied by the URL)
     const path = window.location.pathname;
-    if (path.startsWith('/admin') || path.startsWith('/seller')) return;
+    if (path.startsWith('/admin') || path.startsWith('/seller') || path.startsWith('/demo')) return;
 
     // Skip if role already chosen
     if (localStorage.getItem('agenthire_role')) return;

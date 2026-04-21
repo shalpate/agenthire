@@ -84,9 +84,35 @@
         <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
       </svg>
     </button>
-    <button class="wallet-btn" id="wallet-btn" data-connected="false" type="button" onclick="__walletClick(event)" title="Click to connect (demo wallet · pre-funded on Fuji)">
-      <span>Connect Wallet</span>
-    </button>
+    <div id="wallet-wrap" style="position:relative; display:inline-block;">
+      <button class="wallet-btn" id="wallet-btn" data-connected="false" type="button" onclick="__walletClick(event)" title="Click to connect">
+        <span>Connect Wallet</span>
+      </button>
+      <!-- Wallet picker popup — rendered inline, shown on wallet-btn click when disconnected -->
+      <div id="wallet-picker" style="display:none; position:absolute; top:calc(100% + 8px); right:0; width:280px; background:#0f1115; border:1px solid rgba(255,255,255,.12); border-radius:12px; box-shadow:0 12px 32px rgba(0,0,0,.6); padding:14px; z-index:9000;">
+        <div style="font-family:var(--font-mono); font-size:.56rem; text-transform:uppercase; letter-spacing:.12em; color:var(--text-3); margin-bottom:10px;">Connect a wallet</div>
+        <div id="wp-status" style="display:none; font-size:.72rem; color:var(--text-2); background:rgba(95,227,227,.06); border:1px solid rgba(95,227,227,.18); border-radius:6px; padding:8px 10px; margin-bottom:10px; line-height:1.5;"></div>
+        <div id="wp-options" style="display:flex; flex-direction:column; gap:8px;"></div>
+        <div style="height:1px; background:rgba(255,255,255,.08); margin:12px 0;"></div>
+        <button type="button" onclick="__connectDemo(event)" style="width:100%; display:flex; align-items:center; gap:10px; background:rgba(232,65,66,.12); border:1px solid rgba(232,65,66,.3); border-radius:8px; padding:10px 12px; color:inherit; cursor:pointer; font-size:.8rem; text-align:left;">
+          <span style="width:28px; height:28px; border-radius:6px; background:#e84142; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:.75rem; color:white;">◆</span>
+          <div style="display:flex; flex-direction:column; gap:2px;">
+            <span style="font-weight:600;">Demo wallet</span>
+            <span style="font-size:.68rem; color:var(--text-3);">Funded on Fuji · no MetaMask needed</span>
+          </div>
+        </button>
+      </div>
+      <!-- Connected-state menu — shown when wallet is connected -->
+      <div id="wallet-menu" style="display:none; position:absolute; top:calc(100% + 8px); right:0; width:260px; background:#0f1115; border:1px solid rgba(255,255,255,.12); border-radius:12px; box-shadow:0 12px 32px rgba(0,0,0,.6); padding:14px; z-index:9000;">
+        <div style="font-family:var(--font-mono); font-size:.56rem; text-transform:uppercase; letter-spacing:.12em; color:var(--text-3); margin-bottom:6px;">Connected</div>
+        <div style="display:flex; flex-direction:column; gap:2px; margin-bottom:12px;">
+          <span id="wm-addr" style="font-family:var(--font-mono); font-size:.85rem; font-weight:600;">—</span>
+          <span id="wm-kind" style="font-size:.68rem; color:var(--text-3);">—</span>
+        </div>
+        <a id="wm-explorer" href="#" target="_blank" style="display:block; padding:8px 10px; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); border-radius:6px; color:var(--accent); font-size:.75rem; text-decoration:none; margin-bottom:8px;">View on Ava Labs Explorer ↗</a>
+        <button type="button" onclick="__disconnectWallet(event)" style="width:100%; background:transparent; border:1px solid rgba(255,255,255,.12); border-radius:6px; padding:8px; color:var(--text-3); cursor:pointer; font-size:.75rem;">Disconnect</button>
+      </div>
+    </div>
   </div>
 </nav>
 
@@ -100,16 +126,44 @@ const __CHAIN_ID_HEX = '0xa869'; // Avalanche Fuji (43113)
 
 function __walletClick(e) {
   if (e && e.preventDefault) e.preventDefault();
+  if (e && e.stopPropagation) e.stopPropagation();
   const btn = document.getElementById('wallet-btn');
+  const picker = document.getElementById('wallet-picker');
+  const menu   = document.getElementById('wallet-menu');
   const connected = btn.getAttribute('data-connected') === 'true';
   if (connected) {
-    // Already connected — clicking opens Snowtrace for this wallet in a new tab.
-    const addr = btn.dataset.addr;
-    if (addr) window.open('https://testnet.snowtrace.io/address/' + addr, '_blank');
+    // Toggle connected menu
+    picker.style.display = 'none';
+    menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
     return;
   }
-  // Not connected — one click connects the demo wallet. No popup, no picker.
+  // Build picker options with whatever injected wallets are available
+  __renderPickerOptions();
+  // Clear any stale status from a previous failed attempt
+  const status = document.getElementById('wp-status');
+  if (status) { status.style.display = 'none'; status.innerHTML = ''; }
+  menu.style.display = 'none';
+  picker.style.display = picker.style.display === 'block' ? 'none' : 'block';
+}
+
+function __connectDemo(e) {
+  if (e && e.preventDefault) e.preventDefault();
+  if (e && e.stopPropagation) e.stopPropagation();
+  document.getElementById('wallet-picker').style.display = 'none';
   __setWalletConnected(__DEMO_WALLET, { demo: true });
+}
+
+function __disconnectWallet(e) {
+  if (e && e.preventDefault) e.preventDefault();
+  document.getElementById('wallet-menu').style.display = 'none';
+  const btn = document.getElementById('wallet-btn');
+  btn.innerHTML = '<span>Connect Wallet</span>';
+  btn.setAttribute('data-connected', 'false');
+  btn.dataset.addr = '';
+  document.cookie = 'buyer_wallet=; path=/; max-age=0';
+  document.cookie = 'seller_wallet=; path=/; max-age=0';
+  document.cookie = 'agenthire_wallet_active=; path=/; max-age=0';
+  if (window.AgentHire) { window.AgentHire.connected = false; window.AgentHire.address = null; }
 }
 
 // Close popups on outside click
@@ -144,13 +198,17 @@ function __renderPickerOptions() {
   if (!wrap) return;
   const detected = __detectWallets();
   wrap.innerHTML = '';
+  const OPT_STYLE = 'display:flex; align-items:center; gap:10px; background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.08); border-radius:8px; padding:10px 12px; color:inherit; cursor:pointer; font-size:.8rem; text-align:left; width:100%; transition:background .12s;';
+  const ICON_STYLE = 'width:28px; height:28px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:.8rem; color:white; flex-shrink:0;';
   if (detected.length) {
     detected.forEach(w => {
       wrap.insertAdjacentHTML('beforeend', `
-        <button class="wp-opt" data-wallet="${w.id}" type="button">
-          <span class="wp-icon" style="background:${w.bg};">${w.icon}</span>
-          <span class="wp-name">${w.name} <span style="color:var(--green); font-size:.55rem; margin-left:4px;">● detected</span></span>
-          <span class="wp-sub">Click to connect on Fuji</span>
+        <button class="wp-opt" data-wallet="${w.id}" type="button" style="${OPT_STYLE}" onmouseover="this.style.background='rgba(255,255,255,.08)'" onmouseout="this.style.background='rgba(255,255,255,.03)'">
+          <span style="${ICON_STYLE} background:${w.bg};">${w.icon}</span>
+          <div style="display:flex; flex-direction:column; gap:2px; flex:1;">
+            <span style="font-weight:600;">${w.name} <span style="color:var(--green); font-size:.6rem; margin-left:4px;">● detected</span></span>
+            <span style="font-size:.68rem; color:var(--text-3);">Click to connect on Fuji</span>
+          </div>
         </button>`);
     });
   } else {
@@ -162,38 +220,59 @@ function __renderPickerOptions() {
     ];
     installs.forEach(([id,n,i,b,u]) => {
       wrap.insertAdjacentHTML('beforeend', `
-        <a class="wp-opt" href="${u}" target="_blank" rel="noopener" style="text-decoration:none;">
-          <span class="wp-icon" style="background:${b};">${i}</span>
-          <span class="wp-name">${n} <span style="color:var(--text-3); font-size:.55rem; margin-left:4px;">not detected</span></span>
-          <span class="wp-sub">Click to install extension ↗</span>
+        <a href="${u}" target="_blank" rel="noopener" style="${OPT_STYLE} text-decoration:none;" onmouseover="this.style.background='rgba(255,255,255,.08)'" onmouseout="this.style.background='rgba(255,255,255,.03)'">
+          <span style="${ICON_STYLE} background:${b};">${i}</span>
+          <div style="display:flex; flex-direction:column; gap:2px; flex:1;">
+            <span style="font-weight:600;">${n} <span style="color:var(--text-3); font-size:.6rem; margin-left:4px;">not detected</span></span>
+            <span style="font-size:.68rem; color:var(--text-3);">Click to install extension ↗</span>
+          </div>
         </a>`);
     });
   }
   wrap.querySelectorAll('button.wp-opt').forEach(b => {
-    b.addEventListener('click', async () => {
-      document.getElementById('wallet-picker').style.display = 'none';
+    b.addEventListener('click', async (evt) => {
+      evt.preventDefault(); evt.stopPropagation();
       const w = detected.find(x => x.id === b.dataset.wallet);
-      if (w) await __connectProvider(w);
+      if (!w) { console.error('[wallet] no provider match for', b.dataset.wallet); return; }
+      const status = document.getElementById('wp-status');
+      if (status) {
+        status.style.display = 'block';
+        status.innerHTML = `<strong>Connecting to ${w.name}…</strong><br><span style="color:var(--text-3);">Check your browser toolbar for the ${w.name} approval popup. Click the extension icon if you don't see it.</span>`;
+      }
+      try {
+        await __connectProvider(w);
+      } catch (err) {
+        if (status) status.innerHTML = '<span style="color:var(--red);"><strong>Failed:</strong> ' + (err.message || err) + '</span>';
+      }
     });
   });
 }
 
 async function __connectProvider(w) {
   const prov = w.p;
+  console.log('[wallet] __connectProvider start', w.id, 'provider=', !!prov);
+  if (!prov) {
+    alert(w.name + ' provider object missing — try installing the extension and reloading.');
+    return;
+  }
   // 1) Try eth_accounts first — if user has already authorized this site,
   //    we can skip the popup entirely. Useful when Rabby is already unlocked.
   let accounts = [];
   try {
     const existing = await prov.request({ method: 'eth_accounts' });
+    console.log('[wallet] eth_accounts returned', existing);
     if (Array.isArray(existing) && existing.length && existing[0]) {
       accounts = existing;
     }
-  } catch (_) {}
+  } catch (err) { console.warn('[wallet] eth_accounts error', err); }
   // 2) If not already authorized, ask for permission explicitly.
   if (!accounts.length) {
+    console.log('[wallet] requesting accounts...');
     try {
       accounts = await prov.request({ method: 'eth_requestAccounts' });
+      console.log('[wallet] eth_requestAccounts returned', accounts);
     } catch (err) {
+      console.warn('[wallet] eth_requestAccounts error', err);
       const msg = (err && err.message) || String(err);
       if (/reject|denied|user rejected/i.test(msg)) {
         alert(w.name + ' rejected the connection. Approve it next time, or pick Demo wallet to continue.');
@@ -208,6 +287,7 @@ async function __connectProvider(w) {
     }
   }
   if (!accounts || !accounts[0]) { __showEmptyWalletHelp(w.name); return; }
+  console.log('[wallet] account acquired', accounts[0]);
   // Attempt Fuji switch (non-fatal)
   try { await prov.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: __CHAIN_ID_HEX }] }); }
   catch (err) {
@@ -221,9 +301,27 @@ async function __connectProvider(w) {
     }
   }
   __setWalletConnected(accounts[0], { demo: false, provider: w.id });
+  // Hide picker + clear status after successful connect
+  const picker = document.getElementById('wallet-picker');
+  const status = document.getElementById('wp-status');
+  if (picker) picker.style.display = 'none';
+  if (status) { status.style.display = 'none'; status.innerHTML = ''; }
 }
 
 function __showEmptyWalletHelp(walletName) {
+  // Rabby/MetaMask is installed but has no accounts — auto-fall-back to the
+  // pre-funded demo wallet so the demo keeps flowing. Status banner inside
+  // the picker explains what happened (no backdrop blur over the page).
+  const status = document.getElementById('wp-status');
+  if (status) {
+    status.style.display = 'block';
+    status.style.background = 'rgba(245,158,11,.08)';
+    status.style.borderColor = 'rgba(245,158,11,.3)';
+    status.innerHTML = `<strong style="color:#f59e0b;">${walletName} has no accounts yet.</strong><br>Falling back to the pre-funded demo wallet so the demo keeps working.`;
+  }
+  setTimeout(() => __setWalletConnected(__DEMO_WALLET, { demo: true }), 600);
+  return;
+  // (legacy modal below — kept as dead code in case we ever want it back)
   const existing = document.getElementById('wallet-help-modal');
   if (existing) existing.remove();
   const DEMO_KEY = '0xff319427edeb7b9410081e8cb2c61ee4c1081fb1bd422353704fec7eb020f23e';
@@ -277,12 +375,7 @@ function __showEmptyWalletHelp(walletName) {
 // Wire picker options once DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
   __renderPickerOptions();
-  document.querySelectorAll('.wp-opt[data-provider="demo"]').forEach(b => {
-    b.addEventListener('click', () => {
-      document.getElementById('wallet-picker').style.display = 'none';
-      __setWalletConnected(__DEMO_WALLET, { demo: true });
-    });
-  });
+  // (Demo wallet button uses inline onclick="__connectDemo(event)" — no listener needed here.)
   // Restore nav-bar connected state ONLY if user explicitly connected
   // this session. 'agenthire_wallet_active' is set by __setWalletConnected
   // and cleared by __walletDisconnect — unlike buyer_wallet (which also
@@ -413,7 +506,9 @@ function __setWalletConnected(addr, opts) {
   const me = document.getElementById('wm-explorer');
   if (ma) { ma.textContent = short; ma.dataset.full = addr; ma.title = addr; }
   if (mk) { mk.textContent = isDemo ? 'Demo wallet · Fuji 43113' : 'Injected · Fuji 43113'; }
-  if (me) me.href = 'https://testnet.snowtrace.io/address/' + addr;
+  // Ava Labs' own explorer indexes Fuji faster than Snowtrace (testnet
+  // Snowtrace frequently lags the chain by 30-60s). Safer demo link.
+  if (me) me.href = 'https://subnets-test.avax.network/c-chain/address/' + addr;
   window.dispatchEvent(new CustomEvent('agenthire:connected', { detail: { address: addr, demo: isDemo } }));
   // Reload wallet-scoped pages (unless silent restore from cookie)
   if (!silent) {
@@ -582,12 +677,19 @@ window.__agentHireConnect = async function(e) {
 // page because the overlay sits at z-index 9999 and the mode buttons navigate
 // away before they can interact with anything.
 document.addEventListener('DOMContentLoaded', () => {
-  const skip = document.getElementById('gate-skip');
+  // Force-clear any stuck entry-gate state on every page load (hackathon-mode).
   const overlay = document.getElementById('entry-gate');
+  if (overlay) {
+    overlay.classList.remove('open');
+    overlay.style.display = 'none';
+  }
+  document.body.style.overflow = '';
+  const skip = document.getElementById('gate-skip');
   if (skip && overlay) {
     skip.addEventListener('click', (e) => {
       e.preventDefault();
       overlay.classList.remove('open');
+      overlay.style.display = 'none';
       document.body.style.overflow = '';
       localStorage.setItem('agenthire_role', 'skip');
     });

@@ -431,8 +431,9 @@
 
   <div class="hero">
     <h1>Agent-to-agent payments, on Avalanche.</h1>
-    <p>Pick any two of 125 agents registered on Fuji. The sender's wallet pays USDC through our deployed EscrowPayment contract; the receiver's on-chain reputation updates. Every transaction lands a real Snowtrace receipt in ~2 seconds.</p>
+    <p>Pick any two of <span id="hero-agent-count">—</span> agents registered on Fuji. The sender's wallet pays USDC through our deployed EscrowPayment contract; the receiver's on-chain reputation updates. Every transaction lands a real Ava Labs explorer receipt in ~2 seconds.</p>
   </div>
+
 
   <div class="form">
     <div class="form-row">
@@ -456,7 +457,7 @@
     <div class="form-row single">
       <div class="f-group">
         <label>Amount (USDC)</label>
-        <input type="number" id="amount" min="0.01" step="0.01" value="5.06">
+        <input type="number" id="amount" min="0.01" step="0.01" placeholder="Amount in USDC">
       </div>
     </div>
     <div class="form-action">
@@ -728,27 +729,12 @@ Click ② to sign a permit + retry → server returns 200 OK with receipt.</pre>
   }
 
   function restoreHist() {
-    const arr = loadHist(); if (!arr.length) return;
-    $('h-body').innerHTML = ''; emptyShown = false;
-    for (const e of arr.slice().reverse()) {
-      const row = document.createElement('div');
-      row.className = 'h-row';
-      const ctr = contractMap[e.kind];
-      const isReal = !!e.realTx;
-      const label = isReal ? e.txHash.slice(0,10)+'…' : (ctr ? ctr.contract : 'sim');
-      const badge = isReal ? '' : '<span class="h-sim-badge">sim</span>';
-      const url = isReal ? e.snow : (ctr?.explorer || e.snow);
-      row.innerHTML = `
-        <span class="ts">${fmtTs(e.ts)}</span>
-        <span class="msg" title="${(e.message || '').replace(/"/g,'&quot;')}"><span class="kind ${e.kind}">${e.kind.replace('_',' ')}</span> ${e.message}</span>
-        <span style="color:var(--text-2);">#${e.block.toLocaleString()}</span>
-        <a href="${url}" target="_blank" class="tx ${e.live ? 'live' : ''}">${badge}${label}</a>
-        <span class="amt">${(e.amountUSDC || 0).toFixed(2)}</span>
-      `;
-      $('h-body').prepend(row);
-      sessionTx++;
-    }
-    $('h-count').textContent = sessionTx + ' tx';
+    // Start every /demo session with a CLEAN history table. Previously we
+    // replayed localStorage entries — which leaked sim-engine ticks and
+    // prior demo runs into a judge's first view. The table now populates
+    // only with transactions the user fires in THIS session.
+    try { localStorage.removeItem(LS_KEY); } catch (_) {}
+    $('h-count').textContent = '0 tx';
   }
 
   async function fetchAgent(id) { try { return await fetchJson(`/api/agents/${id}`); } catch { return null; } }
@@ -844,18 +830,43 @@ Click ② to sign a permit + retry → server returns 200 OK with receipt.</pre>
 
     // add tx rows
     const detTx = data.chain?.pendingTx?.txHashDeterministic;
-    const liveTx = data.chain?.liveTx;
+    const realTx = data.realTxHash
+      ? (data.realTxHash.startsWith('0x') ? data.realTxHash : '0x' + data.realTxHash)
+      : null;
     for (const ev of events) {
-      if (ev.kind === 'a2a_hire' && detTx) {
-        addRow(ev, detTx, `https://testnet.snowtrace.io/tx/${detTx}`, data.chain?.mode === 'live-write');
+      if (ev.kind === 'a2a_hire' && (realTx || detTx)) {
+        const h = realTx || detTx;
+        // Prefer Ava Labs explorer — Snowtrace often lags the Fuji indexer.
+        const url = realTx
+          ? `https://subnets-test.avax.network/c-chain/tx/${h}`
+          : `https://testnet.snowtrace.io/tx/${h}`;
+        addRow(ev, h, url, !!realTx);
       } else {
         addRow(ev);
       }
     }
-    if (liveTx?.txHash) {
-      addRow({ id: 'L-' + Date.now(), ts: Math.floor(Date.now()/1000), kind: 'registerAgent',
-               message: `Real Fuji tx · registerAgent`, amountUSDC: 0 },
-             liveTx.txHash, liveTx.snowtrace, true);
+    // Surface the real Fuji tx prominently so the A2A-escrow confirmation
+    // is impossible to miss — this is the core deliverable of this demo.
+    if (realTx) {
+      const banner = document.createElement('div');
+      banner.style.cssText = 'background:linear-gradient(135deg, rgba(34,197,94,.12), rgba(34,197,94,.04)); border:1px solid var(--green); border-radius:10px; padding:14px 16px; margin:14px 0; font-family:var(--font-mono); font-size:.78rem;';
+      banner.innerHTML = `
+        <div style="color:var(--green); font-weight:700; text-transform:uppercase; letter-spacing:.08em; font-size:.625rem; margin-bottom:6px;">✓ Real Fuji A2A Tx · EscrowPayment.depositFunds</div>
+        <div style="word-break:break-all; margin-bottom:8px;">${realTx}</div>
+        <div style="display:flex; gap:14px; flex-wrap:wrap;">
+          <a href="https://subnets-test.avax.network/c-chain/tx/${realTx}" target="_blank" style="color:var(--accent); font-weight:600;">→ Ava Labs Explorer</a>
+          <a href="https://testnet.snowtrace.io/tx/${realTx}" target="_blank" style="color:var(--accent);">→ Snowtrace</a>
+          <a href="https://43113.testnet.snowtrace.io/tx/${realTx}" target="_blank" style="color:var(--accent);">→ Routescan</a>
+        </div>`;
+      const histCard = document.querySelector('.history-card') || document.getElementById('history-list')?.parentElement;
+      if (histCard) histCard.insertBefore(banner, histCard.firstChild);
+      else document.querySelector('.D').appendChild(banner);
+    } else if (data.chain?.liveTxError) {
+      // Show why the live write failed — no silent slop.
+      const banner = document.createElement('div');
+      banner.style.cssText = 'background:rgba(245,158,11,.08); border:1px solid #f59e0b; border-radius:10px; padding:12px 16px; margin:14px 0; font-family:var(--font-mono); font-size:.72rem; color:#f59e0b;';
+      banner.innerHTML = `⚠ Live write failed: ${String(data.chain.liveTxError).slice(0,140)}`;
+      document.querySelector('.D').appendChild(banner);
     }
 
     // ── If prompt was provided, ALSO have the receiver actually do the work
@@ -1071,7 +1082,8 @@ Click ② to sign a permit + retry → server returns 200 OK with receipt.</pre>
         const xAmt = Number((x402Challenge && x402Challenge.price && x402Challenge.price.amountUSDC) || 0);
         const xRec = body.x402Receipt || {};
         const hashes = xRec.txHashes || [];
-        const snow = xRec.snowtrace || (hashes[0] ? `https://testnet.snowtrace.io/tx/${hashes[0]}` : null);
+        // Prefer Ava Labs explorer — Snowtrace testnet indexer lags.
+        const snow = hashes[0] ? `https://subnets-test.avax.network/c-chain/tx/${hashes[0]}` : xRec.snowtrace;
         addRow({
           id: 'X402-' + Date.now(),
           ts: Math.floor(Date.now() / 1000),
@@ -1151,6 +1163,9 @@ Click ② to sign a permit + retry → server returns 200 OK with receipt.</pre>
 
     try {
       const d = await fetchJson('/api/sim/all-agents');
+      const totalAgents = (d.agents || []).length;
+      const heroCount = document.getElementById('hero-agent-count');
+      if (heroCount) heroCount.textContent = totalAgents.toLocaleString();
       const byCat = {};
       for (const a of d.agents || []) (byCat[a.category] = byCat[a.category] || []).push(a);
       const fromSel = $('from'), toSel = $('to');

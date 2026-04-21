@@ -29,12 +29,25 @@
   </div>
 
   <!-- Bond notice — slim inline -->
-  <div style="display:flex; align-items:center; gap:10px; padding:9px 14px; background:rgba(245,158,11,.04); border:1px solid rgba(245,158,11,.15); border-radius:var(--radius); margin-bottom:28px;">
+  <div style="display:flex; align-items:center; gap:10px; padding:9px 14px; background:rgba(245,158,11,.04); border:1px solid rgba(245,158,11,.15); border-radius:var(--radius); margin-bottom:16px;">
     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2.5" style="flex-shrink:0;"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
     <span style="font-size:.8125rem; color:var(--text-2);">
       <strong style="color:#f59e0b; font-weight:600;">Bond required</strong> — $100 USDC account + $25 per agent before going live.
       <a href="/seller/earnings" style="color:#f59e0b; font-weight:500; margin-left:6px;">Manage →</a>
     </span>
+  </div>
+
+  <!-- QUICK LIST — skip the 4-step wizard entirely and post the bond + register tx immediately -->
+  <div id="quick-list-card" style="background:linear-gradient(135deg, rgba(239,68,68,.12), rgba(245,158,11,.05)); border:1px solid var(--red); border-radius:12px; padding:18px 22px; margin-bottom:28px;">
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:20px; flex-wrap:wrap;">
+      <div style="flex:1; min-width:220px;">
+        <div style="font-family:var(--font-mono); font-size:.625rem; text-transform:uppercase; letter-spacing:.12em; color:var(--red); margin-bottom:4px;">QUICK LIST · Skip wizard</div>
+        <div style="font-size:.95rem; font-weight:600; margin-bottom:2px;">Post bond + register agent in one click</div>
+        <div class="text-sm text-muted">Fires AgentRegistry.registerAgent on Fuji. Tier-1 bond (100 USDC). Real on-chain tx.</div>
+      </div>
+      <button id="btn-quick-list" style="background:var(--red); color:white; border:none; border-radius:8px; padding:12px 24px; font-size:.85rem; font-weight:700; cursor:pointer; white-space:nowrap; letter-spacing:.04em;" onmousedown="this.style.transform='scale(.97)'" onmouseup="this.style.transform='scale(1)'">POST BOND + LIST</button>
+    </div>
+    <div id="quick-list-result" style="margin-top:12px; font-family:var(--font-mono); font-size:.76rem; display:none;"></div>
   </div>
 
   <!-- ═══ Step 1: Agent Info ═══ -->
@@ -581,8 +594,9 @@
         const category = document.getElementById('create-category')?.value || '-';
         const billing  = document.querySelector('#step-2 .tier-card.selected[data-tier="per_token"], #step-2 .tier-card.selected[data-tier="per_minute"]');
         const billingLbl = billing && billing.dataset.tier === 'per_minute' ? 'Per Minute' : 'Per Token';
-        const minV = parseFloat(document.getElementById('create-min-price')?.value) || 0;
-        const maxV = parseFloat(document.getElementById('create-max-price')?.value) || 0;
+        // Input-side min and Output-side max give the true range the buyer pays.
+        const minV = parseFloat(document.getElementById('create-min-input')?.value) || 0;
+        const maxV = parseFloat(document.getElementById('create-max-output')?.value) || 0;
         const verifyKind = verifySel.dataset.tier === 'thorough' ? 'Premium Audit' : 'Basic';
         const verifyFee  = verifySel.dataset.tier === 'thorough' ? 50 : 10;
         const bondUSDC  = bondSel.dataset.bond === '3' ? 1000 : bondSel.dataset.bond === '2' ? 250 : 100;
@@ -636,16 +650,9 @@
     const verifyEl = step3 ? step3.querySelector('.tier-card[data-tier].selected') : null;
     const bondEl  = step3 ? step3.querySelector('.tier-card[data-bond].selected') : null;
 
-    // Wallet gate - must be connected to bond + list.
-    const walletAddr = (window.AgentHire && window.AgentHire.address) || null;
-    if (!walletAddr) {
-      showToast('Connect a wallet first - bond can\'t be posted without one.', 'error');
-      btn.disabled = false;
-      btn.textContent = 'Submit & Pay Verification Fee';
-      // Trigger the connect flow
-      document.getElementById('wallet-btn')?.click();
-      return;
-    }
+    // Wallet is optional — server auto-generates a demo wallet if missing,
+    // so the Submit click always produces a real Fuji tx.
+    const walletAddr = (window.AgentHire && window.AgentHire.address) || '';
 
     const payload = {
       name:              byId('create-name'),
@@ -656,8 +663,12 @@
       tags:              byId('create-tags'),
       capabilities:      byId('create-capabilities'),
       billing:           billingEl ? billingEl.dataset.tier : 'per_token',
-      min_price:         byId('create-min-price') || '0.002',
-      max_price:         byId('create-max-price') || '0.010',
+      min_price:         byId('create-min-input')  || '0.002',
+      max_price:         byId('create-max-output') || '0.010',
+      min_input_tokens:  byId('create-min-input'),
+      max_input_tokens:  byId('create-max-input'),
+      min_output_tokens: byId('create-min-output'),
+      max_output_tokens: byId('create-max-output'),
       verification_tier: verifyEl ? verifyEl.dataset.tier : 'basic',
       bond_tier:        bondEl  ? Number(bondEl.dataset.bond) : 1,
       wallet:            walletAddr,
@@ -692,6 +703,81 @@
     document.querySelectorAll('[data-tier="per_token"], [data-tier="per_minute"]').forEach(c => c.classList.remove('selected'));
     document.querySelector(`[data-tier="${type}"]`).classList.add('selected');
   }
+
+  // ── QUICK LIST — bypass wizard, post bond + register in one call ────────
+  document.getElementById('btn-quick-list')?.addEventListener('click', async () => {
+    const btn  = document.getElementById('btn-quick-list');
+    const out  = document.getElementById('quick-list-result');
+    const orig = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'SIGNING + BROADCASTING...';
+    out.style.display = 'block';
+    out.innerHTML = '<span style="color:var(--text-3);">Posting AgentRegistry.registerAgent to Fuji...</span>';
+    try {
+      const walletAddr = (window.AgentHire && window.AgentHire.address) || '';
+      const nameInput  = (document.getElementById('create-name')?.value || '').trim();
+      const descInput  = (document.getElementById('create-desc')?.value || '').trim();
+      const catInput   = (document.getElementById('create-category')?.value || '').trim();
+      const res = await fetch('/seller/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name:             nameInput || ('QuickList-' + Date.now()),
+          description:      descInput || 'Listed via quick-list',
+          long_description: descInput || 'Listed via quick-list from seller/create',
+          category:         catInput  || 'Code',
+          billing:          'per_token',
+          bond_tier:        1,
+          wallet:           walletAddr,
+          seller:           walletAddr,
+        }),
+      });
+      const d = await res.json();
+      if (!res.ok || !d.txHash) throw new Error(d.error || 'Listing failed');
+      const h = '0x' + d.txHash;
+      const avaxUrl = 'https://subnets-test.avax.network/c-chain/tx/' + h;
+      out.innerHTML = `
+        <div style="display:flex; flex-direction:column; gap:6px;">
+          <div style="color:var(--green); font-weight:700;">✓ AGENT LISTED · BOND ESCROWED · TX CONFIRMED</div>
+          <div>agentId: <span style="color:var(--accent);">${d.agentId}</span> · on-chain id: ${d.chainAgentId} · bond: $${d.bondUSDC} USDC</div>
+          <div style="word-break:break-all;">tx: <span style="color:var(--text-2);">${h}</span></div>
+          <div style="margin-top:4px;">
+            <a href="${avaxUrl}" target="_blank" style="color:var(--accent); font-weight:600;">→ View on Ava Labs Explorer</a>
+            <span style="margin:0 10px; color:var(--text-3);">·</span>
+            <a href="/agent/${d.agentId}" style="color:var(--accent);">→ View agent listing</a>
+          </div>
+        </div>`;
+      window.open(avaxUrl, '_blank');
+    } catch (e) {
+      out.innerHTML = `<span style="color:var(--red);">Error: ${e.message}</span>`;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = orig;
+    }
+  });
+
+  // Wire step-3 verification-tier cards (data-tier="basic"/"thorough")
+  document.querySelectorAll('#step-3 .tier-card[data-tier]').forEach(card => {
+    card.addEventListener('click', () => {
+      document.querySelectorAll('#step-3 .tier-card[data-tier]').forEach(c => c.classList.remove('selected'));
+      card.classList.add('selected');
+    });
+    card.style.cursor = 'pointer';
+  });
+
+  // Wire step-3 bond-tier cards (data-bond="1"/"2"/"3"). The cards are <label>
+  // elements wrapping a hidden radio. Clicking the label fires the radio's
+  // change event, but we also need to mark the card with .selected for the
+  // validation queries in step-next / step-submit to pick it up.
+  document.querySelectorAll('#step-3 .tier-card[data-bond]').forEach(card => {
+    card.addEventListener('click', () => {
+      document.querySelectorAll('#step-3 .tier-card[data-bond]').forEach(c => c.classList.remove('selected'));
+      card.classList.add('selected');
+      const hidden = document.getElementById('selected-bond');
+      if (hidden) hidden.value = card.dataset.bond;
+    });
+    card.style.cursor = 'pointer';
+  });
 
   function updateTokenPreview() {
     const minIn  = parseFloat(document.getElementById('create-min-input')?.value);

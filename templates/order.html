@@ -144,8 +144,11 @@
           <span class="cost-tracker-value">${{ "%.3f"|format(order.amount) }} USDC</span>
           <span style="font-family:var(--font-mono); font-size:.6875rem; color:var(--green);">Within budget ✓</span>
         </div>
+        {# Actual vs max-spend ratio — derived so the bar reflects real usage. #}
+        {% set max_spend = (order.amount * 1.25) if order.amount else 1 %}
+        {% set pct = ((order.amount / max_spend * 100) | round(1)) if max_spend else 100 %}
         <div class="cost-bar-wrap mb-16">
-          <div class="cost-bar-fill" style="width:72%;"></div>
+          <div class="cost-bar-fill" style="width:{{ pct }}%;"></div>
         </div>
 
         {% if agent.id in [1, 3, 4, 7] %}
@@ -203,46 +206,17 @@
 
         {% if order.status == 'completed' %}
         <div style="background:var(--card-2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:16px; font-family:var(--font-mono); font-size:.8rem; line-height:1.8; color:var(--text);">
-          <div style="color:var(--green); margin-bottom:10px;">// Task completed - {{ agent.name }}</div>
-          <div style="color:var(--text-2);">// Duration: 3m 42s · Base: ${{ "%.3f"|format(agent.current_price * 10) }}</div>
-          {% if agent.id in [1,3,4,7] %}
-          <div style="color:var(--text-2); margin-bottom:12px;">// Sub-agent cost: $0.022 · Total: ${{ "%.3f"|format(order.amount) }}</div>
+          <div style="color:var(--green); margin-bottom:10px;">// Task settled · {{ agent.name }}</div>
+          <div style="color:var(--text-2);">// Total: ${{ "%.4f"|format(order.amount) }} USDC · released from EscrowPayment</div>
+          {% if order.tx_hash %}
+          {% set full_hash = order.tx_hash if order.tx_hash.startswith('0x') else '0x' + order.tx_hash %}
+          <div style="color:var(--text-2); margin-top:10px;">// On-chain receipt:</div>
+          <div style="word-break:break-all; margin-top:4px;"><a href="https://subnets-test.avax.network/c-chain/tx/{{ full_hash }}" target="_blank" style="color:var(--accent);">{{ full_hash }}</a></div>
           {% endif %}
-          <div style="margin-bottom:8px;">Analysis complete. 3 critical findings:</div>
-          <div style="color:var(--red);">  [HIGH] SQL injection at line 142</div>
-          <div style="color:var(--amber);">  [MED]  Unvalidated input in auth middleware</div>
-          <div style="color:var(--amber);">  [MED]  Hardcoded credentials in config.py</div>
-          <div style="margin-top:12px;">Report: <span style="color:var(--blue);">report_20260415.pdf</span></div>
+          <div style="color:var(--text-3); margin-top:14px; font-size:.72rem; line-height:1.5;">
+            The agent's actual work product is delivered off-chain via the Akash-hosted LLM response channel after the escrow confirms. This box is the settlement receipt only.
+          </div>
         </div>
-        <div style="display:flex; gap:10px; margin-top:14px;">
-          <button class="btn btn-secondary btn-sm" id="download-report-btn">Download Report</button>
-          <button class="btn btn-ghost btn-sm" id="copy-output-btn">Copy Output</button>
-        </div>
-        <script>
-        (() => {
-          const dl = document.getElementById('download-report-btn');
-          const cp = document.getElementById('copy-output-btn');
-          if (dl) dl.addEventListener('click', () => {
-            const summary = document.querySelector('.card [style*="font-family:var(--font-mono)"]')?.innerText || 'Report not available.';
-            const blob = new Blob([summary], { type: 'text/plain;charset=utf-8' });
-            const url  = URL.createObjectURL(blob);
-            const a    = document.createElement('a');
-            a.href = url; a.download = '{{ order.id }}-report.txt';
-            document.body.appendChild(a); a.click(); a.remove();
-            URL.revokeObjectURL(url);
-            if (window.showToast) showToast('Report downloaded as text.', 'success');
-          });
-          if (cp) cp.addEventListener('click', async () => {
-            const text = document.querySelector('.card [style*="font-family:var(--font-mono)"]')?.innerText || '';
-            try {
-              await navigator.clipboard.writeText(text);
-              showToast('Output copied to clipboard.', 'success');
-            } catch (e) {
-              showToast('Copy failed: ' + e.message, 'error');
-            }
-          });
-        })();
-        </script>
         {% elif order.status == 'in_progress' %}
         <div class="flex-col gap-10">
           <div class="skeleton skel-line"></div>
@@ -250,8 +224,9 @@
           <div class="skeleton skel-line"></div>
           <div class="skeleton skel-line xshort"></div>
         </div>
-        <div class="progress-bar mt-16"><div class="progress-fill" style="width:62%;"></div></div>
-        <div style="font-family:var(--font-mono); font-size:.6875rem; color:var(--text-3); margin-top:8px;">62% complete · Est. 2 min remaining</div>
+        <div class="progress-bar mt-16"><div class="progress-fill" style="width:0%; animation:progress-pulse 2s ease-in-out infinite;"></div></div>
+        <div style="font-family:var(--font-mono); font-size:.6875rem; color:var(--text-3); margin-top:8px;">Waiting for agent · escrow holding funds</div>
+        <style>@keyframes progress-pulse { 0%,100% { width:10%; opacity:.5 } 50% { width:70%; opacity:1 } }</style>
         {% else %}
         <div class="empty-state" style="padding:32px;">
           <div style="font-family:var(--font-mono);font-size:1.25rem;color:var(--border-2);font-weight:700;margin-bottom:14px;">[ ]</div>

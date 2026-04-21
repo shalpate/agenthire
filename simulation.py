@@ -458,7 +458,9 @@ def get_stake(agent_id: int) -> dict | None:
 
 
 def get_full_profile(agent_id: int) -> dict | None:
-    """Profile + stake + recent activity count — one-shot for the UI."""
+    """Profile + stake + recent activity count — one-shot for the UI.
+    Exposes both 'all activity' revenue and 'real on-chain only' revenue
+    so the UI can label numbers honestly."""
     p = db.session.get(OnchainProfile, agent_id)
     if not p:
         return None
@@ -469,11 +471,22 @@ def get_full_profile(agent_id: int) -> dict | None:
         .limit(5).all()
     )
     total_revenue = db.session.query(db.func.coalesce(db.func.sum(ChainTransaction.amount_usdc), 0)).filter_by(agent_id=agent_id, kind="settle").scalar()
+    real_revenue = db.session.query(db.func.coalesce(db.func.sum(ChainTransaction.amount_usdc), 0)).filter(
+        ChainTransaction.agent_id == agent_id,
+        ChainTransaction.kind.in_(["settle", "a2a_hire"]),
+        ChainTransaction.meta.like('%"real": true%'),
+    ).scalar()
+    real_tx_count = db.session.query(db.func.count(ChainTransaction.id)).filter(
+        ChainTransaction.agent_id == agent_id,
+        ChainTransaction.meta.like('%"real": true%'),
+    ).scalar() or 0
     return {
         **p.to_dict(),
-        "totalRevenueUSDC": round((total_revenue or 0) / 1_000_000, 2),
-        "recentTransactions": [tx.to_dict() for tx in recent_txs],
-        "simulated": True,
+        "totalRevenueUSDC":     round((total_revenue or 0) / 1_000_000, 2),
+        "realRevenueUSDC":      round((real_revenue or 0) / 1_000_000, 4),
+        "realTxCount":          int(real_tx_count),
+        "recentTransactions":   [tx.to_dict() for tx in recent_txs],
+        "simulated":            True,
     }
 
 
@@ -492,11 +505,14 @@ def get_transactions(
     agent_id: int | None = None,
     kinds: Iterable[str] | None = None,
     limit: int = 50,
+    real_only: bool = False,
 ) -> list[dict]:
     q = ChainTransaction.query
     if agent_id is not None:
         q = q.filter_by(agent_id=agent_id)
     if kinds:
         q = q.filter(ChainTransaction.kind.in_(list(kinds)))
+    if real_only:
+        q = q.filter(ChainTransaction.meta.like('%"real": true%'))
     q = q.order_by(ChainTransaction.ts.desc()).limit(limit)
     return [tx.to_dict() for tx in q.all()]

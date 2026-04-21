@@ -233,7 +233,7 @@
         <div class="flex-between mb-16">
           <div>
             <h3 style="margin-bottom:4px;">On-chain activity</h3>
-            <p class="text-sm text-muted" style="margin:0;">Surge-adjusted price curve and the agent's latest settlements, bonds, and incidents.</p>
+            <p class="text-sm text-muted" style="margin:0;">Price curve is simulated for density. Transactions below are real Fuji txs only — empty is honest.</p>
           </div>
           <span class="live-indicator"><span class="live-dot"></span> Live</span>
         </div>
@@ -248,7 +248,7 @@
             <div class="font-bold" id="oc-stat-util" style="font-size:1.1rem; margin-top:4px;">-</div>
           </div>
           <div style="background:var(--card-2); border:1px solid var(--border); border-radius:8px; padding:10px 14px;">
-            <div class="text-xs text-muted" style="text-transform:uppercase; letter-spacing:.06em;">30d revenue</div>
+            <div class="text-xs text-muted" style="text-transform:uppercase; letter-spacing:.06em;">Revenue (live on-chain)</div>
             <div class="font-bold" id="oc-stat-revenue" style="font-size:1.1rem; margin-top:4px;">-</div>
           </div>
           <div style="background:var(--card-2); border:1px solid var(--border); border-radius:8px; padding:10px 14px;">
@@ -668,21 +668,28 @@
         }
       }
 
-      // Stat cards
+      // Stat cards — real on-chain numbers only; sim data is shown on the chart.
       if (quote) {
         document.getElementById('oc-stat-surge').textContent = quote.surgeMultiplier.toFixed(2) + '×';
         document.getElementById('oc-stat-util').textContent  = (quote.utilization * 100).toFixed(0) + '%';
       }
       if (profile) {
-        document.getElementById('oc-stat-revenue').textContent = '$' + Number(profile.totalRevenueUSDC || 0).toLocaleString(undefined, { maximumFractionDigits: 0 });
-        // Count slash events
+        const realRev = Number(profile.realRevenueUSDC || 0);
+        const revEl = document.getElementById('oc-stat-revenue');
+        // Relabel to "Revenue (live)" and show real value or em-dash
+        const revLabelEl = revEl.parentElement.querySelector('.text-muted');
+        if (revLabelEl) revLabelEl.textContent = 'Revenue (live on-chain)';
+        revEl.textContent = realRev > 0
+          ? '$' + realRev.toLocaleString(undefined, { maximumFractionDigits: 2 })
+          : '—';
         const slashAmt = (profile.recentTransactions || [])
-          .filter(tx => tx.kind === 'slash').reduce((s, t) => s + (t.amountUSDCDisplay || 0), 0);
-        document.getElementById('oc-stat-slashed').textContent = slashAmt > 0 ? '$' + slashAmt.toFixed(0) : '-';
+          .filter(tx => tx.kind === 'slash' && tx.meta && tx.meta.real === true)
+          .reduce((s, t) => s + (t.amountUSDCDisplay || 0), 0);
+        document.getElementById('oc-stat-slashed').textContent = slashAmt > 0 ? '$' + slashAmt.toFixed(2) : '—';
       }
 
-      // Transactions list
-      const txRes = await fetch(`/api/agents/${agentId}/transactions?limit=12`).then(r => r.ok ? r.json() : null);
+      // Transactions list — real Fuji txs only. Empty state is honest.
+      const txRes = await fetch(`/api/agents/${agentId}/transactions?limit=12&real_only=1`).then(r => r.ok ? r.json() : null);
       const list = document.getElementById('oc-tx-list');
       if (txRes && txRes.transactions && txRes.transactions.length) {
         const KIND = {
@@ -713,7 +720,7 @@
           </div>`;
         }).join('');
       } else {
-        list.innerHTML = '<div class="text-muted">No activity yet.</div>';
+        list.innerHTML = '<div class="text-muted" style="padding:10px 0;">No real Fuji txs for this agent yet. Hire it via <a href="/demo" style="color:var(--accent);">/demo</a> to see entries appear here, live.</div>';
       }
     } catch (e) {
       console.warn('agent-detail on-chain activity load failed:', e);

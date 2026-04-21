@@ -24,23 +24,27 @@
       </div>
     </div>
 
-    <!-- Stats -->
+    <!-- Stats — aggregated from the live reports list -->
+    {% set open_count         = (reports | selectattr('status', 'equalto', 'open')         | list | length) %}
+    {% set investigating_count= (reports | selectattr('status', 'equalto', 'investigating')| list | length) %}
+    {% set resolved_count     = (reports | selectattr('status', 'equalto', 'resolved')     | list | length) %}
+    {% set suspended_count    = (reports | selectattr('status', 'equalto', 'suspended')    | list | length) %}
     <div class="grid-4 mb-32">
       <div class="stat-card">
         <div class="text-xs text-muted mb-8" style="text-transform:uppercase; letter-spacing:.06em;">Open Reports</div>
-        <div class="stat-value" style="color:var(--error);">2</div>
+        <div class="stat-value" style="color:var(--error);">{{ open_count }}</div>
       </div>
       <div class="stat-card">
         <div class="text-xs text-muted mb-8" style="text-transform:uppercase; letter-spacing:.06em;">Investigating</div>
-        <div class="stat-value" style="color:var(--warning);">1</div>
+        <div class="stat-value" style="color:var(--warning);">{{ investigating_count }}</div>
       </div>
       <div class="stat-card">
-        <div class="text-xs text-muted mb-8" style="text-transform:uppercase; letter-spacing:.06em;">Resolved (30d)</div>
-        <div class="stat-value" style="color:var(--success);">14</div>
+        <div class="text-xs text-muted mb-8" style="text-transform:uppercase; letter-spacing:.06em;">Resolved</div>
+        <div class="stat-value" style="color:var(--success);">{{ resolved_count }}</div>
       </div>
       <div class="stat-card">
         <div class="text-xs text-muted mb-8" style="text-transform:uppercase; letter-spacing:.06em;">Agents Suspended</div>
-        <div class="stat-value">0</div>
+        <div class="stat-value">{{ suspended_count }}</div>
       </div>
     </div>
 
