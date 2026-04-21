@@ -68,19 +68,6 @@
   })();
   </script>
 
-  <!-- QUICK LIST — skip the 4-step wizard entirely and post the bond + register tx immediately -->
-  <div id="quick-list-card" style="background:linear-gradient(135deg, rgba(239,68,68,.12), rgba(245,158,11,.05)); border:1px solid var(--red); border-radius:12px; padding:18px 22px; margin-bottom:28px;">
-    <div style="display:flex; align-items:center; justify-content:space-between; gap:20px; flex-wrap:wrap;">
-      <div style="flex:1; min-width:220px;">
-        <div style="font-family:var(--font-mono); font-size:.625rem; text-transform:uppercase; letter-spacing:.12em; color:var(--red); margin-bottom:4px;">QUICK LIST · Skip wizard</div>
-        <div style="font-size:.95rem; font-weight:600; margin-bottom:2px;">Post bond + register agent in one click</div>
-        <div class="text-sm text-muted">Fires AgentRegistry.registerAgent on Fuji. Tier-1 bond (100 USDC). Real on-chain tx.</div>
-      </div>
-      <button id="btn-quick-list" style="background:var(--red); color:white; border:none; border-radius:8px; padding:12px 24px; font-size:.85rem; font-weight:700; cursor:pointer; white-space:nowrap; letter-spacing:.04em;" onmousedown="this.style.transform='scale(.97)'" onmouseup="this.style.transform='scale(1)'">POST BOND + LIST</button>
-    </div>
-    <div id="quick-list-result" style="margin-top:12px; font-family:var(--font-mono); font-size:.76rem; display:none;"></div>
-  </div>
-
   <!-- ═══ Step 1: Agent Info ═══ -->
   <div class="form-step" id="step-1" style="display:block;">
     <div style="background:var(--card); border:1px solid var(--border); border-radius:var(--radius-lg); overflow:hidden; margin-bottom:20px;">
@@ -734,58 +721,6 @@
     document.querySelectorAll('[data-tier="per_token"], [data-tier="per_minute"]').forEach(c => c.classList.remove('selected'));
     document.querySelector(`[data-tier="${type}"]`).classList.add('selected');
   }
-
-  // ── QUICK LIST — bypass wizard, post bond + register in one call ────────
-  document.getElementById('btn-quick-list')?.addEventListener('click', async () => {
-    const btn  = document.getElementById('btn-quick-list');
-    const out  = document.getElementById('quick-list-result');
-    const orig = btn.textContent;
-    btn.disabled = true;
-    btn.textContent = 'SIGNING + BROADCASTING...';
-    out.style.display = 'block';
-    out.innerHTML = '<span style="color:var(--text-3);">Posting AgentRegistry.registerAgent to Fuji...</span>';
-    try {
-      const walletAddr = (window.AgentHire && window.AgentHire.address) || '';
-      const nameInput  = (document.getElementById('create-name')?.value || '').trim();
-      const descInput  = (document.getElementById('create-desc')?.value || '').trim();
-      const catInput   = (document.getElementById('create-category')?.value || '').trim();
-      const res = await fetch('/seller/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name:             nameInput || ('QuickList-' + Date.now()),
-          description:      descInput || 'Listed via quick-list',
-          long_description: descInput || 'Listed via quick-list from seller/create',
-          category:         catInput  || 'Code',
-          billing:          'per_token',
-          bond_tier:        1,
-          wallet:           walletAddr,
-          seller:           walletAddr,
-        }),
-      });
-      const d = await res.json();
-      if (!res.ok || !d.txHash) throw new Error(d.error || 'Listing failed');
-      const h = '0x' + d.txHash;
-      const avaxUrl = 'https://subnets-test.avax.network/c-chain/tx/' + h;
-      out.innerHTML = `
-        <div style="display:flex; flex-direction:column; gap:6px;">
-          <div style="color:var(--green); font-weight:700;">✓ AGENT LISTED · BOND ESCROWED · TX CONFIRMED</div>
-          <div>agentId: <span style="color:var(--accent);">${d.agentId}</span> · on-chain id: ${d.chainAgentId} · bond: $${d.bondUSDC} USDC</div>
-          <div style="word-break:break-all;">tx: <span style="color:var(--text-2);">${h}</span></div>
-          <div style="margin-top:4px;">
-            <a href="${avaxUrl}" target="_blank" style="color:var(--accent); font-weight:600;">→ View on Ava Labs Explorer</a>
-            <span style="margin:0 10px; color:var(--text-3);">·</span>
-            <a href="/agent/${d.agentId}" style="color:var(--accent);">→ View agent listing</a>
-          </div>
-        </div>`;
-      window.open(avaxUrl, '_blank');
-    } catch (e) {
-      out.innerHTML = `<span style="color:var(--red);">Error: ${e.message}</span>`;
-    } finally {
-      btn.disabled = false;
-      btn.textContent = orig;
-    }
-  });
 
   // Wire step-3 verification-tier cards (data-tier="basic"/"thorough")
   document.querySelectorAll('#step-3 .tier-card[data-tier]').forEach(card => {
