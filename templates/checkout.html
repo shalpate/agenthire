@@ -335,29 +335,58 @@
               const rawHash = d.realTxHash || '';
               const h = rawHash ? (rawHash.startsWith('0x') ? rawHash : '0x' + rawHash) : '';
               const orderId = d.orderId || '';
+              const agentName = btn.dataset.agentName || 'the agent';
               if (h) {
                 const avaxUrl  = 'https://subnets-test.avax.network/c-chain/tx/' + h;
                 const orderUrl = orderId ? ('/order/' + orderId) : '';
+                // Show the payment receipt + a placeholder for the agent's
+                // actual work product. The placeholder fills in below after
+                // Akash responds — that's the MATERIAL outcome.
                 statusEl.innerHTML = `
-                  <div style="text-align:left; background:rgba(34,197,94,.06); border:1px solid var(--green); border-radius:10px; padding:14px 16px; line-height:1.55;">
+                  <div style="text-align:left; background:rgba(34,197,94,.06); border:1px solid var(--green); border-radius:10px; padding:14px 16px; line-height:1.55; margin-bottom:12px;">
                     <div style="color:var(--green); font-weight:700; letter-spacing:.08em; text-transform:uppercase; font-size:.625rem; margin-bottom:6px;">✓ Payment settled · Order placed</div>
                     <div style="font-size:.82rem; color:var(--text); margin-bottom:8px;">${orderId ? orderId + ' · ' : ''}$${depositUSDC.toFixed(2)} USDC · block #${d.chain?.block || '—'}</div>
                     <div style="word-break:break-all; color:var(--text-3); margin-bottom:10px; font-size:.68rem;">${h}</div>
                     <div style="display:flex; gap:14px; flex-wrap:wrap;">
-                      ${orderUrl ? `<a href="${orderUrl}" style="color:var(--accent); font-weight:600;">→ View order receipt</a>` : ''}
                       <a href="${avaxUrl}" target="_blank" style="color:var(--accent);">→ Ava Labs tx ↗</a>
+                      ${orderUrl ? `<a href="${orderUrl}" style="color:var(--accent);">→ Order receipt</a>` : ''}
                       <a href="/past-jobs" style="color:var(--accent);">→ All my jobs</a>
                     </div>
-                    <div style="color:var(--text-3); font-size:.64rem; margin-top:10px;">Redirecting to your order in 3 seconds…</div>
+                  </div>
+                  <div id="akash-wrap" style="background:rgba(95,227,227,.05); border:1px solid rgba(95,227,227,.25); border-radius:10px; padding:14px 16px;">
+                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+                      <span style="font-family:var(--font-mono); font-size:.625rem; text-transform:uppercase; letter-spacing:.1em; color:var(--accent);">⚡ ${agentName} · Akash · Qwen 2.5 Coder 7B</span>
+                      <span id="akash-meta" style="font-family:var(--font-mono); font-size:.58rem; color:var(--text-3);">generating…</span>
+                    </div>
+                    <pre id="akash-out" style="font-family:var(--font-mono); font-size:.78rem; line-height:1.55; white-space:pre-wrap; word-break:break-word; margin:0; color:var(--text-2); max-height:300px; overflow:auto;">Running your task on decentralized GPU compute…</pre>
                   </div>`;
                 window.open(avaxUrl, '_blank');
-                if (orderUrl) setTimeout(() => { location.href = orderUrl; }, 3000);
+
+                // Fire the real Akash generate call — the agent actually
+                // does the user's task, response shows in the panel above.
+                try {
+                  const g = await fetch('/api/agents/' + agentId + '/generate', {
+                    method: 'POST', headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({ prompt: taskPrompt, maxTokens: 400 }),
+                  });
+                  const gd = await g.json();
+                  const outEl  = document.getElementById('akash-out');
+                  const metaEl = document.getElementById('akash-meta');
+                  if (g.ok && gd.response) {
+                    outEl.textContent = gd.response;
+                    metaEl.textContent = `${gd.totalTokens||'?'} tokens · ${gd.latencyMs||'?'} ms`;
+                  } else {
+                    outEl.textContent = '(Akash inference unavailable — tx already settled on-chain)';
+                    metaEl.textContent = gd.error ? String(gd.error).slice(0,80) : 'offline';
+                  }
+                } catch (akashErr) {
+                  const outEl = document.getElementById('akash-out');
+                  if (outEl) outEl.textContent = '(Akash error: ' + (akashErr.message || akashErr) + ')';
+                }
               } else {
                 setStatus('✓ Real Fuji tx fired');
               }
               if (window.showToast) showToast('Payment on-chain · block #' + (d.chain?.block || '?'), 'success');
-              // Don't auto-redirect — give judges time to read the tx hash +
-              // click through the explorer link. Order page is linked above.
             } catch (e) {
               console.error(e);
               setStatus('Failed: ' + (e.message || e));
