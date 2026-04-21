@@ -5,11 +5,11 @@
 <div class="container" style="padding-top:36px; padding-bottom:72px;">
 
   <!-- Header -->
-  <div class="flex-between mb-28">
+  <div class="flex-between mb-16">
     <div>
-      <div style="font-family:var(--font-mono); font-size:.5rem; text-transform:uppercase; letter-spacing:.14em; color:var(--text-3); margin-bottom:6px;">Network · Autonomous</div>
+      <div style="font-family:var(--font-mono); font-size:.5rem; text-transform:uppercase; letter-spacing:.14em; color:var(--text-3); margin-bottom:6px;">Agent operator console · Live Fuji telemetry</div>
       <h1 style="font-size:1.625rem; margin-bottom:4px; letter-spacing:-.025em;">Agent Mode</h1>
-      <p class="text-sm text-muted" style="font-family:var(--font-mono);">Real-time task execution, registry, and protocol telemetry</p>
+      <p class="text-sm text-muted">This is the view an <b style="color:var(--text-2);">agent operator</b> (or anyone running a bot on the marketplace) watches to monitor real on-chain activity — who's being hired, where the escrow is, which contracts are firing.</p>
     </div>
     <div style="display:flex; gap:10px; align-items:center;">
       <div style="display:flex; align-items:center; gap:6px; padding:6px 12px; background:var(--card); border:1px solid var(--border); border-radius:var(--radius-sm);">
@@ -18,6 +18,12 @@
       </div>
       <a href="/marketplace" class="btn btn-ghost btn-sm" style="font-family:var(--font-mono); font-size:.6875rem;">← Marketplace</a>
     </div>
+  </div>
+
+  <!-- Legend banner — what each metric means -->
+  <div style="display:flex; gap:10px; align-items:flex-start; padding:10px 14px; background:rgba(34,197,94,.04); border:1px solid rgba(34,197,94,.18); border-radius:8px; margin-bottom:20px; font-size:.78rem; color:var(--text-2);">
+    <span style="font-family:var(--font-mono); color:var(--green); font-weight:700; font-size:.56rem; text-transform:uppercase; letter-spacing:.12em; padding-top:2px;">Data source</span>
+    <span>Every stat + row below is derived from real Avalanche Fuji transactions logged in <code>ChainTransaction</code> with <code>meta.real=true</code>. Fire a tx at <a href="/demo" style="color:var(--accent);">/demo</a> or <a href="/marketplace" style="color:var(--accent);">/marketplace</a> → you'll see it appear here within 5 seconds.</span>
   </div>
 
   <!-- Network Stats Row -->
@@ -370,61 +376,27 @@
     </div>
   </details>
 
-  <!-- Agent Registry -->
-  <div style="background:var(--card); border:1px solid var(--border); border-radius:var(--radius);">
-    <div style="padding:16px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between;">
-      <span style="font-size:.9375rem; font-weight:600;">Agent Registry</span>
-      <div style="display:flex; align-items:center; gap:8px;">
-        <span style="font-family:var(--font-mono); font-size:.5rem; color:var(--text-3); text-transform:uppercase; letter-spacing:.1em;">{{ agents|length }} agents shown</span>
-        <a href="/marketplace" class="btn btn-ghost btn-sm" style="font-size:.75rem;">View All →</a>
-      </div>
-    </div>
-    <div style="overflow-x:auto;">
-      <table style="width:100%; border-collapse:collapse;">
-        <thead>
-          <tr style="border-bottom:1px solid var(--border);">
-            {% for col in ['Agent', 'Category', 'Model', 'Price', 'Tasks', 'Rating', 'Status', ''] %}
-            <th style="padding:10px 16px; text-align:left; font-family:var(--font-mono); font-size:.45rem; font-weight:700; color:var(--text-3); text-transform:uppercase; letter-spacing:.1em; white-space:nowrap;">{{ col }}</th>
-            {% endfor %}
-          </tr>
-        </thead>
-        <tbody>
-          {% set cat_codes = {'Development':'DEV','Data & Analytics':'DAT','Content':'CON','Finance':'FIN','Research':'RES','Security':'SEC','Automation':'AUT'} %}
-          {% for agent in agents %}
-          <tr style="border-bottom:1px solid {{ 'var(--border)' if not loop.last else 'transparent' }}; transition:background .1s ease;" onmouseover="this.style.background='var(--card-2)'" onmouseout="this.style.background=''">
-            <td style="padding:11px 16px;">
-              <div style="display:flex; align-items:center; gap:9px;">
-                <div class="agent-avatar" style="width:28px; height:28px; font-size:.45rem; flex-shrink:0;">{{ cat_codes.get(agent.category,'AGT') }}</div>
-                <div>
-                  <div style="font-size:.875rem; font-weight:600; white-space:nowrap;">{{ agent.name }}</div>
-                  {% if agent.featured %}<span style="font-family:var(--font-mono); font-size:.45rem; color:#f59e0b; text-transform:uppercase; letter-spacing:.08em;">Featured</span>{% endif %}
-                </div>
-              </div>
-            </td>
-            <td style="padding:11px 16px; font-size:.8125rem; color:var(--text-2); white-space:nowrap;">{{ agent.category }}</td>
-            <td style="padding:11px 16px; font-family:var(--font-mono); font-size:.75rem; color:var(--text-3); white-space:nowrap;">{{ agent.model }}</td>
-            <td style="padding:11px 16px; font-family:var(--font-mono); font-size:.875rem; font-weight:700; white-space:nowrap; color:var(--green);">${{ "%.4f"|format(agent.get('price_per_token') or agent.get('output_price_per_1m', 0) / 1_000_000) }}/tok</td>
-            <td style="padding:11px 16px; font-family:var(--font-mono); font-size:.8125rem; color:var(--text-2);">{{ "{:,}".format(agent.tasks_completed) }}</td>
-            <td style="padding:11px 16px;">
-              <div style="display:flex; align-items:center; gap:4px;">
-                <span style="font-family:var(--font-mono); font-size:.8125rem; font-weight:600;">{{ agent.rating }}</span>
-                <span style="color:var(--amber); font-size:.625rem;">★</span>
-              </div>
-            </td>
-            <td style="padding:11px 16px;">
-              {% if agent.verified %}
-              <span style="font-family:var(--font-mono); font-size:.45rem; font-weight:700; color:var(--red); text-transform:uppercase; letter-spacing:.08em; padding:2px 6px; border:1px solid var(--red-border); border-radius:3px; background:var(--red-dim);">Verified</span>
-              {% else %}
-              <span style="font-family:var(--font-mono); font-size:.45rem; color:var(--text-3); text-transform:uppercase; letter-spacing:.08em;">Unverified</span>
-              {% endif %}
-            </td>
-            <td style="padding:11px 16px;">
-              <a href="/agent/{{ agent.id }}" class="btn btn-ghost btn-sm" style="font-size:.75rem; padding:4px 10px;">Hire →</a>
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+  <!-- What agent operators actually do on this page — a footer directing
+       them to the three concrete actions available from an agent's view.
+       Replaces the redundant Agent Registry table (same data as /marketplace). -->
+  <div style="background:var(--card-2); border:1px solid var(--border); border-radius:var(--radius); padding:18px 22px;">
+    <div style="font-family:var(--font-mono); font-size:.56rem; text-transform:uppercase; letter-spacing:.12em; color:var(--text-3); margin-bottom:10px;">Agent operator actions</div>
+    <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:12px;">
+      <a href="/seller/create" style="display:flex; flex-direction:column; gap:6px; padding:14px 16px; background:var(--card); border:1px solid var(--border); border-radius:8px; text-decoration:none; color:inherit; transition:border-color .12s ease;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-family:var(--font-mono); font-size:.6rem; color:var(--accent); text-transform:uppercase; letter-spacing:.08em;">Deploy →</span>
+        <span style="font-weight:600; font-size:.85rem;">Register a new agent</span>
+        <span class="text-sm text-muted" style="font-size:.72rem;">Fires AgentRegistry.registerAgent + StakingSlashing.stake on Fuji</span>
+      </a>
+      <a href="/seller/earnings" style="display:flex; flex-direction:column; gap:6px; padding:14px 16px; background:var(--card); border:1px solid var(--border); border-radius:8px; text-decoration:none; color:inherit; transition:border-color .12s ease;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-family:var(--font-mono); font-size:.6rem; color:var(--accent); text-transform:uppercase; letter-spacing:.08em;">Manage →</span>
+        <span style="font-weight:600; font-size:.85rem;">Bond + revenue dashboard</span>
+        <span class="text-sm text-muted" style="font-size:.72rem;">Real-Fuji earnings per agent, stake + unstake controls</span>
+      </a>
+      <a href="/demo" style="display:flex; flex-direction:column; gap:6px; padding:14px 16px; background:var(--card); border:1px solid var(--border); border-radius:8px; text-decoration:none; color:inherit; transition:border-color .12s ease;" onmouseover="this.style.borderColor='var(--red)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-family:var(--font-mono); font-size:.6rem; color:var(--red); text-transform:uppercase; letter-spacing:.08em;">Simulate →</span>
+        <span style="font-weight:600; font-size:.85rem;">Fire an agent-to-agent tx</span>
+        <span class="text-sm text-muted" style="font-size:.72rem;">Watch the live queue above update within 5 seconds</span>
+      </a>
     </div>
   </div>
 
