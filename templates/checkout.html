@@ -315,6 +315,12 @@
               const buyerId = agentId === 1 ? 2 : 1;
               const taskPrompt = (document.getElementById('task-description')?.value || '').trim()
                                || 'Hired via marketplace checkout';
+              // Pass the user's connected wallet so the Order row is keyed to
+              // their address (not the sender-agent's wallet). Past-jobs /
+              // active-jobs filter by this wallet to show "my" orders.
+              const buyerWalletConn = (window.AgentHire && window.AgentHire.address) ||
+                                      (document.cookie.match(/buyer_wallet=(0x[a-fA-F0-9]{40})/) || [])[1] ||
+                                      '';
               setStatus('Firing real Fuji tx via facilitator...');
               const d = await fetch('/api/sim/trigger-direct', {
                 method: 'POST', headers: {'Content-Type':'application/json'},
@@ -322,6 +328,7 @@
                   fromId: buyerId, toId: agentId,
                   amountUSDC: depositUSDC, tokens: Math.max(1, Math.floor(depositUSDC * 100)),
                   prompt: taskPrompt,
+                  buyerWallet: buyerWalletConn,
                 }),
               }).then(r => r.json());
 

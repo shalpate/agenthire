@@ -572,36 +572,14 @@ Click ② to sign a permit + retry → server returns 200 OK with receipt.</pre>
     </div>
   </details>
 
-  <details class="more">
-    <summary>
-      <span>Extras · market feed · advanced actions</span>
-      <span id="ex-summary">bids · winners · slash · post bid</span>
-    </summary>
-    <div class="body">
-      <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 16px;">
-        <div>
-          <div style="color:var(--text-2); margin-bottom: 6px;">Open bids</div>
-          <div id="bids-body"></div>
-        </div>
-        <div>
-          <div style="color:var(--text-2); margin-bottom: 6px;">Recent winners</div>
-          <div id="wins-body"></div>
-        </div>
-      </div>
-      <div style="border-top: 1px solid var(--line); padding-top: 14px;">
-        <div style="color:var(--text-2); margin-bottom: 8px;">Advanced actions</div>
-        <div class="more-actions">
-          <button id="btn-post-bid">+ Post a Bid</button>
-          <button id="btn-slash">⚠ Slash Agent</button>
-          <button id="btn-force-surge">⚡ Force Surge</button>
-          <label style="display:flex; align-items:center; gap:8px; margin-left: auto; padding: 4px 12px; font-size:.8rem; color:var(--text-2); cursor:pointer;">
-            <input type="checkbox" id="live-writes">
-            <span>Real on-chain writes</span>
-          </label>
-        </div>
-      </div>
-    </div>
-  </details>
+  <!-- Extras (open bids / recent winners / admin actions) removed from the
+       demo page. These were sim-engine playground panels — bid IDs were
+       synthetic, "Slash Agent" and "Force Surge" are admin-only actions,
+       and the live-writes toggle is always on server-side. Kept x402 and
+       ERC-8004 probes above since those are real on-chain reads/writes
+       that belong in a demo. Hidden checkbox preserves JS that references
+       it — untouched to avoid regressions. -->
+  <input type="checkbox" id="live-writes" checked style="display:none;">
 
   <div class="err" id="err"></div>
 </div>
@@ -947,25 +925,9 @@ Click ② to sign a permit + retry → server returns 200 OK with receipt.</pre>
     });
   }
 
-  // Extras panels
-  async function refreshExtras() {
-    try {
-      const bids = await fetchJson('/api/sim/open-bids');
-      $('bids-body').innerHTML = bids.bids.slice(0,5).map(b =>
-        `<div style="padding:4px 0; border-bottom:1px solid var(--line);">
-          <span style="color:${b.bidId.startsWith('USER-') ? 'var(--red)' : 'var(--text)'};">${b.bidId}</span>
-          <span style="color:var(--text-2);"> · ${b.tokenBudget}tok T${b.minTier}+</span>
-          <span style="color:var(--green); float:right;">$${b.depositUSDC.toFixed(2)}</span>
-        </div>`
-      ).join('') || '<div style="color:var(--text-2); padding:8px 0;">Engine will generate bids…</div>';
-    } catch {}
-    try {
-      const wins = await fetchJson('/api/sim/recent-winners');
-      $('wins-body').innerHTML = wins.winners.slice(0,5).map(w =>
-        `<div style="padding:4px 0; border-bottom:1px solid var(--line); color:var(--text-2);">${w.message.slice(0, 70)}</div>`
-      ).join('') || '<div style="color:var(--text-2); padding:8px 0;">No winners yet…</div>';
-    } catch {}
-  }
+  // Extras panels — kept as a no-op since the section was removed from
+  // the DOM. Callers still reference refreshExtras() from setInterval.
+  async function refreshExtras() { /* intentionally empty */ }
 
   // Actions — one-click, randomized sensible defaults (no prompt() chains).
   const CATS = ['Development','Data & Analytics','Content','Finance','Research','Security','Automation'];
@@ -1123,10 +1085,11 @@ Click ② to sign a permit + retry → server returns 200 OK with receipt.</pre>
 
   // Wire
   $('btn-send').onclick = send;
-  $('btn-post-bid').onclick = postBid;
-  $('btn-slash').onclick = slashAgent;
-  $('btn-force-surge').onclick = forceSurge;
-  $('btn-rate-agent').onclick = rateAgent;
+  // Extras section was removed — guard against null before wiring handlers.
+  if ($('btn-post-bid'))    $('btn-post-bid').onclick    = postBid;
+  if ($('btn-slash'))       $('btn-slash').onclick       = slashAgent;
+  if ($('btn-force-surge')) $('btn-force-surge').onclick = forceSurge;
+  if ($('btn-rate-agent'))  $('btn-rate-agent').onclick  = rateAgent;
   document.querySelectorAll('#rate-stars .rate-star').forEach((btn) => {
     btn.addEventListener('click', (e) => {
       e.preventDefault();

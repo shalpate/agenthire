@@ -999,16 +999,54 @@ def order_detail(order_id):
 def how_it_works():
     return render_template("how_it_works.html")
 
+def _orders_for_buyer(wallet: str, *, completed: bool) -> list:
+    """Pull Order rows written by the /checkout + /demo flows for this
+    buyer wallet. Merged with chain-derived jobs so every real tx the
+    user fires shows up on /past-jobs (completed) or /active-jobs
+    (in_escrow/in_progress)."""
+    wallet = (wallet or "").strip().lower()
+    if not wallet:
+        return []
+    try:
+        from models import Order as OrderModel
+        wanted = {"completed", "settled"} if completed else {"in_escrow", "in_progress"}
+        rows = (OrderModel.query
+                .filter(db.func.lower(OrderModel.buyer) == wallet)
+                .order_by(OrderModel.created_at.desc())
+                .limit(50).all())
+        out = []
+        for o in rows:
+            if o.status not in wanted and (completed is True and o.status != "completed"):
+                continue
+            if (not completed) and o.status not in ("in_escrow", "in_progress"):
+                continue
+            d = o.to_dict()
+            d["escrowedUSDC"]    = round((o.amount or 0) * (1 - PLATFORM_FEE_BPS / 10_000), 4)
+            d["platformFeeUSDC"] = round((o.amount or 0) * PLATFORM_FEE_BPS / 10_000, 4)
+            # Derive explorer link from order id (tx hash prefix).
+            if o.id.startswith("ORD-") and len(o.id) > 4:
+                d["orderUrl"] = f"/order/{o.id}"
+            out.append(d)
+        return out
+    except Exception as _e:
+        log.warning("orders_for_buyer failed: %s", _e)
+        return []
+
+
 @app.route("/active-jobs")
 def active_jobs():
-    wallet = request.args.get("wallet")  or ""
-    orders = _buyer_jobs_from_chain(wallet, include_settled=False, include_active=True) if wallet else []
+    wallet = request.args.get("wallet") or request.cookies.get("buyer_wallet") or ""
+    chain_orders = _buyer_jobs_from_chain(wallet, include_settled=False, include_active=True) if wallet else []
+    db_orders    = _orders_for_buyer(wallet, completed=False)
+    orders = db_orders + chain_orders
     return render_template("active_jobs.html", orders=orders, wallet=wallet)
 
 @app.route("/past-jobs")
 def past_jobs():
-    wallet = request.args.get("wallet")  or ""
-    orders = _buyer_jobs_from_chain(wallet, include_settled=True, include_active=False) if wallet else []
+    wallet = request.args.get("wallet") or request.cookies.get("buyer_wallet") or ""
+    chain_orders = _buyer_jobs_from_chain(wallet, include_settled=True, include_active=False) if wallet else []
+    db_orders    = _orders_for_buyer(wallet, completed=True)
+    orders = db_orders + chain_orders
     return render_template("past_jobs.html", orders=orders, wallet=wallet)
 
 @app.route("/api/buyer/<wallet>/jobs")
@@ -3125,7 +3163,9 @@ def api_sim_trigger_direct():
             amount_usdc=amount,
         )
         # Record an Order row so the buyer can land on /past-jobs or
-        # /order/<id> and see the paid session as a real entry.
+        # /order/<id> and see the paid session as a real entry. The buyer
+        # wallet comes from the connected wallet in the request body when
+        # available; falls back to sender-agent wallet for /demo flows.
         order_id = None
         try:
             from models import Order as OrderModel
@@ -3134,13 +3174,16 @@ def api_sim_trigger_direct():
             order_id = f"ORD-{short}" if short else f"ORD-{int(time.time()) % 1000000}"
             existing = OrderModel.query.get(order_id)
             if not existing:
-                buyer_addr = (from_prof.wallet_address if from_prof else "") or "0x0000...0000"
+                raw_buyer = str(data.get("buyerWallet") or "").strip()
+                buyer_addr = raw_buyer if _is_valid_wallet(raw_buyer) else (
+                    (from_prof.wallet_address if from_prof else "") or "0x0000...0000"
+                )
                 new_order = OrderModel(
                     id=order_id,
                     agent_id=to_id,
                     buyer=buyer_addr,
                     amount=float(amount),
-                    status="completed",  # marked settled since USDC.transfer lands instantly
+                    status="completed",
                     task=data.get("prompt") or data.get("reason") or "Hired via demo/checkout",
                     date=time.strftime("%Y-%m-%d", time.gmtime()),
                 )
