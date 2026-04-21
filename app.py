@@ -1001,31 +1001,43 @@ def how_it_works():
 
 def _orders_for_buyer(wallet: str, *, completed: bool) -> list:
     """Pull Order rows written by the /checkout + /demo flows for this
-    buyer wallet. Merged with chain-derived jobs so every real tx the
-    user fires shows up on /past-jobs (completed) or /active-jobs
-    (in_escrow/in_progress)."""
+    buyer wallet. Enriches each with escrow/fee breakdowns + a live
+    Ava Labs explorer link derived from the most recent real CT row
+    whose tx hash prefix matches the Order id. Used by both
+    /past-jobs (completed) and /active-jobs (in_escrow)."""
     wallet = (wallet or "").strip().lower()
     if not wallet:
         return []
     try:
-        from models import Order as OrderModel
-        wanted = {"completed", "settled"} if completed else {"in_escrow", "in_progress"}
+        from models import Order as OrderModel, ChainTransaction as CT
+        wanted_completed = {"completed", "settled"}
+        wanted_active    = {"in_escrow", "in_progress"}
         rows = (OrderModel.query
                 .filter(db.func.lower(OrderModel.buyer) == wallet)
                 .order_by(OrderModel.created_at.desc())
                 .limit(50).all())
         out = []
         for o in rows:
-            if o.status not in wanted and (completed is True and o.status != "completed"):
-                continue
-            if (not completed) and o.status not in ("in_escrow", "in_progress"):
-                continue
+            if completed and o.status not in wanted_completed: continue
+            if (not completed) and o.status not in wanted_active: continue
             d = o.to_dict()
-            d["escrowedUSDC"]    = round((o.amount or 0) * (1 - PLATFORM_FEE_BPS / 10_000), 4)
-            d["platformFeeUSDC"] = round((o.amount or 0) * PLATFORM_FEE_BPS / 10_000, 4)
-            # Derive explorer link from order id (tx hash prefix).
-            if o.id.startswith("ORD-") and len(o.id) > 4:
-                d["orderUrl"] = f"/order/{o.id}"
+            amt = float(o.amount or 0)
+            d["escrowedUSDC"]    = round(amt * (1 - PLATFORM_FEE_BPS / 10_000), 4)
+            d["platformFeeUSDC"] = round(amt * PLATFORM_FEE_BPS / 10_000, 4)
+            # Find the real tx for this order by matching the ORD-<prefix>
+            # against the CT table's tx_hash. Gives us a live explorer link.
+            short = o.id.replace("ORD-", "").lower() if o.id.startswith("ORD-") else ""
+            full_hash = ""
+            if short and len(short) >= 4:
+                ct = (CT.query
+                      .filter(db.func.lower(CT.tx_hash).like(f"%{short}%"))
+                      .order_by(CT.id.desc()).first())
+                if ct and ct.tx_hash:
+                    full_hash = ct.tx_hash if ct.tx_hash.startswith("0x") else "0x" + ct.tx_hash
+            d["txHash"]      = full_hash
+            d["snowtrace"]   = f"https://subnets-test.avax.network/c-chain/tx/{full_hash}" if full_hash else ""
+            d["sourceChain"] = "Avalanche Fuji" if full_hash else None
+            d["orderUrl"]    = f"/order/{o.id}"
             out.append(d)
         return out
     except Exception as _e:

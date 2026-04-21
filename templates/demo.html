@@ -760,11 +760,20 @@ Click ② to sign a permit + retry → server returns 200 OK with receipt.</pre>
     if (fromId === toId) return (showErr('Sender and receiver must differ.'), btn.disabled=false, btn.textContent='Send Payment');
 
     resetStage();
+    // Pass the user's connected wallet so this tx shows up under their
+    // identity on /past-jobs. Falls back to demo wallet cookie.
+    const buyerWallet = (window.AgentHire && window.AgentHire.address) ||
+                        (document.cookie.match(/buyer_wallet=(0x[a-fA-F0-9]{40})/) || [])[1] ||
+                        '';
     let data;
     try {
       data = await fetchJson('/api/sim/trigger-direct', {
         method: 'POST', headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ fromId: Number(fromId), toId: Number(toId), amountUSDC: amount, tokens, prompt: promptText }),
+        body: JSON.stringify({
+          fromId: Number(fromId), toId: Number(toId),
+          amountUSDC: amount, tokens, prompt: promptText,
+          buyerWallet,
+        }),
       });
     } catch (e) { showErr(e.message); btn.disabled = false; btn.textContent = 'Send Payment'; return; }
 
