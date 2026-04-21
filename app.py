@@ -1405,6 +1405,41 @@ def seller_earnings():
                            weekly_labels=weekly_labels, weekly_tasks=weekly_tasks)
 
 
+@app.route("/api/seller/bond-status")
+def api_seller_bond_status():
+    """Return the seller's cumulative on-chain bond across their agents.
+    Queries StakingSlashing.getStake for each of this wallet's agents
+    and sums the staked USDC. Used by /seller/create to flip the
+    'Bond required' notice to 'Bonded ✓' once staked."""
+    wallet = (request.args.get("wallet") or request.cookies.get("seller_wallet")
+              or request.cookies.get("buyer_wallet") or "").strip()
+    oc = _get_onchain()
+    if not oc:
+        return jsonify({"walletConnected": bool(wallet), "totalStakedUSDC": 0,
+                        "agentCount": 0, "bonded": False, "note": "on-chain not configured"})
+    wallet_lc = wallet.lower()
+    my = [a for a in AGENTS if a.get("seller", "").lower() == wallet_lc
+          or a.get("wallet", "").lower() == wallet_lc]
+    # Also pull the demo-default agent so a fresh seller who hasn't listed
+    # anything but has posted the initial account bond still shows as bonded.
+    probe_ids = list({a["id"] for a in my}) or [1]
+    total_micro = 0
+    for aid in probe_ids:
+        try:
+            s = oc.get_stake(int(aid))
+            total_micro += int(s.get("stakedUSDC", 0))
+        except Exception:
+            pass
+    total_usdc = round(total_micro / 1_000_000, 2)
+    return jsonify({
+        "wallet":           wallet,
+        "walletConnected":  bool(wallet),
+        "totalStakedUSDC":  total_usdc,
+        "agentCount":       len(probe_ids),
+        "bonded":           total_usdc >= 100,
+    })
+
+
 @app.route("/api/seller/bond", methods=["POST"])
 def api_seller_bond():
     """Post a bond for an agent via the facilitator. Used when the client

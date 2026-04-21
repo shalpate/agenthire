@@ -28,14 +28,45 @@
     {% endfor %}
   </div>
 
-  <!-- Bond notice — slim inline -->
-  <div style="display:flex; align-items:center; gap:10px; padding:9px 14px; background:rgba(245,158,11,.04); border:1px solid rgba(245,158,11,.15); border-radius:var(--radius); margin-bottom:16px;">
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2.5" style="flex-shrink:0;"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-    <span style="font-size:.8125rem; color:var(--text-2);">
+  <!-- Bond notice — live-checks the seller's on-chain stake. Flips to a
+       green "bonded ✓" state when the wallet already has >= $100 staked. -->
+  <div id="bond-notice" style="display:flex; align-items:center; gap:10px; padding:9px 14px; background:rgba(245,158,11,.04); border:1px solid rgba(245,158,11,.15); border-radius:var(--radius); margin-bottom:16px;">
+    <svg id="bond-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2.5" style="flex-shrink:0;"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    <span id="bond-text" style="font-size:.8125rem; color:var(--text-2);">
       <strong style="color:#f59e0b; font-weight:600;">Bond required</strong> — $100 USDC account + $25 per agent before going live.
       <a href="/seller/earnings" style="color:#f59e0b; font-weight:500; margin-left:6px;">Manage →</a>
     </span>
   </div>
+  <script>
+  // Live bond check — updates the notice to reflect the seller's real
+  // on-chain stake so a buyer who just bonded on /seller/earnings sees
+  // "Bonded ✓" here instead of the stale "Bond required" banner.
+  (async () => {
+    try {
+      const r = await fetch('/api/seller/bond-status');
+      const d = await r.json();
+      if (d && d.bonded) {
+        const notice = document.getElementById('bond-notice');
+        const text   = document.getElementById('bond-text');
+        const icon   = document.getElementById('bond-icon');
+        if (notice) {
+          notice.style.background = 'rgba(34,197,94,.06)';
+          notice.style.borderColor = 'rgba(34,197,94,.3)';
+        }
+        if (icon) {
+          icon.setAttribute('stroke', 'var(--green)');
+          icon.innerHTML = '<polyline points="20 6 9 17 4 12"></polyline>';
+        }
+        if (text) {
+          text.innerHTML = '<strong style="color:var(--green); font-weight:600;">Bonded ✓</strong>' +
+                           ' — $' + (d.totalStakedUSDC || 0).toLocaleString() + ' USDC staked on-chain' +
+                           (d.agentCount ? ' across ' + d.agentCount + ' agent(s)' : '') + '.' +
+                           ' <a href="/seller/earnings" style="color:var(--green); font-weight:500; margin-left:6px;">View →</a>';
+        }
+      }
+    } catch (_) {}
+  })();
+  </script>
 
   <!-- QUICK LIST — skip the 4-step wizard entirely and post the bond + register tx immediately -->
   <div id="quick-list-card" style="background:linear-gradient(135deg, rgba(239,68,68,.12), rgba(245,158,11,.05)); border:1px solid var(--red); border-radius:12px; padding:18px 22px; margin-bottom:28px;">
