@@ -1441,9 +1441,16 @@ def api_seller_bond_status():
     wallet_lc = wallet.lower()
     my = [a for a in AGENTS if a.get("seller", "").lower() == wallet_lc
           or a.get("wallet", "").lower() == wallet_lc]
-    # Also pull the demo-default agent so a fresh seller who hasn't listed
-    # anything but has posted the initial account bond still shows as bonded.
-    probe_ids = list({a["id"] for a in my}) or [1]
+    # Attribute bond only to agents the wallet ACTUALLY owns. Previously
+    # we probed agent id=1 as a fallback, which gave unlisted wallets a
+    # misleading "Bonded ✓" banner pulling CodeReview Pro's stake.
+    probe_ids = list({a["id"] for a in my})
+    if not probe_ids:
+        return jsonify({
+            "wallet": wallet, "walletConnected": bool(wallet),
+            "totalStakedUSDC": 0, "agentCount": 0, "bonded": False,
+            "note": "no agents listed under this wallet yet",
+        })
     total_micro = 0
     for aid in probe_ids:
         try:
