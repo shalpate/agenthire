@@ -71,10 +71,6 @@
       .nav-demo-btn { transition:filter .12s ease,transform .12s ease; }
       .nav-demo-btn:hover { filter:brightness(1.1); transform:translateY(-1px); }
     </style>
-    <a href="/demo" class="nav-demo-btn" title="Fire a real Avalanche Fuji transaction in one click" style="display:inline-flex; align-items:center; gap:6px; padding:6px 12px; background:var(--red); color:#fff; border-radius:6px; font-size:.78rem; font-weight:600; text-decoration:none; letter-spacing:.02em; {{ 'box-shadow:0 0 0 2px rgba(239,68,68,.25);' if request.path == '/demo' }}">
-      <span style="width:6px; height:6px; border-radius:50%; background:#fff; animation:nav-demo-pulse 2s ease-in-out infinite;"></span>
-      Live Demo
-    </a>
     {% set _on_agent = request.path.startswith('/agent-mode') or request.path == '/sim' %}
     {% set _on_seller = request.path.startswith('/seller') %}
     <div class="role-switcher">
@@ -122,6 +118,10 @@
         <button type="button" onclick="__disconnectWallet(event)" style="width:100%; background:transparent; border:1px solid rgba(255,255,255,.12); border-radius:6px; padding:8px; color:var(--text-3); cursor:pointer; font-size:.75rem;">Disconnect</button>
       </div>
     </div>
+    <a href="/demo" class="nav-demo-btn" title="Fire a real Avalanche Fuji transaction in one click" style="display:inline-flex; align-items:center; gap:6px; padding:6px 12px; background:var(--red); color:#fff; border-radius:6px; font-size:.78rem; font-weight:600; text-decoration:none; letter-spacing:.02em; margin-left:4px; {{ 'box-shadow:0 0 0 2px rgba(239,68,68,.25);' if request.path == '/demo' }}">
+      <span style="width:6px; height:6px; border-radius:50%; background:#fff; animation:nav-demo-pulse 2s ease-in-out infinite;"></span>
+      Live Demo
+    </a>
   </div>
 </nav>
 

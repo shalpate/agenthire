@@ -780,10 +780,6 @@
     <nav class="nav-right">
       <a href="/marketplace" class="hidesm">Marketplace</a>
       <a href="#featured" class="hidesm">Featured</a>
-      <a href="/demo" title="Fire a real Avalanche Fuji tx in one click" style="display:inline-flex; align-items:center; gap:6px; padding:6px 12px; background:var(--red); color:#fff; border-radius:6px; font-size:.78rem; font-weight:600; text-decoration:none;">
-        <span style="width:6px; height:6px; border-radius:50%; background:#fff; animation:nav-demo-pulse 2s ease-in-out infinite;"></span>
-        Live Demo
-      </a>
       <div class="role-switcher hidesm">
         <button class="role-btn" data-role="buyer">Buyer</button>
         <button class="role-btn" data-role="seller">Seller</button>
@@ -796,6 +792,10 @@
       <button class="wallet-btn" id="wallet-btn" data-connected="false" type="button" onclick="__agentHireConnect(event)" style="background:transparent; border:1px solid rgba(255,255,255,.15); border-radius:5px; padding:6px 14px; color:inherit; font-size:.85rem; cursor:pointer; display:flex; align-items:center; gap:8px;">
         <span>Connect Wallet</span>
       </button>
+      <a href="/demo" title="Fire a real Avalanche Fuji tx in one click" style="display:inline-flex; align-items:center; gap:6px; padding:6px 12px; background:var(--red); color:#fff; border-radius:6px; font-size:.78rem; font-weight:600; text-decoration:none; margin-left:4px;">
+        <span style="width:6px; height:6px; border-radius:50%; background:#fff; animation:nav-demo-pulse 2s ease-in-out infinite;"></span>
+        Live Demo
+      </a>
       <script>
       // Landing is standalone (doesn't extend base). Same one-click demo
       // wallet flow as everywhere else. If a real injected wallet with an
