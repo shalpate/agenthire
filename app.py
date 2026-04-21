@@ -1305,8 +1305,10 @@ def seller_earnings():
         my_agents = [a for a in AGENTS if a.get("seller", "").lower() == wallet.lower()
                      or a.get("wallet", "").lower() == wallet.lower()]
     else:
-        default_seller = AGENTS[0]["seller"] if AGENTS else ""
-        my_agents = [a for a in AGENTS if a.get("seller") == default_seller]
+        # No wallet connected → no agents. Previous behavior pre-filled with
+        # AGENTS[0]'s seller which made the page look like the viewer had a
+        # listing they didn't own. Empty state is honest.
+        my_agents = []
     earnings = _seller_earnings_from_chain([a["id"] for a in my_agents])
     orders = [o for o in ORDERS if o["agent"] in {a["name"] for a in my_agents}]
 
@@ -1363,6 +1365,30 @@ def seller_earnings():
                            agents=my_agents, orders=orders,
                            tx_history=tx_history, seller=wallet,
                            weekly_labels=weekly_labels, weekly_tasks=weekly_tasks)
+
+
+@app.route("/api/seller/bond", methods=["POST"])
+def api_seller_bond():
+    """Post a bond for an agent via the facilitator. Used when the client
+    wallet can't sign directly (demo wallet has no JS signer). Body:
+    {agentId, amountUSDC}. Returns approve/stake tx hashes + explorer URL."""
+    data = request.get_json(silent=True) or {}
+    try:
+        agent_id  = int(data.get("agentId", 0))
+        amount    = float(data.get("amountUSDC", 0))
+    except (TypeError, ValueError):
+        return jsonify({"error": "agentId (int) and amountUSDC (number) required"}), 400
+    if agent_id <= 0 or amount <= 0:
+        return jsonify({"error": "agentId and amountUSDC must be > 0"}), 400
+    oc = _get_onchain()
+    if not oc or not oc.facilitator:
+        return jsonify({"error": "facilitator not configured"}), 503
+    try:
+        result = oc.stake_for_agent(agent_id, int(amount * 1_000_000))
+    except Exception as e:
+        log.warning("bond tx failed for agent %s: %s", agent_id, e)
+        return jsonify({"error": str(e)[:200]}), 502
+    return jsonify({"agentId": agent_id, "amountUSDC": amount, **result})
 
 
 @app.route("/seller/agents/<int:agent_id>", methods=["GET", "POST"])

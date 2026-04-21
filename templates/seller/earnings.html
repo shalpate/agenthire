@@ -417,52 +417,104 @@ makeBarChart('usage-chart',
   [{ label: 'Tasks settled', data: {{ weekly_tasks | tojson }}, backgroundColor: 'rgba(59,130,246,.45)', borderColor: '#3B82F6', borderWidth: 1 }]
 );
 
-/* Bond controls */
+/* Bond controls — deployed contract is StakingSlashing with stake() /
+ * requestUnstake() methods. Earlier code referenced a non-existent
+ * "BondingSlashing" key which meant every click silently failed.
+ * First agent's id is used for the default bond view.
+ */
 (() => {
   const el = (id) => document.getElementById(id);
-  const setStatus = (s) => { el('bond-status').textContent = s; };
-  const AGENT_ID = 1;
+  const setStatus = (s) => { const b = el('bond-status'); if (b) b.textContent = s; };
+  const AGENT_ID = {{ (agents[0].id if agents else 1) }};
+
+  const stakingAddr = window.AGENTHIRE_ADDRESSES && window.AGENTHIRE_ADDRESSES.StakingSlashing;
+  const stakingAbi  = window.AGENTHIRE_ABIS && window.AGENTHIRE_ABIS.StakingSlashing;
+  const repAddr     = window.AGENTHIRE_ADDRESSES && window.AGENTHIRE_ADDRESSES.ReputationContract;
+  const repAbi      = window.AGENTHIRE_ABIS && window.AGENTHIRE_ABIS.ReputationContract;
 
   async function refresh() {
-    if (!window.AgentHire || !window.ethereum) return;
+    if (!stakingAddr || !stakingAbi) { setStatus('staking contract unavailable'); return; }
     try {
       const provider = new ethers.JsonRpcProvider(window.AGENTHIRE_CHAIN.rpcUrl);
-      const bonding = new ethers.Contract(window.AGENTHIRE_ADDRESSES.BondingSlashing, window.AGENTHIRE_ABIS.BondingSlashing, provider);
-      const rep = new ethers.Contract(window.AGENTHIRE_ADDRESSES.ReputationContract, window.AGENTHIRE_ABIS.ReputationContract, provider);
-      const [s, req, profile] = await Promise.all([
-        bonding.getBond(AGENT_ID), bonding.getUnbondRequest(AGENT_ID), rep.getCreditProfile(AGENT_ID),
-      ]);
-      el('account-bond-val').textContent = (Number(s[0])/1e6).toFixed(2) + ' USDC';
-      el('bond-incidents').textContent = s[1].toString() + (s[2] ? ' (banned)' : '');
-      el('bond-tier').textContent = 'Tier ' + profile.tier.toString();
-      if (req.amount > 0n) {
-        const avail = Number(req.availableAt), now = Math.floor(Date.now()/1000);
-        el('bond-unbond').textContent = now >= avail ? 'Ready' : new Date(avail*1000).toLocaleDateString();
-      } else { el('bond-unbond').textContent = '-'; }
-    } catch (e) { console.warn('bond refresh', e); }
+      const staking = new ethers.Contract(stakingAddr, stakingAbi, provider);
+      const promises = [ staking.getStake(AGENT_ID), staking.getUnstakeRequest(AGENT_ID) ];
+      if (repAddr && repAbi) {
+        const rep = new ethers.Contract(repAddr, repAbi, provider);
+        promises.push(rep.getCreditProfile(AGENT_ID));
+      }
+      const results = await Promise.all(promises);
+      const s       = results[0];  // [amount, incidentCount, banned]
+      const req     = results[1];  // {amount, availableAt}
+      const profile = results[2];  // {score, tier, tasksCompleted, ...}
+      if (el('account-bond-val')) el('account-bond-val').textContent = (Number(s[0])/1e6).toFixed(2) + ' USDC';
+      if (el('bond-incidents'))   el('bond-incidents').textContent   = s[1].toString() + (s[2] ? ' (banned)' : '');
+      if (el('bond-tier') && profile) el('bond-tier').textContent = 'Tier ' + profile.tier.toString();
+      if (el('bond-unbond')) {
+        if (req && req.amount > 0n) {
+          const avail = Number(req.availableAt), now = Math.floor(Date.now()/1000);
+          el('bond-unbond').textContent = now >= avail ? 'Ready' : new Date(avail*1000).toLocaleDateString();
+        } else { el('bond-unbond').textContent = '—'; }
+      }
+    } catch (e) { console.warn('bond refresh', e); setStatus('read failed'); }
   }
 
-  el('bond-add').addEventListener('click', async () => {
+  if (el('bond-add')) el('bond-add').addEventListener('click', async () => {
     const amt = Number(el('account-bond-input').value) || 100;
     try {
-      if (!window.AgentHire.connected) await window.AgentHire.connectWallet();
-      setStatus('approving...');
+      if (!window.AgentHire || !window.AgentHire.connected) {
+        setStatus('connect wallet first'); if (window.__walletClick) __walletClick(); return;
+      }
+      // Demo-wallet path (no JS signer) → facilitator signs server-side.
+      const hasSigner = window.AgentHire.signer && window.AgentHire.contracts
+                        && window.AgentHire.contracts.StakingSlashing;
+      if (!hasSigner) {
+        setStatus('staking via facilitator…');
+        const r = await fetch('/api/seller/bond', {
+          method: 'POST', headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ agentId: AGENT_ID, amountUSDC: amt }),
+        });
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.error || 'bond failed');
+        setStatus('bonded · ' + (d.status || ''));
+        if (window.showToast) showToast('Bonded ' + amt + ' USDC (facilitator)', 'success');
+        if (d.explorer) window.open(d.explorer, '_blank');
+        refresh();
+        return;
+      }
+      // Signer path — user wallet signs both approve + stake.
+      setStatus('approving…');
       const wei = BigInt(Math.floor(amt * 1e6));
       const bal = await window.AgentHire.getUsdcBalance();
-      if (bal < wei) { setStatus('minting...'); await window.AgentHire.mintUSDC(Math.max(1000, amt)); }
-      await (await window.AgentHire.contracts.MockUSDC.approve(window.AGENTHIRE_ADDRESSES.BondingSlashing, wei)).wait();
-      await (await window.AgentHire.contracts.BondingSlashing.bond(AGENT_ID, wei)).wait();
-      setStatus('bonded'); if (window.showToast) showToast('Bonded ' + amt + ' USDC', 'success'); refresh();
-    } catch (e) { setStatus('failed'); }
+      if (bal < wei) { setStatus('minting…'); await window.AgentHire.mintUSDC(Math.max(1000, amt)); }
+      await (await window.AgentHire.contracts.MockUSDC.approve(stakingAddr, wei)).wait();
+      setStatus('staking…');
+      await (await window.AgentHire.contracts.StakingSlashing.stake(AGENT_ID, wei)).wait();
+      setStatus('bonded');
+      if (window.showToast) showToast('Bonded ' + amt + ' USDC on-chain', 'success');
+      refresh();
+    } catch (e) {
+      console.warn('stake failed', e);
+      setStatus('failed: ' + ((e && e.shortMessage) || e.message || 'unknown').slice(0,60));
+    }
   });
 
-  el('bond-req').addEventListener('click', async () => {
+  if (el('bond-req')) el('bond-req').addEventListener('click', async () => {
     const amt = Number(el('account-bond-input').value) || 100;
     try {
-      if (!window.AgentHire.connected) await window.AgentHire.connectWallet();
-      await (await window.AgentHire.contracts.BondingSlashing.requestUnbond(AGENT_ID, BigInt(Math.floor(amt*1e6)))).wait();
-      setStatus('queued - 7d delay'); if (window.showToast) showToast('Unbond queued', 'success'); refresh();
-    } catch (e) { setStatus('failed'); }
+      if (!window.AgentHire || !window.AgentHire.connected) {
+        setStatus('connect wallet first'); if (window.__walletClick) __walletClick(); return;
+      }
+      setStatus('requesting unstake…');
+      await (await window.AgentHire.contracts.StakingSlashing.requestUnstake(
+        AGENT_ID, BigInt(Math.floor(amt*1e6))
+      )).wait();
+      setStatus('queued · 7-day delay');
+      if (window.showToast) showToast('Unstake queued — 7-day delay', 'success');
+      refresh();
+    } catch (e) {
+      console.warn('unstake failed', e);
+      setStatus('failed: ' + ((e && e.shortMessage) || e.message || 'unknown').slice(0,60));
+    }
   });
 
   refresh(); setInterval(refresh, 30000);

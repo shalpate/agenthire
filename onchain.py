@@ -264,6 +264,31 @@ class OnChain:
             },
         }
 
+    def stake_for_agent(self, agent_id: int, amount_micro: int) -> dict:
+        """Facilitator-signed stake deposit for an agent. Used by the
+        /api/seller/bond route so demo-wallet users can bond without a
+        client-side signer."""
+        if not self.facilitator:
+            raise RuntimeError("FACILITATOR_PRIVATE_KEY not set")
+        usdc    = self._contracts["MockUSDC"]
+        staking = self._contracts["StakingSlashing"]
+        base_nonce = self.w3.eth.get_transaction_count(self.facilitator.address)
+        # 1. approve
+        tx1 = usdc.functions.approve(ADDRESSES["StakingSlashing"], int(amount_micro)).build_transaction(self._tx_params(nonce=base_nonce))
+        h1 = self._sign_send(tx1, self.facilitator)
+        self.w3.eth.wait_for_transaction_receipt(h1)
+        # 2. stake — may revert if the agent isn't registered on-chain yet
+        tx2 = staking.functions.stake(int(agent_id), int(amount_micro)).build_transaction(self._tx_params(nonce=base_nonce + 1))
+        h2 = self._sign_send(tx2, self.facilitator)
+        r2 = self.w3.eth.wait_for_transaction_receipt(h2)
+        stake_hash = h2.hex() if r2.status == 1 else None
+        return {
+            "approveTx": h1.hex(),
+            "stakeTx":   stake_hash,
+            "status":    "staked" if stake_hash else "approve_only",
+            "explorer":  f"https://subnets-test.avax.network/c-chain/tx/{stake_hash or h1.hex()}",
+        }
+
     def get_listing(self, agent_id: int) -> dict:
         l = self._contracts["AgentRegistry"].functions.getListing(int(agent_id)).call()
         return {
@@ -425,25 +450,54 @@ class OnChain:
         h2 = self._sign_send(tx2, self.facilitator)
         self.w3.eth.wait_for_transaction_receipt(h2)
 
-        # 3. depositFunds
-        tx3 = escrow.functions.depositFunds(agent_id, value, token_budget, category_id, expires_at).build_transaction(self._tx_params(nonce=base_nonce + 2))
-        h3 = self._sign_send(tx3, self.facilitator)
-        receipt = self.w3.eth.wait_for_transaction_receipt(h3)
-
-        # Parse session id from logs
+        # 3. depositFunds — may revert if the target agent isn't registered
+        # on-chain as accepting work. Fall back to a direct USDC.transfer
+        # from facilitator → target so the x402 receipt is still a real tx.
+        deposit_tx_hash = None
         session_id = None
-        for log in receipt["logs"]:
-            if log["address"].lower() == ADDRESSES["EscrowPayment"].lower():
-                # first indexed topic is the event hash; second is sessionId
-                if len(log["topics"]) >= 2:
-                    session_id = int(log["topics"][1].hex(), 16)
-                    break
+        fallback_used = False
+        fallback_reason = None
+        try:
+            tx3 = escrow.functions.depositFunds(agent_id, value, token_budget, category_id, expires_at).build_transaction(self._tx_params(nonce=base_nonce + 2))
+            h3 = self._sign_send(tx3, self.facilitator)
+            receipt = self.w3.eth.wait_for_transaction_receipt(h3)
+            if receipt.status == 1:
+                deposit_tx_hash = h3.hex()
+                for log in receipt["logs"]:
+                    if log["address"].lower() == ADDRESSES["EscrowPayment"].lower():
+                        if len(log["topics"]) >= 2:
+                            session_id = int(log["topics"][1].hex(), 16)
+                            break
+            else:
+                raise RuntimeError(f"depositFunds status=0 tx={h3.hex()}")
+        except Exception as dep_err:
+            fallback_reason = str(dep_err)[:120]
+            fallback_used = True
+            # USDC.transfer fallback — re-fetch nonce since the failed tx
+            # still consumed one.
+            fresh_nonce = self.w3.eth.get_transaction_count(self.facilitator.address)
+            tx3b = usdc.functions.transfer(
+                Web3.to_checksum_address(p["to"]),
+                value,
+            ).build_transaction(self._tx_params(nonce=fresh_nonce))
+            h3b = self._sign_send(tx3b, self.facilitator)
+            r3b = self.w3.eth.wait_for_transaction_receipt(h3b)
+            deposit_tx_hash = h3b.hex()
+            if r3b.status != 1:
+                raise RuntimeError(f"x402 fallback transfer also reverted: {fallback_reason}")
+
+        # Normalize deposit hash (web3 returns without 0x prefix via .hex() on some versions)
+        if deposit_tx_hash and not deposit_tx_hash.startswith("0x"):
+            deposit_tx_hash = "0x" + deposit_tx_hash
         return {
             "sessionId": str(session_id) if session_id is not None else None,
             "agentId": str(agent_id),
             "status": "settled",
-            "txHashes": {"permit": h1.hex(), "approve": h2.hex(), "deposit": h3.hex()},
-            "snowtrace": f"https://testnet.snowtrace.io/tx/{h3.hex()}",
+            "txHashes": {"permit": h1.hex(), "approve": h2.hex(), "deposit": deposit_tx_hash},
+            "fallbackUsed": fallback_used,
+            "fallbackReason": fallback_reason,
+            "explorer": f"https://subnets-test.avax.network/c-chain/tx/{deposit_tx_hash}",
+            "snowtrace": f"https://testnet.snowtrace.io/tx/{deposit_tx_hash}",
         }
 
     # ── Gatekeeper: sign + submit incident ───────────────────────────────────
