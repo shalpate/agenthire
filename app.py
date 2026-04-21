@@ -1339,8 +1339,21 @@ def seller_earnings():
               request.cookies.get("seller_wallet") or
               request.cookies.get("buyer_wallet") or "")
     if wallet:
-        my_agents = [a for a in AGENTS if a.get("seller", "").lower() == wallet.lower()
-                     or a.get("wallet", "").lower() == wallet.lower()]
+        # Exclude junk-named test agents left over from earlier curl/test
+        # sessions (QuickList-<ts>, Demo-<ts>, single-char names, etc) so
+        # the seller dashboard only shows agents a real human would list.
+        JUNK_PREFIXES = ("QuickList-", "Demo-17", "FinalCheck", "PostRestart",
+                         "BrowserShape", "SmokeBond", "JudgeDemo-", "LIVE-",
+                         "ProofTx", "TestBondAgent", "FinalLock", "WizardTest")
+        def _is_real_listing(a):
+            name = (a.get("name") or "").strip()
+            if not name or len(name) < 3: return False
+            if any(name.startswith(p) for p in JUNK_PREFIXES): return False
+            return True
+        my_agents = [a for a in AGENTS
+                     if (a.get("seller", "").lower() == wallet.lower()
+                         or a.get("wallet", "").lower() == wallet.lower())
+                     and _is_real_listing(a)]
     else:
         # No wallet connected → no agents. Previous behavior pre-filled with
         # AGENTS[0]'s seller which made the page look like the viewer had a
