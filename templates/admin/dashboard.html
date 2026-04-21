@@ -34,11 +34,11 @@
     <div style="display:flex; gap:12px; align-items:center; padding:10px 16px; margin-bottom:24px; background:var(--card-2); border:1px solid var(--border); border-radius:8px; font-family:var(--font-mono); font-size:.72rem;">
       <span style="color:var(--text-3); font-size:.56rem; text-transform:uppercase; letter-spacing:.08em;">Showing</span>
       {% if stats.live_only %}
-        <a href="/admin/dashboard" style="padding:3px 9px; background:transparent; border:1px solid var(--border); color:var(--text-3); border-radius:4px; text-decoration:none;">All activity ({{ "{:,}".format(stats.total_ct_rows) }})</a>
+        <a href="?all=1" style="padding:3px 9px; background:transparent; border:1px solid var(--border); color:var(--text-3); border-radius:4px; text-decoration:none;">All activity ({{ "{:,}".format(stats.total_ct_rows) }})</a>
         <span style="padding:3px 9px; background:rgba(34,197,94,.1); border:1px solid var(--green); color:var(--green); border-radius:4px;">● Live on-chain only ({{ stats.real_ct_rows }})</span>
       {% else %}
         <span style="padding:3px 9px; background:rgba(95,227,227,.1); border:1px solid var(--accent); color:var(--accent); border-radius:4px;">All activity ({{ "{:,}".format(stats.total_ct_rows) }})</span>
-        <a href="?live_only=1" style="padding:3px 9px; background:transparent; border:1px solid var(--border); color:var(--text-3); border-radius:4px; text-decoration:none;">Live on-chain only ({{ stats.real_ct_rows }})</a>
+        <a href="/admin/dashboard" style="padding:3px 9px; background:transparent; border:1px solid var(--border); color:var(--text-3); border-radius:4px; text-decoration:none;">Live on-chain only ({{ stats.real_ct_rows }})</a>
       {% endif %}
       <span style="margin-left:auto; color:var(--text-3); font-size:.62rem;">
         {{ stats.real_ct_rows }} real Fuji tx · {{ "{:,}".format(stats.total_ct_rows - stats.real_ct_rows) }} seeded demo activity
