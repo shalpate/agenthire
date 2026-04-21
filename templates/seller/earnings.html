@@ -124,39 +124,51 @@
     </div>
   </div>
 
-  <!-- Row 2: Bond bar -->
-  <div style="padding:16px 20px; background:var(--card); border:1px solid var(--border); border-radius:var(--radius); margin-bottom:18px;">
-    <div style="display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:20px;">
-      <div>
-        <div style="font-family:var(--font-mono); font-size:.475rem; text-transform:uppercase; letter-spacing:.14em; color:var(--text-3); margin-bottom:4px;">On-chain Bond</div>
-        <div id="account-bond-val" style="font-size:1rem; font-weight:700; font-family:var(--font-mono);">- USDC</div>
-      </div>
-      <div style="display:flex; gap:24px;">
-        <div>
-          <div style="font-family:var(--font-mono); font-size:.475rem; text-transform:uppercase; letter-spacing:.1em; color:var(--text-3); margin-bottom:3px;">Tier</div>
-          <div id="bond-tier" style="font-family:var(--font-mono); font-size:.8125rem; font-weight:600;">-</div>
+  <!-- Bond control — real on-chain stake on StakingSlashing contract -->
+  <div style="padding:18px 22px; background:var(--card); border:1px solid var(--border); border-radius:var(--radius); margin-bottom:18px;">
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap; margin-bottom:14px;">
+      <div style="flex:1; min-width:240px;">
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:4px;">
+          <h3 style="font-size:.95rem; margin:0;">Agent Bond</h3>
+          <a href="https://subnets-test.avax.network/c-chain/address/0xfc942b4d1Eb363F25886b3F5935394BD4932B896" target="_blank" style="font-family:var(--font-mono); font-size:.56rem; padding:2px 6px; border:1px solid var(--border); border-radius:3px; color:var(--text-3); text-decoration:none;">StakingSlashing 0xfc94…B896 ↗</a>
         </div>
-        <div>
-          <div style="font-family:var(--font-mono); font-size:.475rem; text-transform:uppercase; letter-spacing:.1em; color:var(--text-3); margin-bottom:3px;">Incidents</div>
-          <div id="bond-incidents" style="font-family:var(--font-mono); font-size:.8125rem; font-weight:600;">-</div>
-        </div>
-        <div>
-          <div style="font-family:var(--font-mono); font-size:.475rem; text-transform:uppercase; letter-spacing:.1em; color:var(--text-3); margin-bottom:3px;">Unbond</div>
-          <div id="bond-unbond" style="font-family:var(--font-mono); font-size:.8125rem; font-weight:600;">-</div>
-        </div>
-      </div>
-      <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
-        <input id="account-bond-input" type="number" value="100" min="100" step="100" class="form-input" style="width:90px; font-family:var(--font-mono); font-size:.75rem; padding:6px 10px;">
-        <button id="bond-add" class="btn btn-gradient btn-sm">Bond</button>
-        <button id="bond-req" class="btn btn-ghost btn-sm">Unbond</button>
-        <span id="bond-status" style="font-family:var(--font-mono); font-size:.5625rem; color:var(--text-3);"></span>
+        <p class="text-sm text-muted" style="margin:0;">Bond collateralizes your listing on-chain. Buyers can see it as a commitment signal. If a gatekeeper signs an incident against your agent, a slice of this bond is slashed; the rest you recover after a 7-day unbond window.</p>
       </div>
     </div>
-    <div style="margin-top:10px; padding-top:10px; border-top:1px solid var(--border); font-family:var(--font-mono); font-size:.475rem; color:var(--text-3); display:flex; gap:20px; flex-wrap:wrap;">
-      <span>Tier 1: $100 · 1 agent · all categories</span>
-      <span>Tier 2: $250 · 3 agents</span>
-      <span>Tier 3: $1000 · 13 agents</span>
-      <span>Slash: 25% @ &lt;3★ + 10 complaints · 50% on warning · removal on 3rd</span>
+
+    <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:12px; margin-bottom:14px;">
+      <div style="background:var(--card-2); border:1px solid var(--border); border-radius:8px; padding:12px;">
+        <div style="font-family:var(--font-mono); font-size:.56rem; text-transform:uppercase; letter-spacing:.12em; color:var(--text-3); margin-bottom:6px;">Staked on-chain</div>
+        <div id="account-bond-val" style="font-size:1.15rem; font-weight:700; font-family:var(--font-mono); color:var(--text);">— USDC</div>
+      </div>
+      <div style="background:var(--card-2); border:1px solid var(--border); border-radius:8px; padding:12px;">
+        <div style="font-family:var(--font-mono); font-size:.56rem; text-transform:uppercase; letter-spacing:.12em; color:var(--text-3); margin-bottom:6px;">Tier</div>
+        <div id="bond-tier" style="font-size:1.15rem; font-weight:700; font-family:var(--font-mono);">—</div>
+      </div>
+      <div style="background:var(--card-2); border:1px solid var(--border); border-radius:8px; padding:12px;">
+        <div style="font-family:var(--font-mono); font-size:.56rem; text-transform:uppercase; letter-spacing:.12em; color:var(--text-3); margin-bottom:6px;">Incidents</div>
+        <div id="bond-incidents" style="font-size:1.15rem; font-weight:700; font-family:var(--font-mono);">—</div>
+      </div>
+      <div style="background:var(--card-2); border:1px solid var(--border); border-radius:8px; padding:12px;">
+        <div style="font-family:var(--font-mono); font-size:.56rem; text-transform:uppercase; letter-spacing:.12em; color:var(--text-3); margin-bottom:6px;">Unbond</div>
+        <div id="bond-unbond" style="font-size:1.15rem; font-weight:700; font-family:var(--font-mono);">—</div>
+      </div>
+    </div>
+
+    <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+      <label style="font-family:var(--font-mono); font-size:.68rem; color:var(--text-3);">Amount (USDC)</label>
+      <input id="account-bond-input" type="number" value="100" min="100" step="100" class="form-input" style="width:110px; font-family:var(--font-mono); font-size:.78rem; padding:7px 10px;">
+      <button id="bond-add" class="btn btn-gradient btn-sm">Bond</button>
+      <button id="bond-req" class="btn btn-ghost btn-sm">Request Unbond</button>
+      <span id="bond-status" style="font-family:var(--font-mono); font-size:.72rem; color:var(--text-3); margin-left:8px;"></span>
+    </div>
+    <div id="bond-receipt" style="display:none; margin-top:14px; padding:12px 14px; background:rgba(34,197,94,.06); border:1px solid var(--green); border-radius:8px; font-family:var(--font-mono); font-size:.72rem;"></div>
+
+    <div style="margin-top:14px; padding-top:12px; border-top:1px solid var(--border); font-family:var(--font-mono); font-size:.58rem; color:var(--text-3); display:flex; gap:20px; flex-wrap:wrap;">
+      <span>Tier 1: $100 · 1 agent slot</span>
+      <span>Tier 2: $250 · 3 agent slots</span>
+      <span>Tier 3: $1,000 · 13 agent slots</span>
+      <span>Unbond cooldown: 7 days · Min stake: 100 USDC</span>
     </div>
   </div>
 
@@ -458,14 +470,32 @@ makeBarChart('usage-chart',
     } catch (e) { console.warn('bond refresh', e); setStatus('read failed'); }
   }
 
+  function showReceipt(kind, amt, tx, block) {
+    const r = el('bond-receipt');
+    if (!r) return;
+    const url = tx ? ('https://subnets-test.avax.network/c-chain/tx/' + (tx.startsWith('0x')?tx:'0x'+tx)) : null;
+    r.style.display = 'block';
+    r.innerHTML = `
+      <div style="display:flex; gap:14px; align-items:center; flex-wrap:wrap;">
+        <span style="color:var(--green); font-weight:700; letter-spacing:.08em; text-transform:uppercase; font-size:.62rem;">✓ ${kind}</span>
+        <span style="color:var(--text);">${amt} USDC</span>
+        ${block ? `<span style="color:var(--text-3);">block #${block}</span>` : ''}
+        ${url ? `<a href="${url}" target="_blank" style="color:var(--accent); margin-left:auto;">view on Ava Labs ↗</a>` : ''}
+      </div>
+      ${tx ? `<div style="margin-top:6px; word-break:break-all; color:var(--text-3); font-size:.66rem;">${tx.startsWith('0x')?tx:'0x'+tx}</div>` : ''}`;
+  }
+
   if (el('bond-add')) el('bond-add').addEventListener('click', async () => {
     const amt = Number(el('account-bond-input').value) || 100;
+    if (amt < 100) { setStatus('min 100 USDC'); return; }
+    el('bond-add').disabled = true;
     try {
-      if (!window.AgentHire || !window.AgentHire.connected) {
-        setStatus('connect wallet first'); if (window.__walletClick) __walletClick(); return;
+      // Auto-connect demo wallet if the user hasn't connected anything.
+      if ((!window.AgentHire || !window.AgentHire.connected) && window.__connectDemo) {
+        window.__connectDemo();
       }
       // Demo-wallet path (no JS signer) → facilitator signs server-side.
-      const hasSigner = window.AgentHire.signer && window.AgentHire.contracts
+      const hasSigner = window.AgentHire && window.AgentHire.signer && window.AgentHire.contracts
                         && window.AgentHire.contracts.StakingSlashing;
       if (!hasSigner) {
         setStatus('staking via facilitator…');
@@ -475,45 +505,67 @@ makeBarChart('usage-chart',
         });
         const d = await r.json();
         if (!r.ok) throw new Error(d.error || 'bond failed');
-        setStatus('bonded · ' + (d.status || ''));
-        if (window.showToast) showToast('Bonded ' + amt + ' USDC (facilitator)', 'success');
-        if (d.explorer) window.open(d.explorer, '_blank');
+        setStatus('');
+        showReceipt('STAKED', amt, d.stakeTx || d.approveTx, null);
+        if (window.showToast) showToast('Bonded ' + amt + ' USDC on-chain', 'success');
         refresh();
         return;
       }
-      // Signer path — user wallet signs both approve + stake.
+      // Signer path — user wallet signs approve + stake.
       setStatus('approving…');
       const wei = BigInt(Math.floor(amt * 1e6));
       const bal = await window.AgentHire.getUsdcBalance();
-      if (bal < wei) { setStatus('minting…'); await window.AgentHire.mintUSDC(Math.max(1000, amt)); }
-      await (await window.AgentHire.contracts.MockUSDC.approve(stakingAddr, wei)).wait();
+      if (bal < wei) { setStatus('minting test USDC…'); await window.AgentHire.mintUSDC(Math.max(1000, amt)); }
+      const approveTx = await window.AgentHire.contracts.MockUSDC.approve(stakingAddr, wei);
+      await approveTx.wait();
       setStatus('staking…');
-      await (await window.AgentHire.contracts.StakingSlashing.stake(AGENT_ID, wei)).wait();
-      setStatus('bonded');
+      const stakeTx = await window.AgentHire.contracts.StakingSlashing.stake(AGENT_ID, wei);
+      const rc = await stakeTx.wait();
+      setStatus('');
+      showReceipt('STAKED', amt, stakeTx.hash, rc && rc.blockNumber);
       if (window.showToast) showToast('Bonded ' + amt + ' USDC on-chain', 'success');
       refresh();
     } catch (e) {
       console.warn('stake failed', e);
       setStatus('failed: ' + ((e && e.shortMessage) || e.message || 'unknown').slice(0,60));
+    } finally {
+      el('bond-add').disabled = false;
     }
   });
 
   if (el('bond-req')) el('bond-req').addEventListener('click', async () => {
     const amt = Number(el('account-bond-input').value) || 100;
+    el('bond-req').disabled = true;
     try {
-      if (!window.AgentHire || !window.AgentHire.connected) {
-        setStatus('connect wallet first'); if (window.__walletClick) __walletClick(); return;
+      const hasSigner = window.AgentHire && window.AgentHire.signer && window.AgentHire.contracts
+                        && window.AgentHire.contracts.StakingSlashing;
+      if (!hasSigner) {
+        // Facilitator can't requestUnstake on behalf of another owner —
+        // tell the user clearly instead of silently failing.
+        setStatus('');
+        showReceipt('UNBOND REQUIRES OWNER SIGNER',
+                    amt,
+                    null,
+                    null);
+        const r = el('bond-receipt');
+        if (r) r.innerHTML = `<div style="color:#f59e0b; font-weight:700; letter-spacing:.08em; text-transform:uppercase; font-size:.62rem; margin-bottom:6px;">⚠ unbond needs your wallet</div><div style="color:var(--text-2); font-size:.72rem;">requestUnstake can only be signed by the wallet that originally staked. Connect a real wallet (MetaMask / Rabby) whose address matches the bonded owner, then click Request Unbond again.</div>`;
+        if (r) r.style.display = 'block';
+        return;
       }
       setStatus('requesting unstake…');
-      await (await window.AgentHire.contracts.StakingSlashing.requestUnstake(
-        AGENT_ID, BigInt(Math.floor(amt*1e6))
-      )).wait();
-      setStatus('queued · 7-day delay');
-      if (window.showToast) showToast('Unstake queued — 7-day delay', 'success');
+      const tx = await window.AgentHire.contracts.StakingSlashing.requestUnstake(
+        AGENT_ID, BigInt(Math.floor(amt * 1e6))
+      );
+      const rc = await tx.wait();
+      setStatus('');
+      showReceipt('UNBOND REQUESTED · 7d cooldown', amt, tx.hash, rc && rc.blockNumber);
+      if (window.showToast) showToast('Unbond queued — 7-day delay', 'success');
       refresh();
     } catch (e) {
       console.warn('unstake failed', e);
       setStatus('failed: ' + ((e && e.shortMessage) || e.message || 'unknown').slice(0,60));
+    } finally {
+      el('bond-req').disabled = false;
     }
   });
 
