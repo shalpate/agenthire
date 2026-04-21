@@ -271,131 +271,115 @@
           const statusEl = document.getElementById('pay-status');
           if (!btn) return;
           btn.addEventListener('click', async () => {
-            const agentId = Number(btn.dataset.agentId);
+            const agentId    = Number(btn.dataset.agentId);
+            const agentName  = btn.dataset.agentName || 'the agent';
             const maxSpendInput = document.getElementById('max-spend-input');
             const depositUSDC = Number(maxSpendInput && maxSpendInput.value) || 1;
+            const taskPrompt = (document.getElementById('task-description')?.value || '').trim()
+                             || ('Hired ' + agentName + ' via x402');
             btn.disabled = true;
             const setStatus = (s) => { statusEl.textContent = s; };
+            const buyerWalletConn = (window.AgentHire && window.AgentHire.address) ||
+                                    (document.cookie.match(/buyer_wallet=(0x[a-fA-F0-9]{40})/) || [])[1] ||
+                                    '';
+            // x402 handshake log panel — shows the HTTP 402 → 200 transition
+            // live so judges see the protocol actually running.
+            statusEl.innerHTML = `
+              <div id="x402-log" style="text-align:left; background:var(--card-2); border:1px solid var(--border); border-radius:10px; padding:12px 14px; font-family:var(--font-mono); font-size:.68rem; line-height:1.7; color:var(--text-2); white-space:pre-wrap; word-break:break-word; max-height:200px; overflow:auto;"></div>`;
+            const log = (line) => {
+              const el = document.getElementById('x402-log');
+              if (el) { el.textContent += line + '\n'; el.scrollTop = el.scrollHeight; }
+            };
+            const qs = '?amountUSDC=' + encodeURIComponent(depositUSDC) +
+                       '&buyerWallet=' + encodeURIComponent(buyerWalletConn) +
+                       '&prompt=' + encodeURIComponent(taskPrompt);
             try {
-              // Make sure some wallet state is set (demo or real)
-              if (!document.cookie.match(/buyer_wallet=/)) {
-                setStatus('Connecting demo wallet...');
-                if (typeof __setWalletConnected === 'function') {
-                  __setWalletConnected('0xdb4135c6884D81497769440788306EE985DD1A6e', { demo: true, silent: true });
-                }
+              log('→ GET /api/x402/demo-execute/' + agentId);
+              const r1 = await fetch('/api/x402/demo-execute/' + agentId + qs);
+              if (r1.status !== 402) {
+                log('unexpected status ' + r1.status + ' (expected 402)');
+                throw new Error('expected HTTP 402, got ' + r1.status);
               }
-
-              // Route A — user has a real injected signer, let them sign
-              const hasRealSigner = window.AgentHire && window.AgentHire.signer && typeof window.AgentHire.payWithX402 === 'function';
-              if (hasRealSigner) {
-                setStatus('Signing x402 permit...');
-                try {
-                  const bal = await window.AgentHire.getUsdcBalance();
-                  if (bal < BigInt(Math.floor(depositUSDC * 1e6))) {
-                    setStatus('Minting test USDC...');
-                    try { await window.AgentHire.mintUSDC(Math.max(1000, depositUSDC)); } catch(_) {}
-                  }
-                  const r = await window.AgentHire.payWithX402({
-                    agentId, depositUSDC, tokenBudget: Math.floor(depositUSDC * 1e6),
-                    categoryId: 0, facilitator: window.AgentHire.address,
-                  });
-                  setStatus('Settled on-chain · session ' + (r.sessionId || ''));
-                  if (window.showToast) showToast('Payment settled on-chain', 'success');
-                  setTimeout(() => location.href = '/order/' + (r.sessionId || 'ORD-001'), 1200);
-                  return;
-                } catch (sigErr) {
-                  console.warn('Signer path failed, falling back to server:', sigErr);
-                  setStatus('Routing through server-side facilitator...');
-                }
-              }
-
-              // Route B — server-side facilitator signs the real Fuji tx.
-              // fromId is any "buyer" agent (different from the seller) so
-              // the endpoint's sender≠receiver check passes. The actual
-              // payment signer is the facilitator wallet server-side.
-              const buyerId = agentId === 1 ? 2 : 1;
-              const taskPrompt = (document.getElementById('task-description')?.value || '').trim()
-                               || 'Hired via marketplace checkout';
-              // Pass the user's connected wallet so the Order row is keyed to
-              // their address (not the sender-agent's wallet). Past-jobs /
-              // active-jobs filter by this wallet to show "my" orders.
-              const buyerWalletConn = (window.AgentHire && window.AgentHire.address) ||
-                                      (document.cookie.match(/buyer_wallet=(0x[a-fA-F0-9]{40})/) || [])[1] ||
-                                      '';
-              setStatus('Firing real Fuji tx via facilitator...');
-              const d = await fetch('/api/sim/trigger-direct', {
+              const challenge = await r1.json();
+              log('← HTTP 402 Payment Required');
+              log('  price:  ' + challenge.challenge.price.amountUSDC + ' USDC');
+              log('  permit: EIP-3009 transferWithAuthorization');
+              log('');
+              log('→ POST /api/x402/auto-sign  (facilitator signs EIP-3009 permit)');
+              const rSign = await fetch('/api/x402/auto-sign', {
                 method: 'POST', headers: {'Content-Type':'application/json'},
-                body: JSON.stringify({
-                  fromId: buyerId, toId: agentId,
-                  amountUSDC: depositUSDC, tokens: Math.max(1, Math.floor(depositUSDC * 100)),
-                  prompt: taskPrompt,
-                  buyerWallet: buyerWalletConn,
-                }),
-              }).then(r => r.json());
+                body: JSON.stringify({ amountUSDC: depositUSDC, agentId }),
+              });
+              const signed = await rSign.json();
+              if (!signed.ok) throw new Error(signed.error || 'auto-sign failed');
+              log('← signature ready (v,r,s) · ' + String(signed.permit.nonce).slice(0, 18) + '…');
+              log('');
+              log('→ POST /api/x402/demo-execute/' + agentId + '  (with X-Payment header)');
+              const r2 = await fetch('/api/x402/demo-execute/' + agentId + qs, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'X-Payment':    JSON.stringify(signed.permit),
+                },
+              });
+              const d = await r2.json();
+              if (!r2.ok || !d.ok) throw new Error(d.detail || d.error || ('HTTP ' + r2.status));
+              const rec = d.x402Receipt || {};
+              const h = rec.txHash || '';
+              log('← HTTP 200 OK · settled');
+              log('  tx: ' + h);
 
-              const rawHash = d.realTxHash || '';
-              const h = rawHash ? (rawHash.startsWith('0x') ? rawHash : '0x' + rawHash) : '';
-              const orderId = d.orderId || '';
-              const agentName = btn.dataset.agentName || 'the agent';
-              if (h) {
-                const avaxUrl  = 'https://subnets-test.avax.network/c-chain/tx/' + h;
-                const orderUrl = orderId ? ('/order/' + orderId) : '';
-                // Show the payment receipt + a placeholder for the agent's
-                // actual work product. The placeholder fills in below after
-                // Akash responds — that's the MATERIAL outcome.
-                statusEl.innerHTML = `
-                  <div style="text-align:left; background:rgba(34,197,94,.06); border:1px solid var(--green); border-radius:10px; padding:14px 16px; line-height:1.55; margin-bottom:12px;">
-                    <div style="color:var(--green); font-weight:700; letter-spacing:.08em; text-transform:uppercase; font-size:.625rem; margin-bottom:6px;">✓ Payment settled · Order placed</div>
-                    <div style="font-size:.82rem; color:var(--text); margin-bottom:8px;">${orderId ? orderId + ' · ' : ''}$${depositUSDC.toFixed(2)} USDC · block #${d.chain?.block || '—'}</div>
-                    <div style="word-break:break-all; color:var(--text-3); margin-bottom:10px; font-size:.68rem;">${h}</div>
-                    <div style="display:flex; gap:14px; flex-wrap:wrap;">
-                      <a href="${avaxUrl}" target="_blank" style="color:var(--accent);">→ Ava Labs tx ↗</a>
-                      ${orderUrl ? `<a href="${orderUrl}" style="color:var(--accent);">→ Order receipt</a>` : ''}
-                      <a href="/past-jobs" style="color:var(--accent);">→ All my jobs</a>
-                    </div>
+              // Success panel — payment on-chain + Akash agent working on task
+              const avaxUrl  = rec.explorer || ('https://subnets-test.avax.network/c-chain/tx/' + h);
+              const orderUrl = d.orderId ? ('/order/' + d.orderId) : '';
+              document.getElementById('x402-log').insertAdjacentHTML('afterend', `
+                <div style="margin-top:12px; text-align:left; background:rgba(34,197,94,.06); border:1px solid var(--green); border-radius:10px; padding:14px 16px; line-height:1.55; margin-bottom:12px;">
+                  <div style="color:var(--green); font-weight:700; letter-spacing:.08em; text-transform:uppercase; font-size:.625rem; margin-bottom:6px;">✓ Paid via HTTP 402 handshake · gasless</div>
+                  <div style="font-size:.82rem; color:var(--text); margin-bottom:8px;">${d.orderId || ''} · $${depositUSDC.toFixed(2)} USDC · ${agentName}</div>
+                  <div style="word-break:break-all; color:var(--text-3); margin-bottom:10px; font-size:.68rem;">${h}</div>
+                  <div style="display:flex; gap:14px; flex-wrap:wrap;">
+                    <a href="${avaxUrl}" target="_blank" style="color:var(--accent); font-weight:600;">→ Ava Labs tx ↗</a>
+                    ${orderUrl ? `<a href="${orderUrl}" style="color:var(--accent);">→ Order receipt</a>` : ''}
+                    <a href="/active-jobs" style="color:var(--accent);">→ Active jobs</a>
                   </div>
-                  <div id="akash-wrap" style="background:rgba(95,227,227,.05); border:1px solid rgba(95,227,227,.25); border-radius:10px; padding:14px 16px;">
-                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
-                      <span style="font-family:var(--font-mono); font-size:.625rem; text-transform:uppercase; letter-spacing:.1em; color:var(--accent);">⚡ ${agentName} · Akash · Qwen 2.5 Coder 7B</span>
-                      <span id="akash-meta" style="font-family:var(--font-mono); font-size:.58rem; color:var(--text-3);">generating…</span>
-                    </div>
-                    <pre id="akash-out" style="font-family:var(--font-mono); font-size:.78rem; line-height:1.55; white-space:pre-wrap; word-break:break-word; margin:0; color:var(--text-2); max-height:300px; overflow:auto;">Running your task on decentralized GPU compute…</pre>
-                  </div>`;
-                window.open(avaxUrl, '_blank');
+                </div>
+                <div id="akash-wrap" style="background:rgba(95,227,227,.05); border:1px solid rgba(95,227,227,.25); border-radius:10px; padding:14px 16px;">
+                  <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+                    <span style="font-family:var(--font-mono); font-size:.625rem; text-transform:uppercase; letter-spacing:.1em; color:var(--accent);">⚡ ${agentName} · Akash · Qwen 2.5 Coder 7B</span>
+                    <span id="akash-meta" style="font-family:var(--font-mono); font-size:.58rem; color:var(--text-3);">generating…</span>
+                  </div>
+                  <pre id="akash-out" style="font-family:var(--font-mono); font-size:.78rem; line-height:1.55; white-space:pre-wrap; word-break:break-word; margin:0; color:var(--text-2); max-height:300px; overflow:auto;">Running your task on decentralized GPU compute…</pre>
+                </div>`);
+              window.open(avaxUrl, '_blank');
 
-                // Fire the real Akash generate call — the agent actually
-                // does the user's task, response shows in the panel above.
-                try {
-                  const g = await fetch('/api/agents/' + agentId + '/generate', {
-                    method: 'POST', headers: {'Content-Type':'application/json'},
-                    body: JSON.stringify({ prompt: taskPrompt, maxTokens: 400 }),
-                  });
-                  const gd = await g.json();
-                  const outEl  = document.getElementById('akash-out');
-                  const metaEl = document.getElementById('akash-meta');
-                  if (g.ok && gd.response) {
-                    outEl.textContent = gd.response;
-                    metaEl.textContent = `${gd.totalTokens||'?'} tokens · ${gd.latencyMs||'?'} ms`;
-                  } else {
-                    outEl.textContent = '(Akash inference unavailable — tx already settled on-chain)';
-                    metaEl.textContent = gd.error ? String(gd.error).slice(0,80) : 'offline';
-                  }
-                } catch (akashErr) {
-                  const outEl = document.getElementById('akash-out');
-                  if (outEl) outEl.textContent = '(Akash error: ' + (akashErr.message || akashErr) + ')';
+              // Fire the real Akash generate call for the agent's response
+              try {
+                const g = await fetch('/api/agents/' + agentId + '/generate', {
+                  method: 'POST', headers: {'Content-Type':'application/json'},
+                  body: JSON.stringify({ prompt: taskPrompt, maxTokens: 400 }),
+                });
+                const gd = await g.json();
+                const outEl  = document.getElementById('akash-out');
+                const metaEl = document.getElementById('akash-meta');
+                if (g.ok && gd.response) {
+                  outEl.textContent = gd.response;
+                  metaEl.textContent = `${gd.totalTokens||'?'} tokens · ${gd.latencyMs||'?'} ms`;
+                } else {
+                  outEl.textContent = '(Akash inference unavailable — payment already settled)';
+                  metaEl.textContent = gd.error ? String(gd.error).slice(0, 80) : 'offline';
                 }
-              } else {
-                setStatus('✓ Real Fuji tx fired — no realTxHash returned');
+              } catch (akashErr) {
+                const outEl = document.getElementById('akash-out');
+                if (outEl) outEl.textContent = '(Akash error: ' + (akashErr.message || akashErr) + ')';
               }
-              if (window.showToast) showToast('Payment on-chain · block #' + (d.chain?.block || '?'), 'success');
-              // Re-enable button so the user can fire another payment if
-              // they want, or click through the links in the success panel.
+              if (window.showToast) showToast('HTTP 402 → 200 · paid & escrowed', 'success');
               btn.textContent = 'Pay Again';
               btn.disabled = false;
             } catch (e) {
               console.error(e);
-              setStatus('Failed: ' + (e.message || e));
-              if (window.showToast) showToast('Payment failed: ' + (e.message || e), 'error');
+              log('');
+              log('✗ ' + (e.message || e));
+              if (window.showToast) showToast('x402 payment failed: ' + (e.message || e), 'error');
               btn.textContent = 'Confirm & Pay in Escrow';
               btn.disabled = false;
             }

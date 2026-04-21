@@ -3822,34 +3822,77 @@ def api_x402_demo_execute(agent_id):
     """A real x402-gated endpoint. First call (no X-Payment header) returns
     HTTP 402 with a full challenge body. Second call with a signed EIP-3009
     permit in X-Payment header: executes the permit on-chain, returns 200
-    with an X-Payment-Receipt header and the 'work product' body."""
+    with an X-Payment-Receipt header and the 'work product' body.
+
+    Extended for the rent-agent checkout flow: accepts ?amountUSDC=,
+    ?buyerWallet=, and ?prompt= query params. On successful payment a
+    real Order row is written so the buyer lands on /active-jobs with
+    the new hire visible."""
     from x402 import require_x402
     from onchain import ADDRESSES
 
-    # Dynamic pricing — use the agent's own current_price
     from models import Agent as A
     agent = A.query.get(agent_id)
     if not agent:
         return jsonify({"error": f"agent {agent_id} not found"}), 404
-    price_usdc = round((agent.current_price or 0.0001) * 100, 4)
+
+    # Caller may override the deposit amount (from Max Spend Cap on checkout).
+    # Otherwise use the agent's current price × 100 token default.
+    try:
+        override = float(request.args.get("amountUSDC") or 0)
+    except ValueError:
+        override = 0
+    default_price = round((agent.current_price or 0.0001) * 100, 4)
+    price_usdc = override if override > 0 else default_price
+    buyer_wallet_in = str(request.args.get("buyerWallet") or "").strip()
+    prompt_in = (request.args.get("prompt") or "").strip()
 
     @require_x402(
         price_per_call_usdc=price_usdc,
         resource_id=f"agent-{agent_id}-execute",
         recipient_resolver=lambda r, kw: ADDRESSES["EscrowPayment"],
-        notes=f"Execute {agent.name} · {price_usdc} USDC per 100-token call",
+        notes=f"Hire {agent.name} · {price_usdc} USDC per x402 call",
     )
     def _inner():
         from flask import g
-        receipt = getattr(g, "x402_receipt", {})
+        from models import Order as OrderModel
+        receipt = getattr(g, "x402_receipt", {}) or {}
+        tx_hashes = receipt.get("txHashes") or {}
+        tx_hash = tx_hashes.get("permit") or tx_hashes.get("settlement") or ""
+        if tx_hash and not tx_hash.startswith("0x"):
+            tx_hash = "0x" + tx_hash
+        # Write an Order row so /active-jobs shows this hire immediately.
+        order_id = None
+        try:
+            short = tx_hash[2:8] if tx_hash.startswith("0x") else tx_hash[:6]
+            order_id = f"ORD-{short}" if short else f"ORD-{int(time.time()) % 1000000}"
+            if not OrderModel.query.get(order_id):
+                cookie_w = (request.cookies.get("buyer_wallet") or "").strip()
+                buyer = (buyer_wallet_in if _is_valid_wallet(buyer_wallet_in)
+                         else cookie_w if _is_valid_wallet(cookie_w)
+                         else FACILITATOR_WALLET_FALLBACK)
+                db.session.add(OrderModel(
+                    id=order_id, agent_id=agent_id,
+                    buyer=buyer, amount=float(price_usdc),
+                    status="in_escrow",
+                    task=prompt_in or f"x402 hire · {agent.name}",
+                    date=time.strftime("%Y-%m-%d", time.gmtime()),
+                ))
+                db.session.commit()
+        except Exception as _oe:
+            log.warning("x402 demo-execute: Order write failed: %s", _oe)
         return jsonify({
-            "ok": True,
-            "agentId": agent_id,
-            "agentName": agent.name if agent else None,
-            "result": f"{agent.name if agent else 'Agent'} produced a 100-token response (simulated output).",
+            "ok":        True,
+            "agentId":   agent_id,
+            "agentName": agent.name,
+            "orderId":   order_id,
+            "scheme":    "x402/eip-3009+v1",
+            "result":    f"{agent.name} accepted the x402 hire. Task queued to Akash Qwen for execution.",
             "x402Receipt": {
                 "sessionId": receipt.get("sessionId"),
-                "txHashes": receipt.get("txHashes"),
+                "txHashes":  tx_hashes,
+                "txHash":    tx_hash,
+                "explorer":  f"https://subnets-test.avax.network/c-chain/tx/{tx_hash}" if tx_hash else None,
                 "snowtrace": receipt.get("snowtrace"),
             },
         })
