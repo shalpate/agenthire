@@ -3124,8 +3124,33 @@ def api_sim_trigger_direct():
             to_wallet=to_prof.wallet_address if to_prof else None,
             amount_usdc=amount,
         )
+        # Record an Order row so the buyer can land on /past-jobs or
+        # /order/<id> and see the paid session as a real entry.
+        order_id = None
+        try:
+            from models import Order as OrderModel
+            real_tx = r.get("realTxHash") or ""
+            short = real_tx[2:8] if real_tx.startswith("0x") else real_tx[:6]
+            order_id = f"ORD-{short}" if short else f"ORD-{int(time.time()) % 1000000}"
+            existing = OrderModel.query.get(order_id)
+            if not existing:
+                buyer_addr = (from_prof.wallet_address if from_prof else "") or "0x0000...0000"
+                new_order = OrderModel(
+                    id=order_id,
+                    agent_id=to_id,
+                    buyer=buyer_addr,
+                    amount=float(amount),
+                    status="completed",  # marked settled since USDC.transfer lands instantly
+                    task=data.get("prompt") or data.get("reason") or "Hired via demo/checkout",
+                    date=time.strftime("%Y-%m-%d", time.gmtime()),
+                )
+                db.session.add(new_order)
+                db.session.commit()
+        except Exception as _oe:
+            log.warning("trigger-direct: order row not written (%s)", _oe)
         return jsonify({"triggered": True, "newEvents": new_events,
-                        "count": len(new_events), "chain": chain_info, **r})
+                        "count": len(new_events), "chain": chain_info,
+                        "orderId": order_id, **r})
     except Exception as e:
         app.logger.warning("trigger-direct error: %s", e)
         return jsonify({"error": str(e)}), 500

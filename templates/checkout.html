@@ -325,23 +325,26 @@
                 }),
               }).then(r => r.json());
 
-              const events = d.newEvents || [];
               const rawHash = d.realTxHash || '';
               const h = rawHash ? (rawHash.startsWith('0x') ? rawHash : '0x' + rawHash) : '';
+              const orderId = d.orderId || '';
               if (h) {
-                const avaxUrl = 'https://subnets-test.avax.network/c-chain/tx/' + h;
+                const avaxUrl  = 'https://subnets-test.avax.network/c-chain/tx/' + h;
+                const orderUrl = orderId ? ('/order/' + orderId) : '';
                 statusEl.innerHTML = `
-                  <div style="text-align:left; background:rgba(34,197,94,.06); border:1px solid var(--green); border-radius:10px; padding:12px 14px; line-height:1.55;">
-                    <div style="color:var(--green); font-weight:700; letter-spacing:.08em; text-transform:uppercase; font-size:.625rem; margin-bottom:6px;">✓ Real Fuji tx · EscrowPayment</div>
-                    <div style="word-break:break-all; color:var(--text-2); margin-bottom:8px; font-size:.72rem;">${h}</div>
+                  <div style="text-align:left; background:rgba(34,197,94,.06); border:1px solid var(--green); border-radius:10px; padding:14px 16px; line-height:1.55;">
+                    <div style="color:var(--green); font-weight:700; letter-spacing:.08em; text-transform:uppercase; font-size:.625rem; margin-bottom:6px;">✓ Payment settled · Order placed</div>
+                    <div style="font-size:.82rem; color:var(--text); margin-bottom:8px;">${orderId ? orderId + ' · ' : ''}$${depositUSDC.toFixed(2)} USDC · block #${d.chain?.block || '—'}</div>
+                    <div style="word-break:break-all; color:var(--text-3); margin-bottom:10px; font-size:.68rem;">${h}</div>
                     <div style="display:flex; gap:14px; flex-wrap:wrap;">
-                      <a href="${avaxUrl}" target="_blank" style="color:var(--accent); font-weight:600;">→ Ava Labs Explorer</a>
-                      <a href="/agent/${agentId}" style="color:var(--accent);">→ Back to agent</a>
+                      ${orderUrl ? `<a href="${orderUrl}" style="color:var(--accent); font-weight:600;">→ View order receipt</a>` : ''}
+                      <a href="${avaxUrl}" target="_blank" style="color:var(--accent);">→ Ava Labs tx ↗</a>
+                      <a href="/past-jobs" style="color:var(--accent);">→ All my jobs</a>
                     </div>
-                    <div style="color:var(--text-3); font-size:.65rem; margin-top:6px;">Block #${d.chain?.block || '—'}</div>
+                    <div style="color:var(--text-3); font-size:.64rem; margin-top:10px;">Redirecting to your order in 3 seconds…</div>
                   </div>`;
-                // Auto-open the explorer so judges see the tx on-chain immediately.
                 window.open(avaxUrl, '_blank');
+                if (orderUrl) setTimeout(() => { location.href = orderUrl; }, 3000);
               } else {
                 setStatus('✓ Real Fuji tx fired');
               }
