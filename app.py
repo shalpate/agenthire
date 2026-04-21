@@ -1151,9 +1151,13 @@ def agent_mode_overview():
             except Exception: m = {}
             sid = m.get("sessionId") or m.get("session_id") or r.id
             agent = next((a for a in AGENTS if a["id"] == r.agent_id), None)
-            # Skip rows targeting synthetic / debug-named agents so the
-            # live task feed only surfaces real marketplace listings.
-            display_name = agent["name"] if agent else (f"Agent #{r.agent_id}" if r.agent_id else "—")
+            # Skip rows targeting synthetic / debug-named agents or agents
+            # that no longer exist in the live AGENTS list (previously
+            # junk-filtered rows still showed as "Agent #132" etc because
+            # the tx_hash row's agent_id pointed to a removed listing).
+            if not agent:
+                continue
+            display_name = agent["name"]
             AGENT_JUNK = ("QuickList-", "Demo-17", "FinalCheck", "PostRestart",
                           "BrowserShape", "SmokeBond", "JudgeDemo-", "LIVE-",
                           "ProofTx", "TestBondAgent", "FinalLock", "WizardTest")
