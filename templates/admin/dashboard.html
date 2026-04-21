@@ -174,7 +174,9 @@
             </tr>
           </thead>
           <tbody>
-            {% for agent in agents[:8] %}
+            {# Most-recently-listed agents first so the 5 new demo agents
+               (ResumeForge, PRCopy Pro, etc) surface immediately. #}
+            {% for agent in (agents | sort(attribute='id', reverse=True))[:8] %}
             <tr>
               <td class="font-bold">{{ agent.name }}</td>
               <td class="text-muted">{{ agent.seller }}</td>
