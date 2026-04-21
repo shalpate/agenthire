@@ -1098,108 +1098,88 @@ def agent_mode():
 
 @app.route("/agent-mode/overview")
 def agent_mode_overview():
+    """Agent operator's control room. Every stat and row on this page is
+    filtered to REAL Fuji txs (meta.real=true) so numbers stay honest and
+    stale seeded rows don't pollute the task queue."""
     from models import ChainTransaction as CT
     from sqlalchemy import func as sfn
     import json as _json
     now = int(time.time())
     day_ago = now - 86400
+    REAL = '%"real": true%'
     try:
-        deposits_24h  = db.session.query(sfn.count(CT.id)).filter(CT.kind == "deposit", CT.ts >= day_ago).scalar() or 0
-        settles_24h   = db.session.query(sfn.count(CT.id)).filter(CT.kind == "settle",  CT.ts >= day_ago).scalar() or 0
-        active_sess   = db.session.query(sfn.count(CT.id)).filter(CT.kind == "deposit").scalar() or 0
-        settled_total = db.session.query(sfn.count(CT.id)).filter(CT.kind == "settle").scalar() or 0
-        deposit_micro = db.session.query(sfn.sum(CT.amount_usdc)).filter(CT.kind == "deposit").scalar() or 0
-        settle_micro  = db.session.query(sfn.sum(CT.amount_usdc)).filter(CT.kind == "settle").scalar() or 0
+        # All counts below = real on-chain only. No sim pollution.
+        deposits_24h  = db.session.query(sfn.count(CT.id)).filter(CT.kind.in_(["deposit","a2a_hire"]), CT.ts >= day_ago, CT.meta.like(REAL)).scalar() or 0
+        settles_24h   = db.session.query(sfn.count(CT.id)).filter(CT.kind.in_(["settle","a2a_settle"]), CT.ts >= day_ago, CT.meta.like(REAL)).scalar() or 0
+        active_total  = db.session.query(sfn.count(CT.id)).filter(CT.kind.in_(["deposit","a2a_hire"]), CT.meta.like(REAL)).scalar() or 0
+        settled_total = db.session.query(sfn.count(CT.id)).filter(CT.kind.in_(["settle","a2a_settle"]), CT.meta.like(REAL)).scalar() or 0
+        # Active orders sourced from the Order table (real rent-agent flow).
+        from models import Order as OrderModel
+        open_orders = OrderModel.query.filter(OrderModel.status.in_(["in_escrow","in_progress"])).count()
+        closed_orders = OrderModel.query.filter(OrderModel.status.in_(["completed","settled"])).count()
+        deposit_micro = db.session.query(sfn.sum(CT.amount_usdc)).filter(CT.kind.in_(["deposit","a2a_hire"]), CT.meta.like(REAL)).scalar() or 0
+        settle_micro  = db.session.query(sfn.sum(CT.amount_usdc)).filter(CT.kind.in_(["settle","a2a_settle"]), CT.meta.like(REAL)).scalar() or 0
         escrow_locked = max(0, (deposit_micro - settle_micro) / 1_000_000)
-        success_rate  = round((settled_total / active_sess * 100), 1) if active_sess else 0.0
+        success_rate  = round((closed_orders / (open_orders + closed_orders) * 100), 1) if (open_orders + closed_orders) else 0.0
     except Exception as _e:
         log.warning("agent_mode overview stats query failed: %s", _e)
-        deposits_24h = settles_24h = active_sess = settled_total = 0
+        deposits_24h = settles_24h = 0
+        open_orders = closed_orders = 0
         escrow_locked = 0.0; success_rate = 0.0
-    avg_latency_ms = 0
-    try:
-        recent = (db.session.query(CT.ts, CT.kind, CT.meta)
-                  .filter(CT.kind.in_(["deposit", "settle"]))
-                  .order_by(CT.id.desc()).limit(200).all())
-        session_times = {}
-        for ts, kind, meta_str in recent:
-            try: m = _json.loads(meta_str or "{}")
-            except Exception: m = {}
-            sid = m.get("sessionId") or m.get("session_id")
-            if sid is None: continue
-            session_times.setdefault(sid, [None, None])
-            session_times[sid][0 if kind == "deposit" else 1] = ts
-        deltas = [s[1] - s[0] for s in session_times.values() if s[0] and s[1] and s[1] > s[0]]
-        if deltas: avg_latency_ms = int(sum(deltas) / len(deltas) * 1000)
-    except Exception as _e:
-        log.warning("agent_mode latency calc failed: %s", _e)
     try:
         from models import OnchainProfile
         surge_agents = OnchainProfile.query.filter_by(surge_active=True).count()
-    except Exception as _e:
-        log.warning("surge_agents query failed: %s", _e)
+    except Exception:
         surge_agents = 0
     stats = {
-        "active_sessions": int(active_sess) - int(settled_total),
+        "active_sessions": int(open_orders),
         "tasks_24h":       int(settles_24h + deposits_24h),
-        "avg_latency_ms":  int(avg_latency_ms),
+        "avg_latency_ms":  0,
         "escrow_locked":   round(escrow_locked, 2),
         "success_rate":    success_rate,
         "surge_agents":    int(surge_agents),
     }
-    # Task feed — prefer REAL on-chain rows (meta has real:true) at the top,
-    # so judges see verifiable Snowtrace txs first; fall back to sim rows.
+    # Task feed — REAL Fuji txs only. Drops the stale sim/QuickList junk.
     task_feed = []
     try:
-        real_rows = (CT.query.filter(CT.kind.in_(["deposit", "settle", "stake"]))
-                     .filter(CT.meta.like('%"real": true%'))
-                     .order_by(CT.id.desc()).limit(8).all())
-        sim_rows  = (CT.query.filter(CT.kind.in_(["deposit", "settle"]))
-                     .filter(~CT.meta.like('%"real": true%'))
-                     .order_by(CT.id.desc()).limit(16).all())
-        combined = list(real_rows) + list(sim_rows)
-
-        for r in combined:
+        real_rows = (CT.query
+                     .filter(CT.kind.in_(["deposit", "settle", "stake", "a2a_hire", "a2a_settle"]))
+                     .filter(CT.meta.like(REAL))
+                     .order_by(CT.id.desc()).limit(12).all())
+        for r in real_rows:
             try: m = _json.loads(r.meta or "{}")
             except Exception: m = {}
             sid = m.get("sessionId") or m.get("session_id") or r.id
             agent = next((a for a in AGENTS if a["id"] == r.agent_id), None)
+            # Skip rows targeting synthetic "QuickList-<timestamp>" agents.
+            display_name = agent["name"] if agent else (f"Agent #{r.agent_id}" if r.agent_id else "—")
+            if display_name.startswith("QuickList-") or display_name.startswith("Demo-") or display_name.startswith("FinalCheck"):
+                continue
             elapsed = max(0, now - int(r.ts or now))
             el_m, el_s = divmod(elapsed, 60)
-            # For real txs, link to the tx page. For sim rows, link to the
-            # deployed contract address so the click lands on a valid Snowtrace
-            # page instead of "tx not found."
-            is_real = bool(m.get("real"))
-            kind_to_contract = {
-                "deposit":  "0xD19990C7CB8C386fa865135Ce9706A5A37A3f2f2",  # EscrowPayment
-                "settle":   "0xD19990C7CB8C386fa865135Ce9706A5A37A3f2f2",
-                "stake":    "0xfc942b4d1Eb363F25886b3F5935394BD4932B896",  # StakingSlashing
-                "slash":    "0x40ef89Ce1E248Df00AF6Dc37f96BBf92A9Bf603A",  # ReputationContract
-                "register": "0x6B71b84Fa3C313ccC43D63A400Ab47e6A0d4BCbB",  # AgentRegistry
-            }
-            if is_real and r.tx_hash:
-                h = r.tx_hash if r.tx_hash.startswith("0x") else "0x" + r.tx_hash
-                snowtrace_url = f"https://subnets-test.avax.network/c-chain/tx/{h}"
-            elif kind_to_contract.get(r.kind):
-                snowtrace_url = f"https://subnets-test.avax.network/c-chain/address/{kind_to_contract[r.kind]}"
-            else:
-                snowtrace_url = None
+            h = r.tx_hash if r.tx_hash and r.tx_hash.startswith("0x") else ("0x" + r.tx_hash) if r.tx_hash else None
+            snowtrace_url = f"https://subnets-test.avax.network/c-chain/tx/{h}" if h else None
             task_feed.append({
                 "id": f"task-{sid}",
-                "agent": agent["name"] if agent else (f"Agent #{r.agent_id}" if r.agent_id else "—"),
+                "agent": display_name,
                 "buyer": (r.from_addr[:6] + "…" + r.from_addr[-4:]) if r.from_addr else "—",
-                "status": "complete" if r.kind == "settle" else "running",
+                "status": "complete" if r.kind in ("settle","a2a_settle") else "running",
                 "amount": round((r.amount_usdc or 0) / 1_000_000, 2),
                 "elapsed": f"{el_m}m {el_s:02d}s" if el_m < 60 else f"{el_m//60}h",
                 "category": agent["category"] if agent else "Automation",
                 "txHash": r.tx_hash,
                 "snowtrace": snowtrace_url,
-                "real": is_real,
+                "real": True,
                 "kind": r.kind,
             })
             if len(task_feed) >= 12: break
-    except Exception: pass
-    return render_template("agent_mode.html", task_feed=task_feed, stats=stats, agents=AGENTS[:12])
+    except Exception as _e:
+        log.warning("agent_mode task feed failed: %s", _e)
+    # Clean agent list for the registry table — drop temp names too.
+    clean_agents = [a for a in AGENTS if not (
+        (a.get("name") or "").startswith(("QuickList-", "Demo-", "FinalCheck", "PostRestart", "BrowserShape", "SmokeBond", "JudgeDemo-", "LIVE-", "ProofTx", "TestBondAgent", "FinalLock", "WizardTest"))
+    )][:12]
+    return render_template("agent_mode.html", task_feed=task_feed, stats=stats, agents=clean_agents)
 
 # ── Seller ─────────────────────────────────────────────────────────────────────
 
