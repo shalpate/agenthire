@@ -445,59 +445,31 @@ class OnChain:
         h1 = self._sign_send(tx1, self.facilitator)
         self.w3.eth.wait_for_transaction_receipt(h1)
 
-        # 2. approve
-        tx2 = usdc.functions.approve(ADDRESSES["EscrowPayment"], value).build_transaction(self._tx_params(nonce=base_nonce + 1))
+        # 2. Settlement — USDC.transfer from facilitator → receiver wallet.
+        # We previously did approve + depositFunds, but depositFunds reverts
+        # with "not accepting" for agents that aren't registered in
+        # AgentRegistry (which includes all sim-seeded demo agents).
+        # USDC.transfer is 1 tx, always succeeds, moves real USDC, and
+        # lands a real Ava Labs explorer receipt. The approve step became
+        # a no-op once we stopped pulling via the escrow contract.
+        tx2 = usdc.functions.transfer(
+            Web3.to_checksum_address(p["to"]),
+            value,
+        ).build_transaction(self._tx_params(nonce=base_nonce + 1))
         h2 = self._sign_send(tx2, self.facilitator)
-        self.w3.eth.wait_for_transaction_receipt(h2)
-
-        # 3. depositFunds — may revert if the target agent isn't registered
-        # on-chain as accepting work. Fall back to a direct USDC.transfer
-        # from facilitator → target so the x402 receipt is still a real tx.
-        deposit_tx_hash = None
-        session_id = None
-        fallback_used = False
-        fallback_reason = None
-        try:
-            tx3 = escrow.functions.depositFunds(agent_id, value, token_budget, category_id, expires_at).build_transaction(self._tx_params(nonce=base_nonce + 2))
-            h3 = self._sign_send(tx3, self.facilitator)
-            receipt = self.w3.eth.wait_for_transaction_receipt(h3)
-            if receipt.status == 1:
-                deposit_tx_hash = h3.hex()
-                for log in receipt["logs"]:
-                    if log["address"].lower() == ADDRESSES["EscrowPayment"].lower():
-                        if len(log["topics"]) >= 2:
-                            session_id = int(log["topics"][1].hex(), 16)
-                            break
-            else:
-                raise RuntimeError(f"depositFunds status=0 tx={h3.hex()}")
-        except Exception as dep_err:
-            fallback_reason = str(dep_err)[:120]
-            fallback_used = True
-            # USDC.transfer fallback — re-fetch nonce since the failed tx
-            # still consumed one.
-            fresh_nonce = self.w3.eth.get_transaction_count(self.facilitator.address)
-            tx3b = usdc.functions.transfer(
-                Web3.to_checksum_address(p["to"]),
-                value,
-            ).build_transaction(self._tx_params(nonce=fresh_nonce))
-            h3b = self._sign_send(tx3b, self.facilitator)
-            r3b = self.w3.eth.wait_for_transaction_receipt(h3b)
-            deposit_tx_hash = h3b.hex()
-            if r3b.status != 1:
-                raise RuntimeError(f"x402 fallback transfer also reverted: {fallback_reason}")
-
-        # Normalize deposit hash (web3 returns without 0x prefix via .hex() on some versions)
-        if deposit_tx_hash and not deposit_tx_hash.startswith("0x"):
-            deposit_tx_hash = "0x" + deposit_tx_hash
+        receipt = self.w3.eth.wait_for_transaction_receipt(h2)
+        if receipt.status != 1:
+            raise RuntimeError(f"x402 settlement transfer reverted tx={h2.hex()}")
+        settlement_tx = h2.hex()
+        if settlement_tx and not settlement_tx.startswith("0x"):
+            settlement_tx = "0x" + settlement_tx
         return {
-            "sessionId": str(session_id) if session_id is not None else None,
-            "agentId": str(agent_id),
-            "status": "settled",
-            "txHashes": {"permit": h1.hex(), "approve": h2.hex(), "deposit": deposit_tx_hash},
-            "fallbackUsed": fallback_used,
-            "fallbackReason": fallback_reason,
-            "explorer": f"https://subnets-test.avax.network/c-chain/tx/{deposit_tx_hash}",
-            "snowtrace": f"https://testnet.snowtrace.io/tx/{deposit_tx_hash}",
+            "sessionId": None,
+            "agentId":   str(agent_id),
+            "status":    "settled",
+            "txHashes":  {"permit": h1.hex(), "settlement": settlement_tx},
+            "explorer":  f"https://subnets-test.avax.network/c-chain/tx/{settlement_tx}",
+            "snowtrace": f"https://testnet.snowtrace.io/tx/{settlement_tx}",
         }
 
     # ── Gatekeeper: sign + submit incident ───────────────────────────────────
