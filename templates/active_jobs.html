@@ -44,9 +44,14 @@
       <!-- Actions -->
       <div style="display:flex; gap:8px; flex-shrink:0; align-items:center;">
         {% if order.txHash %}
-        <a href="{{ order.snowtrace }}" target="_blank" class="btn btn-ghost btn-sm" style="font-size:.72rem;">Snowtrace ↗</a>
+        <a href="{{ order.snowtrace }}" target="_blank" class="btn btn-ghost btn-sm" style="font-size:.72rem;">Explorer ↗</a>
         {% endif %}
         <a href="/order/{{ order.id }}" class="btn btn-ghost btn-sm">View →</a>
+        <button type="button" class="btn btn-primary btn-sm"
+                data-oid="{{ order.id }}"
+                onclick="(async () => { const b = event.currentTarget; b.disabled = true; b.textContent = 'Settling…'; try { const r = await fetch('/api/orders/' + b.dataset.oid + '/complete', {method:'POST'}); if (r.ok) { if (window.showToast) showToast('Released from escrow · moved to Past Jobs', 'success'); setTimeout(() => location.reload(), 500); } else { const d = await r.json().catch(() => ({})); throw new Error(d.error || 'failed'); } } catch (e) { b.disabled = false; b.textContent = 'Mark Complete'; if (window.showToast) showToast('Complete failed: ' + e.message, 'error'); } })()">
+          Mark Complete
+        </button>
       </div>
     </div>
     {% endfor %}

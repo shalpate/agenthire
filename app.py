@@ -3230,7 +3230,10 @@ def api_sim_trigger_direct():
                     agent_id=to_id,
                     buyer=buyer_addr,
                     amount=float(amount),
-                    status="completed",
+                    # Lands on /active-jobs first — the agent is "hired and
+                    # running". Buyer can click Mark Complete to flip to
+                    # settled, which moves it to /past-jobs.
+                    status="in_escrow",
                     task=data.get("prompt") or data.get("reason") or "Hired via demo/checkout",
                     date=time.strftime("%Y-%m-%d", time.gmtime()),
                 )
