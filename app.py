@@ -1356,8 +1356,11 @@ def seller_earnings():
     my_agent_ids = [a["id"] for a in my_agents]
     tx_history = []
     if my_agent_ids:
+        # Real on-chain txs only — the sim rows flooded this table with
+        # fake 'Task Payment' entries for agents that never earned anything.
         ct_rows = (CT.query.filter(CT.agent_id.in_(my_agent_ids))
-                   .filter(CT.kind.in_(["deposit", "settle", "slash", "stake"]))
+                   .filter(CT.kind.in_(["deposit", "settle", "slash", "stake", "a2a_hire", "a2a_settle"]))
+                   .filter(CT.meta.like('%"real": true%'))
                    .order_by(CT.id.desc()).limit(25).all())
         id_to_name = {a["id"]: a["name"] for a in my_agents}
         for r in ct_rows:
@@ -1390,7 +1393,9 @@ def seller_earnings():
         day_end   = int(day_end_dt.replace(tzinfo=_dt.timezone.utc).timestamp())
         if my_agent_ids:
             n = db.session.query(db.func.count(CT.id)).filter(
-                CT.agent_id.in_(my_agent_ids), CT.kind == "settle",
+                CT.agent_id.in_(my_agent_ids),
+                CT.kind.in_(["settle", "a2a_settle"]),
+                CT.meta.like('%"real": true%'),
                 CT.ts >= day_start, CT.ts < day_end
             ).scalar() or 0
         else:
@@ -1751,6 +1756,10 @@ def _live_chain_stats(live_only: bool = False) -> dict:
 
 
 def _seller_earnings_from_chain(agent_ids: list) -> dict:
+    """Seller revenue aggregation. Every figure is filtered to REAL Fuji
+    txs (meta.real=true). Previously included the 136k seeded sim rows
+    which made /seller/earnings show fabricated $1,994 revenue for a
+    seller who had never actually been hired."""
     from models import ChainTransaction as CT
     from sqlalchemy import func as sfn
     import datetime as _dt
@@ -1758,17 +1767,25 @@ def _seller_earnings_from_chain(agent_ids: list) -> dict:
         return {"total_revenue": 0, "platform_fees": 0, "escrow_funds": 0,
                 "released_payouts": 0, "monthly": [0]*12, "surge_earnings": [0]*12,
                 "labels": [], "source": "onchain"}
+    REAL = '%"real": true%'
     try:
         ids = [int(a) for a in agent_ids]
-        revenue_micro = db.session.query(sfn.sum(CT.amount_usdc)).filter(CT.agent_id.in_(ids), CT.kind == "deposit").scalar() or 0
-        settled_micro = db.session.query(sfn.sum(CT.amount_usdc)).filter(CT.agent_id.in_(ids), CT.kind == "settle").scalar() or 0
+        revenue_micro = db.session.query(sfn.sum(CT.amount_usdc)).filter(
+            CT.agent_id.in_(ids), CT.kind.in_(["deposit", "a2a_hire"]),
+            CT.meta.like(REAL)).scalar() or 0
+        settled_micro = db.session.query(sfn.sum(CT.amount_usdc)).filter(
+            CT.agent_id.in_(ids), CT.kind.in_(["settle", "a2a_settle"]),
+            CT.meta.like(REAL)).scalar() or 0
         now_ts = int(time.time())
         monthly, labels = [], []
         for i in range(11, -1, -1):
             d = _dt.datetime.utcfromtimestamp(now_ts) - _dt.timedelta(days=i*30)
             mstart = int(_dt.datetime(d.year, d.month, 1, tzinfo=_dt.timezone.utc).timestamp())
             mnext = int(_dt.datetime(d.year + (1 if d.month == 12 else 0), 1 if d.month == 12 else d.month+1, 1, tzinfo=_dt.timezone.utc).timestamp())
-            v = db.session.query(sfn.sum(CT.amount_usdc)).filter(CT.agent_id.in_(ids), CT.kind == "deposit", CT.ts >= mstart, CT.ts < mnext).scalar() or 0
+            v = db.session.query(sfn.sum(CT.amount_usdc)).filter(
+                CT.agent_id.in_(ids), CT.kind.in_(["deposit", "a2a_hire"]),
+                CT.meta.like(REAL), CT.ts >= mstart, CT.ts < mnext
+            ).scalar() or 0
             monthly.append(round(v / 1_000_000, 2))
             labels.append(d.strftime("%b"))
         total_revenue = round(revenue_micro / 1_000_000, 2)
@@ -1777,7 +1794,7 @@ def _seller_earnings_from_chain(agent_ids: list) -> dict:
                 "escrow_funds": round(max(0, revenue_micro - settled_micro) / 1_000_000, 2),
                 "released_payouts": round(settled_micro / 1_000_000, 2),
                 "monthly": monthly, "surge_earnings": [round(m*0.18, 2) for m in monthly],
-                "labels": labels, "source": "onchain:ChainTransaction"}
+                "labels": labels, "source": "onchain:ChainTransaction(real)"}
     except Exception as e:
         return {"total_revenue": 0, "platform_fees": 0, "escrow_funds": 0,
                 "released_payouts": 0, "monthly": [0]*12, "surge_earnings": [0]*12,

@@ -50,15 +50,18 @@
       {% set _mo_delta = ((_this_mo - _last_mo) / _last_mo * 100) if _last_mo > 0 else 0 %}
       {% set _mo_delta_clamped = ([_mo_delta, -999]|max if _mo_delta < 0 else [_mo_delta, 999]|min) %}
       <div style="padding:20px; background:var(--card); border:1px solid var(--border); border-radius:var(--radius); flex:1;">
-        <div style="font-family:var(--font-mono); font-size:.475rem; text-transform:uppercase; letter-spacing:.14em; color:var(--text-3); margin-bottom:6px;">Total Revenue (on-chain)</div>
+        <div style="font-family:var(--font-mono); font-size:.475rem; text-transform:uppercase; letter-spacing:.14em; color:var(--text-3); margin-bottom:6px;">Total Revenue (real Fuji on-chain)</div>
         <div style="font-size:1.75rem; font-weight:700; font-family:var(--font-mono); letter-spacing:-.03em; margin-bottom:4px;">${{ "{:,.2f}".format(earnings.total_revenue) }}</div>
         {% if _last_mo > 0 %}
         <div style="font-size:.6875rem; color:{% if _mo_delta >= 0 %}var(--green){% else %}var(--red){% endif %};">
           {% if _mo_delta >= 0 %}↑{% else %}↓{% endif %} {{ "{:,.1f}".format(_mo_delta_clamped|abs) }}% vs last month
         </div>
         {% else %}
-        <div style="font-size:.6875rem; color:var(--text-3);">First month of activity</div>
+        <div style="font-size:.6875rem; color:var(--text-3);">No real Fuji settlements yet — appears after buyers hire you via /demo or /checkout</div>
         {% endif %}
+        <div style="font-size:.55rem; color:var(--text-3); margin-top:6px; font-family:var(--font-mono);">
+          source: ChainTransaction · meta.real=true · sum(deposit+a2a_hire) for {{ agents|length }} agent{{ 's' if agents|length != 1 }}
+        </div>
       </div>
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
         <div style="padding:14px 16px; background:var(--card); border:1px solid var(--border); border-radius:var(--radius);">
