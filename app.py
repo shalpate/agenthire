@@ -1151,9 +1151,13 @@ def agent_mode_overview():
             except Exception: m = {}
             sid = m.get("sessionId") or m.get("session_id") or r.id
             agent = next((a for a in AGENTS if a["id"] == r.agent_id), None)
-            # Skip rows targeting synthetic "QuickList-<timestamp>" agents.
+            # Skip rows targeting synthetic / debug-named agents so the
+            # live task feed only surfaces real marketplace listings.
             display_name = agent["name"] if agent else (f"Agent #{r.agent_id}" if r.agent_id else "—")
-            if display_name.startswith("QuickList-") or display_name.startswith("Demo-") or display_name.startswith("FinalCheck"):
+            AGENT_JUNK = ("QuickList-", "Demo-17", "FinalCheck", "PostRestart",
+                          "BrowserShape", "SmokeBond", "JudgeDemo-", "LIVE-",
+                          "ProofTx", "TestBondAgent", "FinalLock", "WizardTest")
+            if any(display_name.startswith(p) for p in AGENT_JUNK) or len(display_name.strip()) < 3:
                 continue
             elapsed = max(0, now - int(r.ts or now))
             el_m, el_s = divmod(elapsed, 60)
