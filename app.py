@@ -4158,7 +4158,20 @@ with app.app_context():
         from simulation import seed_simulation
         seed_simulation(app)
         _sync_agents_from_db()
-        log.info("Database ready — %d agents in memory.", len(AGENTS))
+        # Filter junk-named agents from the in-memory AGENTS list so no
+        # page surfaces them. We keep the DB rows intact (removing them
+        # would break Order FK references from earlier test hires).
+        JUNK_PREFIXES = ("QuickList-", "Demo-17", "FinalCheck", "PostRestart",
+                         "BrowserShape", "SmokeBond", "JudgeDemo-", "LIVE-",
+                         "ProofTx", "TestBondAgent", "FinalLock", "WizardTest",
+                         "BondCheck", "DeadlineDemo", "BondTest", "DemoX")
+        before = len(AGENTS)
+        AGENTS[:] = [a for a in AGENTS if not (
+            (a.get("name") or "").startswith(JUNK_PREFIXES)
+            or len((a.get("name") or "").strip()) < 3
+        )]
+        log.info("Database ready — %d agents in memory (filtered %d junk).",
+                 len(AGENTS), before - len(AGENTS))
     except Exception as _seed_err:
         log.warning("DB seed skipped: %s", _seed_err)
 
