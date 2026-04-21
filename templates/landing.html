@@ -832,7 +832,6 @@
       });
       });
       </script>
-      <button class="nav-cta" id="landing-enter-mkt">Enter Marketplace</button>
     </nav>
   </div>
 </header>
@@ -1752,7 +1751,7 @@
     document.body.style.overflow = '';
     window.location.href = dest;
   }
-  document.getElementById('landing-enter-mkt')?.addEventListener('click', openGate);
+  // (landing-enter-mkt button removed — handler no longer needed)
   document.getElementById('hero-enter-mkt')?.addEventListener('click', openGate);
   document.getElementById('gate-buyer-btn')?.addEventListener('click', () => chooseRole('buyer', '/marketplace'));
   document.getElementById('gate-seller-btn')?.addEventListener('click', () => chooseRole('seller', '/seller/earnings'));
