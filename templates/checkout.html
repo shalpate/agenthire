@@ -26,6 +26,11 @@
         <div class="flex-between mt-12 text-xs text-muted" style="font-family:var(--font-mono);">
           <span>Token</span><span>USDC · MockUSDC 0x9C49…</span>
         </div>
+        <!-- Appears once wallet is connected — takes the buyer straight to
+             the on-chain settlement button below (no hunting for it). -->
+        <a href="#confirm-pay" id="wallet-proceed" onclick="document.getElementById('confirm-pay')?.scrollIntoView({behavior:'smooth', block:'center'}); return false;" style="display:none; margin-top:14px; padding:10px 14px; background:linear-gradient(135deg, rgba(34,197,94,.12), rgba(34,197,94,.04)); border:1px solid var(--green); border-radius:8px; color:var(--green); font-family:var(--font-mono); font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.08em; text-decoration:none; text-align:center; transition:filter .12s;">
+          → Fund escrow & pay (jump to confirm)
+        </a>
       </div>
       <script>
       // Sync this card with the global wallet state
@@ -35,12 +40,14 @@
           const badge = document.getElementById('wallet-status-badge');
           const btn   = document.getElementById('checkout-wallet-btn');
           const desc  = document.getElementById('checkout-wallet-desc');
+          const go    = document.getElementById('wallet-proceed');
           if (addr) {
             const short = addr.slice(0,6) + '…' + addr.slice(-4);
             const isDemo = addr.toLowerCase() === '0xdb4135c6884d81497769440788306ee985dd1a6e';
             if (badge) { badge.textContent = 'Connected'; badge.className = 'badge badge-approved'; }
             if (btn)   { btn.textContent = (isDemo?'◆ ':'') + short; }
             if (desc)  { desc.textContent = 'Connected to Avalanche Fuji. Ready to fund escrow.'; }
+            if (go)    { go.style.display = 'block'; }
           }
         }
         document.addEventListener('DOMContentLoaded', sync);
