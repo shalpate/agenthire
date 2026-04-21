@@ -63,12 +63,6 @@
           <textarea id="task-description" class="form-textarea" placeholder="Describe what you need {{ agent.name }} to do. This is sent to the agent as the prompt after the escrow payment settles." style="min-height:120px;"></textarea>
           <div class="form-hint mt-8" style="font-family:var(--font-mono);">Sent to {{ agent.name }} via Akash-hosted Qwen 2.5 after the on-chain escrow confirms.</div>
         </div>
-        <script>
-          (function initFileUpload() {
-            const input    = document.getElementById('file-upload');
-            const dropzone = document.getElementById('file-dropzone');
-            const msgEl    = document.getElementById('file-dropzone-msg');
-            const listEl   = document.getElementById('file-list');
       </div>
 
       {% if a2a.composable %}
