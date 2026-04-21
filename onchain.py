@@ -415,22 +415,19 @@ class OnChain:
         self.w3.eth.wait_for_transaction_receipt(h)
         return {"bidId": str(bid_id), "status": "cancelled", "txHash": h.hex()}
 
-    # ── x402 execute: EIP-3009 permit → approve → depositFunds ───────────────
+    # ── x402 execute: EIP-3009 permit alone settles the payment ──────────────
     def x402_execute(self, p: dict) -> dict:
+        """Execute an EIP-3009 transferWithAuthorization permit on MockUSDC.
+        The permit IS the settlement — it atomically moves `value` from the
+        signer to the recipient. No second transfer or approve step needed
+        (that was a bug: double-charging the facilitator)."""
         if not self.facilitator:
             raise RuntimeError("FACILITATOR_PRIVATE_KEY not set")
         usdc = self._contracts["MockUSDC"]
-        escrow = self._contracts["EscrowPayment"]
         value = int(p["value"])
-        agent_id = int(p["agentId"])
-        token_budget = int(p.get("tokenBudget", value))
-        category_id = int(p.get("categoryId", 0))
-        expires_at = int(time.time()) + 3600
-
-        # Manually track nonce across 3 sequential txs - RPC won't bump until mined.
+        agent_id = int(p.get("agentId", 0))
         base_nonce = self.w3.eth.get_transaction_count(self.facilitator.address)
 
-        # 1. EIP-3009 transferWithAuthorization
         tx1 = usdc.functions.transferWithAuthorization(
             Web3.to_checksum_address(p["from"]),
             Web3.to_checksum_address(p["to"]),
@@ -443,31 +440,17 @@ class OnChain:
             bytes.fromhex(p["s"].replace("0x", "")),
         ).build_transaction(self._tx_params(nonce=base_nonce))
         h1 = self._sign_send(tx1, self.facilitator)
-        self.w3.eth.wait_for_transaction_receipt(h1)
-
-        # 2. Settlement — USDC.transfer from facilitator → receiver wallet.
-        # We previously did approve + depositFunds, but depositFunds reverts
-        # with "not accepting" for agents that aren't registered in
-        # AgentRegistry (which includes all sim-seeded demo agents).
-        # USDC.transfer is 1 tx, always succeeds, moves real USDC, and
-        # lands a real Ava Labs explorer receipt. The approve step became
-        # a no-op once we stopped pulling via the escrow contract.
-        tx2 = usdc.functions.transfer(
-            Web3.to_checksum_address(p["to"]),
-            value,
-        ).build_transaction(self._tx_params(nonce=base_nonce + 1))
-        h2 = self._sign_send(tx2, self.facilitator)
-        receipt = self.w3.eth.wait_for_transaction_receipt(h2)
+        receipt = self.w3.eth.wait_for_transaction_receipt(h1)
         if receipt.status != 1:
-            raise RuntimeError(f"x402 settlement transfer reverted tx={h2.hex()}")
-        settlement_tx = h2.hex()
+            raise RuntimeError(f"x402 permit execution reverted tx={h1.hex()}")
+        settlement_tx = h1.hex()
         if settlement_tx and not settlement_tx.startswith("0x"):
             settlement_tx = "0x" + settlement_tx
         return {
             "sessionId": None,
             "agentId":   str(agent_id),
             "status":    "settled",
-            "txHashes":  {"permit": h1.hex(), "settlement": settlement_tx},
+            "txHashes":  {"permit": settlement_tx},  # same tx — permit IS the settlement
             "explorer":  f"https://subnets-test.avax.network/c-chain/tx/{settlement_tx}",
             "snowtrace": f"https://testnet.snowtrace.io/tx/{settlement_tx}",
         }
