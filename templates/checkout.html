@@ -385,13 +385,18 @@
                   if (outEl) outEl.textContent = '(Akash error: ' + (akashErr.message || akashErr) + ')';
                 }
               } else {
-                setStatus('✓ Real Fuji tx fired');
+                setStatus('✓ Real Fuji tx fired — no realTxHash returned');
               }
               if (window.showToast) showToast('Payment on-chain · block #' + (d.chain?.block || '?'), 'success');
+              // Re-enable button so the user can fire another payment if
+              // they want, or click through the links in the success panel.
+              btn.textContent = 'Pay Again';
+              btn.disabled = false;
             } catch (e) {
               console.error(e);
               setStatus('Failed: ' + (e.message || e));
               if (window.showToast) showToast('Payment failed: ' + (e.message || e), 'error');
+              btn.textContent = 'Confirm & Pay in Escrow';
               btn.disabled = false;
             }
           });
